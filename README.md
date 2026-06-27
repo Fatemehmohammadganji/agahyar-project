@@ -75,9 +75,21 @@ agahyar-project/
 ![Homepage](images/loginpage.png) 
 ## | Home | 
 ![Homepage](images/homepage.png)
+### | Services |
+![Services Page](images/servicepage.png)
+### | Service Details 1 |
+![Service Details 1](images/servicedetails_1.png)
+### | Service Details 2 |
+![Service Details 2](images/servicedetails_2.png)
+### | About |
+![About Page](images/about.png)
+### | FAQ |
+![FAQ Page](images/commonquestions.png)
+### | Contact |
+![Contact Page](images/contact.png)
+### | Nearest Centers |
+![Nearest Centers](images/nearestplace.png)
 
-
-> 💡 *Tip: Upload your images to the `screenshots/` folder and link them here.*
 
 ---
 
