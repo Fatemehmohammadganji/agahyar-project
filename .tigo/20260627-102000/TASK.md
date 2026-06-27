@@ -1,5 +1,5 @@
 # Set up GitHub Actions CI workflow
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 85
 - TAGS: ci, infra
 
