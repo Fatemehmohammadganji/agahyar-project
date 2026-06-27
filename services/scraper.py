@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import logging
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
 
+from .models import ServiceCenter
+
 logger = logging.getLogger(__name__)
 
-
-NEAREST_CENTERS = {
+NEAREST_CENTERS: dict = {
     "تهران": {
         "سعادت‌آباد": {
             "صدور کارت ملی هوشمند": "ثبت احوال تهران - شعبه غرب",
@@ -72,7 +76,16 @@ NEAREST_CENTERS = {
 }
 
 
-def get_nearest_center(service_name, city, neighborhood):
+def get_nearest_center(
+    service_name: str, city: str, neighborhood: str
+) -> Optional["ServiceCenter"]:
+    """Look up the nearest service center from the hardcoded dictionary.
+
+    :param service_name: Name of the service to look up.
+    :param city: City name.
+    :param neighborhood: Neighborhood within the city.
+    :returns: A :class:`~services.models.ServiceCenter` instance, or None.
+    """
     if not service_name or not city or not neighborhood:
         return None
 
@@ -81,8 +94,6 @@ def get_nearest_center(service_name, city, neighborhood):
             if neighborhood in NEAREST_CENTERS[city]:
                 center_name = NEAREST_CENTERS[city][neighborhood].get(service_name)
                 if center_name:
-                    from .models import ServiceCenter
-
                     try:
                         return ServiceCenter.objects.get(name=center_name, city=city)
                     except ServiceCenter.DoesNotExist:
@@ -95,7 +106,11 @@ def get_nearest_center(service_name, city, neighborhood):
     return None
 
 
-def scrape_passport_info():
+def scrape_passport_info() -> dict:
+    """Scrape passport-related information from an external source.
+
+    :returns: A dict with ``source`` and ``info`` keys.
+    """
     try:
         url = "https://eplust.ir/"
         response = requests.get(url, timeout=5)
@@ -115,9 +130,17 @@ def scrape_passport_info():
     }
 
 
-def get_ai_suggestion(service_name, user_city):
-    from .models import ServiceCenter
+def get_ai_suggestion(service_name: str, user_city: str) -> list:
+    """Suggest service centers for the given *service_name* in *user_city*.
 
+    First queries the database; falls back to :data:`NEAREST_CENTERS` dictionary,
+    then to generic placeholder entries.
+
+    :param service_name: Name of the requested service.
+    :param user_city: User's city.
+    :returns: A list of suggestion dicts with ``name``, ``address``, ``phone``,
+        and ``distance`` keys.
+    """
     try:
         centers = ServiceCenter.objects.filter(
             service__name__icontains=service_name, city__icontains=user_city
@@ -136,6 +159,41 @@ def get_ai_suggestion(service_name, user_city):
         logger.error(
             f"Error getting AI suggestion for '{service_name}' in '{user_city}': {e}"
         )
+
+    suggestions: list = []
+    try:
+        if user_city in NEAREST_CENTERS:
+            for neighborhoods in NEAREST_CENTERS[user_city].values():
+                center_name = neighborhoods.get(service_name)
+                if center_name:
+                    try:
+                        center = ServiceCenter.objects.get(
+                            name=center_name, city=user_city
+                        )
+                        suggestions.append(
+                            {
+                                "name": center.name,
+                                "address": center.address,
+                                "phone": center.phone,
+                                "distance": "نزدیک",
+                            }
+                        )
+                    except ServiceCenter.DoesNotExist:
+                        suggestions.append(
+                            {
+                                "name": center_name,
+                                "address": f"ناحیه {user_city}",
+                                "phone": "---",
+                                "distance": "نزدیک",
+                            }
+                        )
+                    if len(suggestions) >= 3:
+                        break
+    except Exception as e:
+        logger.error(f"Error in fallback lookup for '{service_name}': {e}")
+
+    if suggestions:
+        return suggestions
 
     return [
         {

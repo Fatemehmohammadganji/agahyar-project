@@ -1,8 +1,10 @@
-from django.urls import include, path
+from typing import List
+
+from django.urls import URLPattern, include, path
 
 from . import views
 
-urlpatterns = [
+urlpatterns: List[URLPattern] = [
     # ===== Core pages =====
     path("", views.home, name="home"),
     path("search/", views.search, name="search"),

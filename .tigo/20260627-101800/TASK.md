@@ -1,6 +1,4 @@
-# Integrate actual AI API for nearest-center suggestions
-- STATUS: OPEN
-- PRIORITY: 50
-- TAGS: feature, enhancement
-
-get_ai_suggestion() returns hardcoded fake data. Replace with actual AI/ML service or at least a proper fallback with meaningful data.
+# Improve get_ai_suggestion() fallback with NEAREST_CENTERS lookup
+- STATUS: CLOSED
+- PRIORITY: 60
+- TAGS: quality, scraper

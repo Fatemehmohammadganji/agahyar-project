@@ -1,13 +1,12 @@
 import pytest
-from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
-from services.validators import iranian_phone_number_validator
 from services.models import UserProfile
+from services.validators import iranian_phone_number_validator
 
 
 class TestIranianPhoneNumberValidator:
-
     def test_valid_phone_numbers(self):
         iranian_phone_number_validator("09121234567")
         iranian_phone_number_validator("09991234567")
@@ -32,7 +31,6 @@ class TestIranianPhoneNumberValidator:
 
 @pytest.mark.django_db
 class TestUserProfilePhoneValidation:
-
     def test_valid_phone_saves_successfully(self):
         user = User.objects.create_user("testuser", password="pass12345")
         profile = UserProfile.objects.create(
@@ -42,9 +40,7 @@ class TestUserProfilePhoneValidation:
 
     def test_blank_phone_is_allowed(self):
         user = User.objects.create_user("testuser2", password="pass12345")
-        profile = UserProfile.objects.create(
-            user=user, city="Tehran"
-        )
+        profile = UserProfile.objects.create(user=user, city="Tehran")
         assert profile.phone == ""
 
     def test_invalid_phone_raises_error(self):

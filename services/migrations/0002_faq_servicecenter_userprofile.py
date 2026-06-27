@@ -6,56 +6,121 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('services', '0001_initial'),
+        ("services", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='FAQ',
+            name="FAQ",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('question', models.CharField(max_length=300, verbose_name='سوال')),
-                ('answer', models.TextField(verbose_name='پاسخ')),
-                ('category', models.CharField(blank=True, max_length=100, verbose_name='دسته\u200cبندی')),
-                ('order', models.IntegerField(default=0, verbose_name='ترتیب نمایش')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("question", models.CharField(max_length=300, verbose_name="سوال")),
+                ("answer", models.TextField(verbose_name="پاسخ")),
+                (
+                    "category",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="دسته\u200cبندی"
+                    ),
+                ),
+                ("order", models.IntegerField(default=0, verbose_name="ترتیب نمایش")),
             ],
             options={
-                'verbose_name': 'سوال متداول',
-                'verbose_name_plural': 'پرسش\u200cهای متداول',
-                'ordering': ['order'],
+                "verbose_name": "سوال متداول",
+                "verbose_name_plural": "پرسش\u200cهای متداول",
+                "ordering": ["order"],
             },
         ),
         migrations.CreateModel(
-            name='ServiceCenter',
+            name="ServiceCenter",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=200, verbose_name='نام مرکز')),
-                ('address', models.TextField(verbose_name='آدرس کامل')),
-                ('city', models.CharField(max_length=100, verbose_name='شهر')),
-                ('phone', models.CharField(blank=True, max_length=11, verbose_name='شماره تماس')),
-                ('latitude', models.FloatField(blank=True, null=True, verbose_name='عرض جغرافیایی')),
-                ('longitude', models.FloatField(blank=True, null=True, verbose_name='طول جغرافیایی')),
-                ('service', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='centers', to='services.service')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=200, verbose_name="نام مرکز")),
+                ("address", models.TextField(verbose_name="آدرس کامل")),
+                ("city", models.CharField(max_length=100, verbose_name="شهر")),
+                (
+                    "phone",
+                    models.CharField(
+                        blank=True, max_length=11, verbose_name="شماره تماس"
+                    ),
+                ),
+                (
+                    "latitude",
+                    models.FloatField(
+                        blank=True, null=True, verbose_name="عرض جغرافیایی"
+                    ),
+                ),
+                (
+                    "longitude",
+                    models.FloatField(
+                        blank=True, null=True, verbose_name="طول جغرافیایی"
+                    ),
+                ),
+                (
+                    "service",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="centers",
+                        to="services.service",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'مرکز ارائه خدمت',
-                'verbose_name_plural': 'مراکز ارائه خدمت',
+                "verbose_name": "مرکز ارائه خدمت",
+                "verbose_name_plural": "مراکز ارائه خدمت",
             },
         ),
         migrations.CreateModel(
-            name='UserProfile',
+            name="UserProfile",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('city', models.CharField(max_length=100, verbose_name='شهر محل سکونت')),
-                ('phone', models.CharField(blank=True, max_length=11, verbose_name='شماره تماس')),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='profile', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "city",
+                    models.CharField(max_length=100, verbose_name="شهر محل سکونت"),
+                ),
+                (
+                    "phone",
+                    models.CharField(
+                        blank=True, max_length=11, verbose_name="شماره تماس"
+                    ),
+                ),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="profile",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'پروفایل کاربر',
-                'verbose_name_plural': 'پروفایل\u200cهای کاربران',
+                "verbose_name": "پروفایل کاربر",
+                "verbose_name_plural": "پروفایل\u200cهای کاربران",
             },
         ),
     ]

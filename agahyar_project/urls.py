@@ -1,7 +1,9 @@
-from django.contrib import admin
-from django.urls import path, include
+from typing import List
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('services.urls')),
+from django.contrib import admin
+from django.urls import URLPattern, include, path
+
+urlpatterns: List[URLPattern] = [
+    path("admin/", admin.site.urls),
+    path("", include("services.urls")),
 ]
