@@ -1,30 +1,19 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import connection
 from django.db.models import Q
 from .models import Service, UserProfile, FAQ, ServiceCenter
 from .forms import LoginForm, RegisterForm, CITY_CHOICES
 from .scraper import scrape_passport_info, get_ai_suggestion, get_nearest_center
 
 
-def save_user_profile_sql(user_id, city, neighborhood='', phone=''):
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT id FROM services_userprofile WHERE user_id = %s", [user_id])
-        exists = cursor.fetchone()
-        
-        if exists:
-            cursor.execute("""
-                UPDATE services_userprofile 
-                SET city = %s, neighborhood = %s, phone = %s 
-                WHERE user_id = %s
-            """, [city, neighborhood, phone, user_id])
-        else:
-            cursor.execute("""
-                INSERT INTO services_userprofile (user_id, city, neighborhood, phone)
-                VALUES (%s, %s, %s, %s)
-            """, [user_id, city, neighborhood, phone])
+def save_user_profile(user_id, city, neighborhood='', phone=''):
+    UserProfile.objects.update_or_create(
+        user_id=user_id,
+        defaults={'city': city, 'neighborhood': neighborhood, 'phone': phone},
+    )
 
 
 def register_view(request):
@@ -37,7 +26,7 @@ def register_view(request):
             user = form.save()
             city = form.cleaned_data['city']
             neighborhood = form.cleaned_data['neighborhood']
-            save_user_profile_sql(user.id, city, neighborhood)
+            save_user_profile(user.id, city, neighborhood)
             login(request, user)
             messages.success(request, f'خوش آمدید {user.username}!')
             return redirect('home')
@@ -186,17 +175,10 @@ def nearby_centers_view(request):
     })
 
 
-def show_users_sql(request):
+def show_users(request):
     if not request.user.is_authenticated:
         return redirect('login')
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT u.id, u.username, u.email, u.date_joined, p.city, p.neighborhood, p.phone
-            FROM auth_user u
-            LEFT JOIN services_userprofile p ON u.id = p.user_id
-            ORDER BY u.id
-        """)
-        users = cursor.fetchall()
+    users = User.objects.select_related('profile').all().order_by('id')
     return render(request, 'services/show_users.html', {'users': users})
 
 

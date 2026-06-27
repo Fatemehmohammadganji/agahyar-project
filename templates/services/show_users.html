@@ -1,6 +1,6 @@
 {% extends 'services/base.html' %}
 
-{% block title %}لیست کاربران (SQL) | آگاه‌یار{% endblock %}
+{% block title %}لیست کاربران | آگاه‌یار{% endblock %}
 
 {% block content %}
 <style>
@@ -26,8 +26,7 @@
 }
 </style>
 
-<h1>📋 لیست کاربران (با SQL خام)</h1>
-<p style="color:#6c757d; margin-bottom:20px;">اطلاعات مستقیم از دیتابیس با کوئری SQL</p>
+<h1>📋 لیست کاربران</h1>
 
 <table class="user-table">
     <thead>
@@ -43,12 +42,12 @@
     <tbody>
         {% for user in users %}
         <tr>
-            <td>{{ user.0 }}</td>
-            <td>{{ user.1 }}</td>
-            <td>{{ user.2|default:"-" }}</td>
-            <td>{{ user.3|date:"Y/m/d" }}</td>
-            <td>{{ user.4|default:"ثبت نشده" }}</td>
-            <td>{{ user.5|default:"-" }}</td>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email|default:"-" }}</td>
+            <td>{{ user.date_joined|date:"Y/m/d" }}</td>
+            <td>{{ user.profile.city|default:"ثبت نشده" }}</td>
+            <td>{{ user.profile.phone|default:"-" }}</td>
         </tr>
         {% empty %}
         <tr>

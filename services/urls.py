@@ -11,7 +11,7 @@ urlpatterns = [
     # ===== صفحات جدید =====
     path('faq/', views.faq_view, name='faq'),
     path('nearby-centers/', views.nearby_centers_view, name='nearby_centers'),
-    path('users/', views.show_users_sql, name='show_users'),
+    path('users/', views.show_users, name='show_users'),
     
     # ===== صفحات اطلاعاتی =====
     path('about/', views.about, name='about'),

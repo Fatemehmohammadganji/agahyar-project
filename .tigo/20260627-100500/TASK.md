@@ -1,5 +1,5 @@
 # Replace raw SQL with Django ORM
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: quality, refactor
 
