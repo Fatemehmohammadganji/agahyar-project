@@ -1,4 +1,4 @@
-# 🏛️ Aghahyār (آگاه‌یار)
+# 🏛️ Aghahyar (آگاه‌یار)
 
 **Smart Citizen Information System for Government Services**
 
@@ -70,9 +70,7 @@ agahyar-project/
 ├── db.sqlite3 # SQLite database
 
 ├── manage.py
-
 ├── requirements.txt
-
 └── README.md
 
 ---
