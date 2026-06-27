@@ -1,5 +1,5 @@
 # Add input validation for Iranian phone numbers
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: quality, validation
 
