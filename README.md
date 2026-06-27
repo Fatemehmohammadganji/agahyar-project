@@ -37,8 +37,7 @@ To become the **leading citizen‑friendly information hub** for all public serv
 ## 🧱 Project Structure
 agahyar-project/
 
-├── agahyar_project/ # Django project settings
-
+├── agahyar_project/ # Django project settings   
 ├── services/ # Main application
 
 │ ├── models.py # Service, UserProfile, FAQ, ServiceCenter
