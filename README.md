@@ -6,7 +6,7 @@
 
 ## 📖 About the Project
 
-**Aghahyār** is a web-based platform designed to help citizens easily access accurate information about government services before visiting offices in person.
+**Aghahyar** is a web-based platform designed to help citizens easily access accurate information about government services before visiting offices in person.
 
 It provides clear details about **required documents**, **steps**, **costs**, **estimated time**, and the **nearest service centers** – all in one place.
 
@@ -114,7 +114,7 @@ python manage.py runserver
 ```
 ---
 
-Then open your browser and visit:
+**Then open your browser and visit:
 👉 http://127.0.0.1:8000
 
 ## 🗺️ Future Plans & Roadmap
