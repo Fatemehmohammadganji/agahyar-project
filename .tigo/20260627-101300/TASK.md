@@ -1,5 +1,5 @@
 # Replace unreliable javascript:history.go(-1) back navigation
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: quality, ux
 
