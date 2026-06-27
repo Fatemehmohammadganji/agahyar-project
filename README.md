@@ -71,11 +71,11 @@ agahyar-project/
 ---
 
 ## 🖼️ Project Preview
-## | Login | | ![Homepage](images/loginpage.png) |
-## | Home |  | ![Homepage](images/homepage.png) |
-| Search Results |  
-|Service Details |  
- ![Search](screenshots/search.png) | ![Detail](screenshots/detail.png) |
+## | Login |
+![Homepage](images/loginpage.png) 
+## | Home | 
+![Homepage](images/homepage.png)
+
 
 > 💡 *Tip: Upload your images to the `screenshots/` folder and link them here.*
 
