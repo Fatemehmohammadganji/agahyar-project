@@ -71,16 +71,30 @@ agahyar-project/
 ---
 ## 🖼️ Project Preview
 
-| Page | Screenshot |
-|------|------------|
-| **🔐 Login** | <img src="images/loginpage.png" width="400"> |
-| **🏠 Home** | <img src="images/homepage.png" width="400"> |
-| **📋 Services** | <img src="images/servicepage.png" width="400"> |
-| **📄 Service Details** | <img src="images/servicedetails_1.png" width="400"><br><img src="images/servicedetails_2.png" width="400"> |
-| **ℹ️ About** | <img src="images/about.png" width="400"> |
-| **❓ FAQ** | <img src="images/commonquestions.png" width="400"> |
-| **📞 Contact** | <img src="images/contact.png" width="400"> |
-| **📍 Nearest Centers** | <img src="images/nearestplace.png" width="400"> |
+### 🔐 | Login |
+<img src="images/loginpage.png" width="500">
+
+### 🏠 | Home | 
+<img src="images/homepage.png" width="500">
+
+### 📋 | Services |
+<img src="images/servicepage.png" width="500">
+
+### 📄 | Service Details |
+<img src="images/servicedetails_1.png" width="500">
+<img src="images/servicedetails_2.png" width="500">
+
+### ℹ️ | About |
+<img src="images/about.png" width="500">
+
+### ❓ | FAQ |
+<img src="images/commonquestions.png" width="500">
+
+### 📞 | Contact |
+<img src="images/contact.png" width="500">
+
+### 📍 | Nearest Centers |
+<img src="images/nearestplace.png" width="500">
 ---
 
 ## 🚀 How to Run the Project (Local Setup)
