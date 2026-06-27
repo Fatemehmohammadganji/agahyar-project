@@ -24,7 +24,7 @@ jobs:
       - name: Create virtual environment and install dependencies
         run: |
           uv venv --clear
-          uv pip install -r requirements.txt
+          uv sync
           uv pip install -e ".[dev]"
 
       - name: Run migrations

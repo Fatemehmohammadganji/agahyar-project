@@ -54,7 +54,6 @@ agahyar-project/
 ├── static/ # CSS, JS, images (if any)  
 ├── db.sqlite3 # SQLite database  
 ├── manage.py  
-├── requirements.txt  
 └── README.md  
 
 ---
@@ -115,8 +114,8 @@ python -m venv venv
 venv\Scripts\activate        # On Windows
 # source venv/bin/activate   # On Mac / Linux
 
-# 5. Install dependencies
-pip install -r requirements.txt
+# 5. Install dependencies (from pyproject.toml)
+pip install -e .
 
 # 6. Apply database migrations
 python manage.py migrate

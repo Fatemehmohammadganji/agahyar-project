@@ -26,10 +26,10 @@ uv venv
 # Linux / macOS:
 # source .venv/bin/activate
 
-# Install dependencies
-uv pip install -r requirements.txt
+# Install dependencies (from pyproject.toml)
+uv sync
 
-# Install the project package in editable mode (with dev extras)
+# (Optional) Install the project package in editable mode with dev extras
 uv pip install -e ".[dev]"
 ```
 
@@ -78,8 +78,7 @@ agahyar-project/
 │   └── migrations/          # Database migrations
 ├── templates/
 │   └── services/            # HTML templates
-├── requirements.txt
-└── pyproject.toml           # Project metadata and tool config
+└── pyproject.toml           # Project metadata, dependencies, and tool config
 ```
 
 Coding Conventions
