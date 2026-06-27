@@ -103,19 +103,9 @@
         <div class="form-group">
             <label>شهر محل سکونت</label>
             <select name="city" required>
-                <option value="">شهر خود را انتخاب کنید</option>
-                <option value="تهران">تهران</option>
-                <option value="مشهد">مشهد</option>
-                <option value="اصفهان">اصفهان</option>
-                <option value="شیراز">شیراز</option>
-                <option value="تبریز">تبریز</option>
-                <option value="کرج">کرج</option>
-                <option value="قم">قم</option>
-                <option value="اهواز">اهواز</option>
-                <option value="رشت">رشت</option>
-                <option value="کرمانشاه">کرمانشاه</option>
-                <option value="زاهدان">زاهدان</option>
-                <option value="ارومیه">ارومیه</option>
+                {% for value, label in city_choices %}
+                    <option value="{{ value }}"{% if form.city.value == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="form-group">

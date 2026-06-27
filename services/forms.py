@@ -3,6 +3,23 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .models import UserProfile
 
+CITY_CHOICES = [
+    ('', 'شهر خود را انتخاب کنید'),
+    ('تهران', 'تهران'),
+    ('مشهد', 'مشهد'),
+    ('اصفهان', 'اصفهان'),
+    ('شیراز', 'شیراز'),
+    ('تبریز', 'تبریز'),
+    ('کرج', 'کرج'),
+    ('قم', 'قم'),
+    ('اهواز', 'اهواز'),
+    ('رشت', 'رشت'),
+    ('کرمانشاه', 'کرمانشاه'),
+    ('زاهدان', 'زاهدان'),
+    ('ارومیه', 'ارومیه'),
+]
+
+
 class LoginForm(forms.Form):
     username = forms.CharField(
         label='نام کاربری',
@@ -20,21 +37,7 @@ class RegisterForm(UserCreationForm):
     city = forms.CharField(
         label='شهر محل سکونت',
         max_length=100,
-        widget=forms.Select(choices=[
-            ('', 'شهر خود را انتخاب کنید'),
-            ('تهران', 'تهران'),
-            ('مشهد', 'مشهد'),
-            ('اصفهان', 'اصفهان'),
-            ('شیراز', 'شیراز'),
-            ('تبریز', 'تبریز'),
-            ('کرج', 'کرج'),
-            ('قم', 'قم'),
-            ('اهواز', 'اهواز'),
-            ('رشت', 'رشت'),
-            ('کرمانشاه', 'کرمانشاه'),
-            ('زاهدان', 'زاهدان'),
-            ('ارومیه', 'ارومیه'),
-        ])
+        widget=forms.Select(choices=CITY_CHOICES)
     )
     neighborhood = forms.CharField(
         label='محله',

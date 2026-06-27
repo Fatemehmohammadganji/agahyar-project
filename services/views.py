@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.db.models import Q
 from .models import Service, UserProfile, FAQ, ServiceCenter
-from .forms import LoginForm, RegisterForm
+from .forms import LoginForm, RegisterForm, CITY_CHOICES
 from .scraper import scrape_passport_info, get_ai_suggestion, get_nearest_center
 
 
@@ -41,12 +41,10 @@ def register_view(request):
             login(request, user)
             messages.success(request, f'خوش آمدید {user.username}!')
             return redirect('home')
-        else:
-            return render(request, 'services/register.html', {'form': form})
     else:
         form = RegisterForm()
     
-    return render(request, 'services/register.html', {'form': form})
+    return render(request, 'services/register.html', {'form': form, 'city_choices': CITY_CHOICES})
 
 
 def login_view(request):

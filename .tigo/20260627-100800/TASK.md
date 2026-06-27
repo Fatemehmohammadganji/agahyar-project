@@ -1,5 +1,5 @@
 # Remove duplicate city list between forms.py and register.html
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: quality, refactor
 
