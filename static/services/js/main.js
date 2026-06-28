@@ -1,6 +1,5 @@
 /**
  * Aghahyar - Main JavaScript
- * Extracted from inline script blocks.
  */
 
 function toggleMenu() {

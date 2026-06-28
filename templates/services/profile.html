@@ -45,21 +45,24 @@
 
     <form method="post">
       {% csrf_token %}
-      <div class="form-group">
+      <div class="form-group{% if form.city.errors %} has-error{% endif %}">
         <label>شهر محل سکونت</label>
-        <select name="city" required>
+        <select name="city" class="{% if form.city.errors %}field-error{% endif %}" required>
           {% for value, label in city_choices %}
           <option value="{{ value }}"{% if form.city.value == value %} selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
+        {% if form.city.errors %}<div class="field-error-msg">{{ form.city.errors.0 }}</div>{% endif %}
       </div>
-      <div class="form-group">
+      <div class="form-group{% if form.neighborhood.errors %} has-error{% endif %}">
         <label>محله</label>
-        <input type="text" name="neighborhood" value="{{ form.neighborhood.value|default:'' }}" placeholder="مثال: سعادت‌آباد، ونک، ...">
+        <input type="text" name="neighborhood" value="{{ form.neighborhood.value|default:'' }}" placeholder="مثال: سعادت‌آباد، ونک، ..." class="{% if form.neighborhood.errors %}field-error{% endif %}">
+        {% if form.neighborhood.errors %}<div class="field-error-msg">{{ form.neighborhood.errors.0 }}</div>{% endif %}
       </div>
-      <div class="form-group">
+      <div class="form-group{% if form.phone.errors %} has-error{% endif %}">
         <label>شماره تماس (اختیاری)</label>
-        <input type="text" name="phone" value="{{ form.phone.value|default:'' }}" placeholder="مثال: 09121234567" class="ltr-input" dir="ltr">
+        <input type="text" name="phone" value="{{ form.phone.value|default:'' }}" placeholder="مثال: 09121234567" class="ltr-input{% if form.phone.errors %} field-error{% endif %}" dir="ltr">
+        {% if form.phone.errors %}<div class="field-error-msg">{{ form.phone.errors.0 }}</div>{% endif %}
       </div>
       <button type="submit" name="update_profile" class="btn-register">ذخیره تغییرات</button>
     </form>
@@ -80,17 +83,20 @@
 
     <form method="post">
       {% csrf_token %}
-      <div class="form-group">
+      <div class="form-group{% if password_form.old_password.errors %} has-error{% endif %}">
         <label>رمز عبور فعلی</label>
-        <input type="password" name="old_password" placeholder="رمز عبور فعلی" class="ltr-input" dir="ltr" required>
+        <input type="password" name="old_password" placeholder="رمز عبور فعلی" class="ltr-input{% if password_form.old_password.errors %} field-error{% endif %}" dir="ltr" required>
+        {% if password_form.old_password.errors %}<div class="field-error-msg">{{ password_form.old_password.errors.0 }}</div>{% endif %}
       </div>
-      <div class="form-group">
+      <div class="form-group{% if password_form.new_password1.errors %} has-error{% endif %}">
         <label>رمز عبور جدید</label>
-        <input type="password" name="new_password1" placeholder="حداقل ۸ کاراکتر" class="ltr-input" dir="ltr" required>
+        <input type="password" name="new_password1" placeholder="حداقل ۸ کاراکتر" class="ltr-input{% if password_form.new_password1.errors %} field-error{% endif %}" dir="ltr" required>
+        {% if password_form.new_password1.errors %}<div class="field-error-msg">{{ password_form.new_password1.errors.0 }}</div>{% endif %}
       </div>
-      <div class="form-group">
+      <div class="form-group{% if password_form.new_password2.errors %} has-error{% endif %}">
         <label>تکرار رمز عبور جدید</label>
-        <input type="password" name="new_password2" placeholder="تکرار رمز جدید" class="ltr-input" dir="ltr" required>
+        <input type="password" name="new_password2" placeholder="تکرار رمز جدید" class="ltr-input{% if password_form.new_password2.errors %} field-error{% endif %}" dir="ltr" required>
+        {% if password_form.new_password2.errors %}<div class="field-error-msg">{{ password_form.new_password2.errors.0 }}</div>{% endif %}
       </div>
       <button type="submit" name="change_password" class="btn-register">تغییر رمز عبور</button>
     </form>

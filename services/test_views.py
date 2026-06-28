@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.test import Client
 from django.urls import reverse
 
+from services.forms import RegisterForm
 from services.models import FAQ, ContactMessage, Service, UserProfile
 from services.views import save_user_profile
 
@@ -105,6 +106,61 @@ class TestRegisterView:
         assert 'name="username"' in content
         assert 'class="ltr-input"' in content or "ltr-input" in content
         assert 'dir="ltr"' in content
+
+    def test_register_preserves_values_on_validation_error(self):
+        client = Client()
+        response = client.post(
+            "/register/",
+            {
+                "username": "testuser",
+                "email": "bad-email",
+                "password1": "short",
+                "password2": "mismatch",
+                "city": "تهران",
+                "neighborhood": "",
+            },
+        )
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'value="testuser"' in content
+        assert 'value="bad-email"' in content
+
+    def test_register_shows_field_errors(self):
+        client = Client()
+        response = client.post(
+            "/register/",
+            {
+                "username": "",
+                "email": "",
+                "password1": "short",
+                "password2": "mismatch",
+                "city": "",
+                "neighborhood": "",
+            },
+        )
+        content = response.content.decode()
+        # Check that form errors exist in the rendered context
+        assert response.context["form"].errors
+        # Check that error CSS classes appear in the HTML
+        assert 'class="field-error"' in content or "has-error" in content
+        # Check error messages are displayed
+        assert "This field is required" in content or "ضروری" in content
+
+    def test_register_returns_bound_form_in_context(self):
+        client = Client()
+        response = client.post(
+            "/register/",
+            {
+                "username": "partial",
+                "email": "",
+                "password1": "short",
+                "password2": "short",
+                "city": "تهران",
+                "neighborhood": "ونک",
+            },
+        )
+        assert isinstance(response.context["form"], RegisterForm)
+        assert response.context["form"].is_bound is True
 
 
 @pytest.mark.django_db
@@ -238,6 +294,44 @@ class TestFAQView:
 
 
 @pytest.mark.django_db
+class TestLoginView:
+    def test_get_returns_form(self):
+        client = Client()
+        response = client.get("/login/")
+        assert response.status_code == 200
+        assert "form" in response.context
+
+    def test_login_preserves_username_on_invalid_credentials(self):
+        User.objects.create_user("loginuser", password="correctpass")
+        client = Client()
+        response = client.post(
+            "/login/",
+            {"username": "loginuser", "password": "wrongpass"},
+        )
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'value="loginuser"' in content
+
+    def test_login_invalid_username_returns_form_with_errors(self):
+        client = Client()
+        response = client.post(
+            "/login/",
+            {"username": "", "password": ""},
+        )
+        assert response.status_code == 200
+        assert response.context["form"].errors
+        content = response.content.decode()
+        assert "has-error" in content or "message-error" in content
+
+    def test_login_redirects_when_authenticated(self):
+        User.objects.create_user("alreadyin", password="pass12345")
+        client = Client()
+        client.login(username="alreadyin", password="pass12345")
+        response = client.get("/login/")
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db
 class TestAboutAndContactViews:
     def test_about_accessible_anonymously(self):
         client = Client()
@@ -295,6 +389,33 @@ class TestContactView:
         assert response.status_code == 200
         assert ContactMessage.objects.count() == 0
 
+    def test_contact_preserves_values_on_validation_error(self):
+        client = Client()
+        response = client.post(
+            "/contact/",
+            {
+                "name": "Test User",
+                "email": "bad-email",
+                "message": "",
+            },
+        )
+        content = response.content.decode()
+        assert 'value="Test User"' in content
+        assert 'value="bad-email"' in content
+
+    def test_contact_shows_field_errors(self):
+        client = Client()
+        response = client.post(
+            "/contact/",
+            {
+                "name": "",
+                "email": "bad-email",
+                "message": "",
+            },
+        )
+        content = response.content.decode()
+        assert 'class="field-error"' in content
+
 
 @pytest.mark.django_db
 class TestPasswordReset:
@@ -328,6 +449,59 @@ class TestLogoutView:
         client.login(username="logoutuser", password="pass12345")
         response = client.get("/logout/")
         assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestProfileView:
+    def test_requires_login(self):
+        client = Client()
+        response = client.get("/profile/")
+        assert response.status_code == 302
+
+    def test_get_returns_form(self):
+        User.objects.create_user("puser", password="pass12345")
+        client = Client()
+        client.login(username="puser", password="pass12345")
+        response = client.get("/profile/")
+        assert response.status_code == 200
+        assert "form" in response.context
+        assert "password_form" in response.context
+
+    def test_profile_update_shows_errors_on_invalid_data(self):
+        user = User.objects.create_user("puser2", password="pass12345")
+        UserProfile.objects.create(user=user, city="tehran", neighborhood="", phone="")
+        client = Client()
+        client.login(username="puser2", password="pass12345")
+        response = client.post(
+            "/profile/",
+            {
+                "update_profile": "1",
+                "city": "تهران",
+                "neighborhood": "",
+                "phone": "invalid",
+            },
+        )
+        assert response.status_code == 200
+        assert response.context["form"].errors
+        content = response.content.decode()
+        assert "has-error" in content or "field-error" in content
+
+    def test_password_change_shows_errors_on_wrong_old_password(self):
+        User.objects.create_user("puser3", password="correctpass")
+        client = Client()
+        client.login(username="puser3", password="correctpass")
+        response = client.post(
+            "/profile/",
+            {
+                "change_password": "1",
+                "old_password": "wrongpass",
+                "new_password1": "newpass123",
+                "new_password2": "newpass123",
+            },
+        )
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'class="has-error"' in content or "field-error-msg" in content
 
 
 def test_static_js_files_exist():

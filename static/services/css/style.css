@@ -993,6 +993,24 @@ body {
     font-size: 0.9rem;
 }
 
+/* --- Form error highlighting --- */
+.has-error input,
+.has-error select,
+.has-error textarea {
+    border-color: #c62828 !important;
+}
+
+.field-error {
+    border-color: #c62828 !important;
+}
+
+.field-error-msg {
+    color: #c62828;
+    font-size: 0.85rem;
+    margin-top: 6px;
+    padding-right: 4px;
+}
+
 /* --- Show Users Table --- */
 .user-table {
     width: 100%;

@@ -260,6 +260,7 @@ def profile_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         if "update_profile" in request.POST:
             form = ProfileForm(request.POST)
+            password_form = PasswordChangeForm(request.user)
             if form.is_valid():
                 save_user_profile(
                     request.user.id,
@@ -270,6 +271,7 @@ def profile_view(request: HttpRequest) -> HttpResponse:
                 messages.success(request, "پروفایل شما با موفقیت به‌روزرسانی شد.")
                 return redirect("profile")
         elif "change_password" in request.POST:
+            form = ProfileForm()
             password_form = PasswordChangeForm(request.user, request.POST)
             if password_form.is_valid():
                 password_form.save()
