@@ -32,6 +32,8 @@ dev = [
 prod = [
   "psycopg2-binary>=2.9.10",
 ]
+[project.scripts]
+create-superuser = "agahyar_project.scripts:create_superuser"
 
 [tool.setuptools.packages.find]
 include = ["agahyar_project*", "services*"]

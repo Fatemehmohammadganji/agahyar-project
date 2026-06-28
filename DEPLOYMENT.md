@@ -49,7 +49,7 @@ uv sync
 uv pip install -e ".[dev]"
 
 uv run python manage.py migrate
-uv run python manage.py createsuperuser
+uv run create-superuser
 uv run python manage.py runserver
 ```
 
@@ -90,7 +90,7 @@ Open http://127.0.0.1:8000.
 After migrating, create a superuser to access the admin panel:
 
 ```bash
-uv run python manage.py createsuperuser    # with uv
+uv run create-superuser        # with uv
 # or
 python manage.py createsuperuser           # without uv
 ```
@@ -98,7 +98,7 @@ python manage.py createsuperuser           # without uv
 For Docker Compose (non-production), run it inside the running container:
 
 ```bash
-docker compose exec web uv run python manage.py createsuperuser
+docker compose exec web uv run create-superuser
 ```
 
 You will be prompted for a username, email, and password (in English, as
@@ -197,7 +197,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 After the containers are running, create the admin user:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec web uv run python manage.py createsuperuser
+docker compose -f docker-compose.prod.yml exec web uv run create-superuser
 ```
 
 ### Manual Deployment (bare metal / VPS)
