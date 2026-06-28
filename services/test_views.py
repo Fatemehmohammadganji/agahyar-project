@@ -98,6 +98,14 @@ class TestRegisterView:
         response = client.get("/register/")
         assert response.status_code == 302
 
+    def test_ltr_inputs_have_ltr_class(self):
+        client = Client()
+        response = client.get("/register/")
+        content = response.content.decode()
+        assert 'name="username"' in content
+        assert 'class="ltr-input"' in content or "ltr-input" in content
+        assert 'dir="ltr"' in content
+
 
 @pytest.mark.django_db
 class TestHomeView:

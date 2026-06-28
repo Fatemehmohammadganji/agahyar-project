@@ -933,6 +933,12 @@ body {
     margin: 0;
 }
 
+/* --- LTR Input Fields in RTL Layout --- */
+.ltr-input {
+    direction: ltr;
+    text-align: left;
+}
+
 /* --- Profile Page --- */
 .profile-container {
     max-width: 600px;

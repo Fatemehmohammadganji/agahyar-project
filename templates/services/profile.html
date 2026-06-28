@@ -59,7 +59,7 @@
       </div>
       <div class="form-group">
         <label>شماره تماس (اختیاری)</label>
-        <input type="text" name="phone" value="{{ form.phone.value|default:'' }}" placeholder="مثال: 09121234567">
+        <input type="text" name="phone" value="{{ form.phone.value|default:'' }}" placeholder="مثال: 09121234567" class="ltr-input" dir="ltr">
       </div>
       <button type="submit" name="update_profile" class="btn-register">ذخیره تغییرات</button>
     </form>
@@ -82,15 +82,15 @@
       {% csrf_token %}
       <div class="form-group">
         <label>رمز عبور فعلی</label>
-        <input type="password" name="old_password" placeholder="رمز عبور فعلی" required>
+        <input type="password" name="old_password" placeholder="رمز عبور فعلی" class="ltr-input" dir="ltr" required>
       </div>
       <div class="form-group">
         <label>رمز عبور جدید</label>
-        <input type="password" name="new_password1" placeholder="حداقل ۸ کاراکتر" required>
+        <input type="password" name="new_password1" placeholder="حداقل ۸ کاراکتر" class="ltr-input" dir="ltr" required>
       </div>
       <div class="form-group">
         <label>تکرار رمز عبور جدید</label>
-        <input type="password" name="new_password2" placeholder="تکرار رمز جدید" required>
+        <input type="password" name="new_password2" placeholder="تکرار رمز جدید" class="ltr-input" dir="ltr" required>
       </div>
       <button type="submit" name="change_password" class="btn-register">تغییر رمز عبور</button>
     </form>
