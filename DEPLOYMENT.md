@@ -53,7 +53,7 @@ uv run create-superuser
 uv run python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000.
+Open <http://127.0.0.1:8000>.
 
 ### Option B: pip (without uv)
 
@@ -83,7 +83,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open http://127.0.0.1:8000.
+Open <http://127.0.0.1:8000>.
 
 ### Creating an Admin User
 
@@ -107,7 +107,7 @@ You will be prompted for a username, email, and password (in English, as
 ### Admin Panel
 
 The Django admin panel is available at ``/admin/`` (e.g.
-http://127.0.0.1:8000/admin/).
+<http://127.0.0.1:8000/admin/>).
 
 Log in with the superuser credentials created above. From the admin panel you
 can manage:
