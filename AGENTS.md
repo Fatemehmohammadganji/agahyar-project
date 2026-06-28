@@ -17,6 +17,10 @@ Instructions
 - When the user says "note this" or "note that", they mean write it to
   AGENTS.md so the instruction persists across sessions.
 
+- When the user says something must be done and brings examples, you must
+  not limit yourself to only those examples. Find everything that matches
+  the description and likely fits what the user was talking about.
+
 - Always use the latest stable version for all packages across all
   configuration files.
 
@@ -83,3 +87,5 @@ it `_debug_{REASON_FOR_CREATION}.py`, and run it using uv:
 
 One general rule to keep in mind is to avoid directly using `python` and
 instead running everything python related via uv or docker.
+
+We want a great UX and efficient backend.
