@@ -1,6 +1,6 @@
 # Dockerize the project
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: docker, secrets, container, enhancement
 

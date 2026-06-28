@@ -8,8 +8,20 @@ Prerequisites
 - `uv` (recommended) -- install from https://docs.astral.sh/uv/
 - Git
 
-Setup
------
+Environment Variables
+---------------------
+
+Copy ``.env.example`` to ``.env`` and adjust the values for your environment:
+
+```bash
+cp .env.example .env
+```
+
+> **Note:** ``.env`` is git-ignored and must **not** be committed. Only
+> ``.env.example`` (with placeholder values) is tracked.
+
+Setup (with uv -- recommended)
+--------------------------------
 
 Clone the repository and set up the environment:
 
@@ -33,6 +45,28 @@ uv sync
 uv pip install -e ".[dev]"
 ```
 
+Setup (without uv)
+-------------------
+
+If `uv` is not available, use standard `venv` + `pip`:
+
+```bash
+git clone https://github.com/Fatemehmohammadganji/agahyar-project.git
+cd agahyar-project
+
+# Create a virtual environment
+python -m venv .venv
+
+# Activate it
+# Windows:
+.venv\Scripts\activate
+# Linux / macOS:
+# source .venv/bin/activate
+
+# Install dependencies (from pyproject.toml)
+pip install -e ".[dev]"
+```
+
 Database
 --------
 
@@ -42,6 +76,21 @@ Run migrations and create an admin user:
 uv run python manage.py migrate
 uv run python manage.py createsuperuser
 ```
+
+Docker
+------
+
+Build and run with Docker Compose:
+
+```bash
+# Copy and configure environment variables
+cp .env.example .env
+
+# Build and start
+docker compose up --build
+```
+
+The application will be available at http://localhost:8000.
 
 Development Server
 ------------------

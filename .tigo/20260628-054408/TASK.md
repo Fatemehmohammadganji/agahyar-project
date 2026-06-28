@@ -1,6 +1,6 @@
 # Development without uv
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: development, quality of life
 
