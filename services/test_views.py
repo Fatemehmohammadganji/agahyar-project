@@ -165,21 +165,34 @@ class TestRegisterView:
 
 @pytest.mark.django_db
 class TestHomeView:
-    def test_requires_login(self):
+    def test_accessible_anonymously(self):
         client = Client()
         response = client.get("/")
-        assert response.status_code == 302
+        assert response.status_code == 200
 
     def test_shows_popular_services(self):
-        User.objects.create_user("homeuser", password="pass12345")
         Service.objects.create(
             name="test service", organization="org", documents="doc1", steps="step1"
         )
         client = Client()
-        client.login(username="homeuser", password="pass12345")
         response = client.get("/")
         assert response.status_code == 200
         assert "test service" in str(response.content)
+
+
+@pytest.mark.django_db
+class TestDashboardView:
+    def test_requires_login(self):
+        client = Client()
+        response = client.get("/dashboard/")
+        assert response.status_code == 302
+
+    def test_shows_when_logged_in(self):
+        User.objects.create_user("dashuser", password="pass12345")
+        client = Client()
+        client.login(username="dashuser", password="pass12345")
+        response = client.get("/dashboard/")
+        assert response.status_code == 200
 
 
 @pytest.mark.django_db
@@ -226,24 +239,21 @@ class TestSearchView:
 
 @pytest.mark.django_db
 class TestServiceListView:
-    def test_requires_login(self):
+    def test_accessible_anonymously(self):
         client = Client()
         response = client.get("/services/")
-        assert response.status_code == 302
+        assert response.status_code == 200
 
     def test_lists_services_ordered_by_name(self):
-        User.objects.create_user("listuser", password="pass12345")
         Service.objects.create(name="beta", organization="o", documents="d", steps="s")
         Service.objects.create(name="alpha", organization="o", documents="d", steps="s")
         client = Client()
-        client.login(username="listuser", password="pass12345")
         response = client.get("/services/")
         assert response.status_code == 200
         content = str(response.content)
         assert content.index("alpha") < content.index("beta")
 
     def test_list_pagination_context(self):
-        User.objects.create_user("paguser", password="pass12345")
         for i in range(15):
             Service.objects.create(
                 name=f"svc{i}", organization="o", documents="d", steps="s"
@@ -514,9 +524,7 @@ def test_static_js_files_exist():
 
 @pytest.mark.django_db
 def test_base_template_loads_js_files():
-    User.objects.create_user("jstestuser", password="pass12345")
     client = Client()
-    client.login(username="jstestuser", password="pass12345")
     response = client.get("/")
     assert response.status_code == 200
     content = response.content.decode()

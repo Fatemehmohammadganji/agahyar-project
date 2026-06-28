@@ -1,0 +1,64 @@
+{% extends 'services/base.html' %}
+{% load static %}
+
+{% block title %}داشبورد | آگاه‌یار{% endblock %}
+
+{% block content %}
+
+<div class="dashboard-header">
+  <h2>خوش آمدید، {{ user.username }}</h2>
+  <p>از اینجا به خدمات و اطلاعات خود دسترسی داشته باشید.</p>
+</div>
+
+<div class="icon-boxes">
+  <a href="{% url 'search' %}" class="icon-box">
+    <span class="icon"></span>
+    <span class="label">جستجوی خدمات</span>
+  </a>
+  <a href="{% url 'services_list' %}" class="icon-box">
+    <span class="icon"></span>
+    <span class="label">همه خدمات</span>
+  </a>
+  <a href="{% url 'faq' %}" class="icon-box">
+    <span class="icon"></span>
+    <span class="label">پرسش‌های متداول</span>
+  </a>
+  <a href="{% url 'nearby_centers' %}" class="icon-box">
+    <span class="icon"></span>
+    <span class="label">نزدیک‌ترین مراکز</span>
+  </a>
+  <a href="{% url 'profile' %}" class="icon-box">
+    <span class="icon"></span>
+    <span class="label">پروفایل</span>
+  </a>
+</div>
+
+<h2 class="section-title">خدمات پرطرفدار</h2>
+<div class="services-grid">
+  {% for service in popular_services %}
+  <div class="service-card">
+    <div class="service-icon"></div>
+    <h3>{{ service.name }}</h3>
+    <p class="org-name">{{ service.organization|truncatechars:45 }}</p>
+    <a href="{% url 'service_detail' service.id %}" class="btn-detail">مشاهده جزئیات</a>
+  </div>
+  {% empty %}
+  <p style="text-align:center; grid-column:1/-1; color:#6c757d; padding:50px 0;">
+    هیچ خدمتی یافت نشد.
+  </p>
+  {% endfor %}
+</div>
+
+<h2 class="section-title">پرسش‌های متداول</h2>
+<div class="faq-section">
+  {% for faq in faqs %}
+  <div class="faq-item">
+    <div class="faq-question">{{ faq.question }}</div>
+    <div class="faq-answer">{{ faq.answer }}</div>
+  </div>
+  {% empty %}
+  <p style="text-align:center; color:#6c757d;">هنوز پرسشی ثبت نشده است.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}

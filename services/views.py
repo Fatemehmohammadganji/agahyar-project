@@ -90,14 +90,27 @@ def logout_view(request: HttpRequest) -> HttpResponse:
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    """Render the home page with popular services and recent FAQs."""
-    if not request.user.is_authenticated:
-        return redirect("login")
+    """Render the public home page with popular services and recent FAQs."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
     return render(
         request,
         "services/home.html",
+        {
+            "popular_services": popular_services,
+            "faqs": faqs,
+        },
+    )
+
+
+@login_required
+def dashboard(request: HttpRequest) -> HttpResponse:
+    """Render the authenticated user dashboard."""
+    popular_services: QuerySet = Service.objects.all()[:6]
+    faqs: QuerySet = FAQ.objects.all()[:5]
+    return render(
+        request,
+        "services/dashboard.html",
         {
             "popular_services": popular_services,
             "faqs": faqs,
@@ -172,8 +185,6 @@ def service_detail(request: HttpRequest, service_id: int) -> HttpResponse:
 
 def services_list(request: HttpRequest) -> HttpResponse:
     """List all services ordered by name, paginated (12 per page)."""
-    if not request.user.is_authenticated:
-        return redirect("login")
     all_services: QuerySet = Service.objects.all().order_by("name")
     paginator: Paginator = Paginator(all_services, 12)
     page_number: str = request.GET.get("page", 1)

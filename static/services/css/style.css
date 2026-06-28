@@ -74,6 +74,14 @@ body {
     padding-right: 15px;
 }
 
+.nav-links .login-link {
+    color: #1a5f7a;
+    font-weight: bold;
+    border: 2px solid #1a5f7a;
+    padding: 6px 18px;
+    border-radius: 40px;
+}
+
 .mobile-menu-btn {
     display: none;
     font-size: 1.8rem;
@@ -341,6 +349,41 @@ body {
     font-size: 1.2rem;
     opacity: 0.9;
     margin-bottom: 35px;
+}
+
+.hero-cta {
+    margin-top: 30px;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.btn-hero {
+    display: inline-block;
+    padding: 14px 36px;
+    border-radius: 40px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    text-decoration: none;
+    transition: 0.2s;
+    background: white;
+    color: #1a5f7a;
+}
+
+.btn-hero:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.btn-hero-secondary {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 2px solid rgba(255,255,255,0.5);
+}
+
+.btn-hero-secondary:hover {
+    background: rgba(255,255,255,0.25);
+    border-color: white;
 }
 
 .search-box {
@@ -982,6 +1025,27 @@ body {
 .profile-links {
     text-align: center;
     margin-top: 20px;
+}
+
+/* --- Dashboard --- */
+.dashboard-header {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.dashboard-header h2 {
+    color: #1a5f7a;
+    font-size: 2rem;
+    margin-bottom: 12px;
+}
+
+.dashboard-header p {
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+
+.faq-section {
+    margin-top: 10px;
 }
 
 .error-message {

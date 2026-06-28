@@ -12,6 +12,12 @@
  <input type="text" name="q" placeholder="جستجوی خدمت مورد نظر ..." required>
  <button type="submit">جستجو</button>
  </form>
+ {% if not user.is_authenticated %}
+ <div class="hero-cta">
+ <a href="{% url 'login' %}" class="btn-hero">ورود</a>
+ <a href="{% url 'register' %}" class="btn-hero btn-hero-secondary">ثبت‌نام</a>
+ </div>
+ {% endif %}
 </section>
 
 <div class="icon-boxes">
@@ -19,13 +25,13 @@
  <span class="icon"></span>
  <span class="label">خدمات</span>
  </a>
- <a href="{% url 'faq' %}" class="icon-box">
+ <a href="{% url 'about' %}" class="icon-box">
  <span class="icon"></span>
- <span class="label">پرسش‌های متداول</span>
+ <span class="label">درباره ما</span>
  </a>
- <a href="{% url 'nearby_centers' %}" class="icon-box">
+ <a href="{% url 'contact' %}" class="icon-box">
  <span class="icon"></span>
- <span class="label">نزدیک‌ترین مراکز</span>
+ <span class="label">تماس با ما</span>
  </a>
 </div>
 

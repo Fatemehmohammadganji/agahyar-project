@@ -7,6 +7,7 @@ from . import views
 urlpatterns: List[URLPattern] = [
     # ===== Core pages =====
     path("", views.home, name="home"),
+    path("dashboard/", views.dashboard, name="dashboard"),
     path("search/", views.search, name="search"),
     path("service/<int:service_id>/", views.service_detail, name="service_detail"),
     path("services/", views.services_list, name="services_list"),
