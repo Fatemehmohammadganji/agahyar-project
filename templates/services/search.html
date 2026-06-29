@@ -11,9 +11,23 @@
  <input type="text" name="q" value="{{ query }}" placeholder="جستجوی خدمت مورد نظر ..." required>
  <button type="submit">جستجو</button>
  </form>
+ <div class="filter-row">
+  <select name="organization" onchange="this.form.submit()">
+   <option value="">همه سازمان‌ها</option>
+   {% for org in organizations %}
+   <option value="{{ org }}" {% if org_filter == org %}selected{% endif %}>{{ org }}</option>
+   {% endfor %}
+  </select>
+  <select name="city" onchange="this.form.submit()">
+   <option value="">همه شهرها</option>
+   {% for city in cities %}
+   <option value="{{ city }}" {% if city_filter == city %}selected{% endif %}>{{ city }}</option>
+   {% endfor %}
+  </select>
+ </div>
 </div>
 
-{% if query %}
+{% if query or org_filter or city_filter %}
  {% if count == 0 %}
  <div class="no-results">
  <h3> متأسفیم!</h3>
@@ -43,13 +57,13 @@
  {% if page_obj.paginator.num_pages > 1 %}
  <div class="pagination">
  {% if page_obj.has_previous %}
- <a href="?q={{ query }}&page=1">&laquo; اول</a>
- <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}">قبلی</a>
+ <a href="?q={{ query }}&organization={{ org_filter }}&city={{ city_filter }}&page=1">&laquo; اول</a>
+ <a href="?q={{ query }}&organization={{ org_filter }}&city={{ city_filter }}&page={{ page_obj.previous_page_number }}">قبلی</a>
  {% endif %}
  <span>صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
  {% if page_obj.has_next %}
- <a href="?q={{ query }}&page={{ page_obj.next_page_number }}">بعدی</a>
- <a href="?q={{ query }}&page={{ page_obj.paginator.num_pages }}">آخر &raquo;</a>
+ <a href="?q={{ query }}&organization={{ org_filter }}&city={{ city_filter }}&page={{ page_obj.next_page_number }}">بعدی</a>
+ <a href="?q={{ query }}&organization={{ org_filter }}&city={{ city_filter }}&page={{ page_obj.paginator.num_pages }}">آخر &raquo;</a>
  {% endif %}
  </div>
  {% endif %}

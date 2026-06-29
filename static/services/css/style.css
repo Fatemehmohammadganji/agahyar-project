@@ -643,6 +643,31 @@ body {
     max-width: 550px;
 }
 
+.filter-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.filter-row select {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 40px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: white;
+    cursor: pointer;
+    min-width: 160px;
+    text-align: center;
+}
+
+.filter-row select:focus {
+    border-color: #1a5f7a;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26,95,122,0.1);
+}
+
 .search-form-row input {
     flex: 1;
     padding: 12px 18px;
@@ -1415,6 +1440,13 @@ body {
     .search-form-row {
         flex-direction: column;
         max-width: 100%;
+    }
+    .filter-row {
+        flex-direction: column;
+    }
+    .filter-row select {
+        width: 100%;
+        min-width: auto;
     }
     .user-table {
         font-size: 0.85rem;

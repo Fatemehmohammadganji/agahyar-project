@@ -142,24 +142,53 @@ def search(request: HttpRequest) -> HttpResponse:
     """Search services by name, keywords or organization.
 
     Requires authentication. Results are paginated (12 per page).
+    Supports filtering by organization and city.
     """
     if not request.user.is_authenticated:
         return redirect("login")
     query: str = request.GET.get("q", "").strip()[:200]
+    org_filter: str = request.GET.get("organization", "").strip()
+    city_filter: str = request.GET.get("city", "").strip()
+
     results: QuerySet = Service.objects.none()
-    if query:
-        results = Service.objects.filter(
-            Q(name__icontains=query)
-            | Q(keywords__icontains=query)
-            | Q(organization__icontains=query)
-        ).order_by("id")
+    if query or org_filter or city_filter:
+        q = Q()
+        if query:
+            q &= (
+                Q(name__icontains=query)
+                | Q(keywords__icontains=query)
+                | Q(organization__icontains=query)
+            )
+        if org_filter:
+            q &= Q(organization__icontains=org_filter)
+        if city_filter:
+            q &= Q(centers__city__icontains=city_filter)
+        results = Service.objects.filter(q).distinct().order_by("id")
+
+    organizations = (
+        Service.objects.values_list("organization", flat=True)
+        .distinct()
+        .order_by("organization")
+    )
+    cities = (
+        ServiceCenter.objects.values_list("city", flat=True).distinct().order_by("city")
+    )
+
     paginator: Paginator = Paginator(results, 12)
     page_number: str = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
     return render(
         request,
         "services/search.html",
-        {"query": query, "page_obj": page_obj, "count": paginator.count},
+        {
+            "query": query,
+            "org_filter": org_filter,
+            "city_filter": city_filter,
+            "organizations": organizations,
+            "cities": cities,
+            "page_obj": page_obj,
+            "count": paginator.count,
+        },
     )
 
 

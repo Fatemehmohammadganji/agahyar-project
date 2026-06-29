@@ -1,6 +1,6 @@
 # Search by city or organization filter
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: feature
 

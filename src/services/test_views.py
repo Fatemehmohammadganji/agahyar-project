@@ -257,6 +257,61 @@ class TestSearchView:
         response = client.get("/search/", {"q": ""})
         assert response.status_code == 200
 
+    def test_search_filters_by_organization(self):
+        User.objects.create_user("orgfilteruser", password="pass12345")
+        Service.objects.create(
+            name="سرویس الف", organization="سازمان الف", documents="d", steps="s"
+        )
+        Service.objects.create(
+            name="سرویس ب", organization="سازمان ب", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="orgfilteruser", password="pass12345")
+        response = client.get("/search/", {"organization": "سازمان الف"})
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "سرویس الف" in content
+        assert "سرویس ب" not in content
+
+    def test_search_filters_by_city(self):
+        User.objects.create_user("cityfilteruser", password="pass12345")
+        svc_a = Service.objects.create(
+            name="سرویس شهر", organization="org1", documents="d", steps="s"
+        )
+        svc_b = Service.objects.create(
+            name="سرویس دیگر", organization="org2", documents="d", steps="s"
+        )
+        ServiceCenter.objects.create(
+            service=svc_a, name="مرکز تهران", address="آدرس", city="تهران"
+        )
+        ServiceCenter.objects.create(
+            service=svc_b, name="مرکز مشهد", address="آدرس", city="مشهد"
+        )
+        client = Client()
+        client.login(username="cityfilteruser", password="pass12345")
+        response = client.get("/search/", {"city": "تهران"})
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "سرویس شهر" in content
+        assert "سرویس دیگر" not in content
+
+    def test_search_filters_dropdowns_present(self):
+        User.objects.create_user("dropdownuser", password="pass12345")
+        Service.objects.create(
+            name="test1", organization="سازمان الف", documents="d", steps="s"
+        )
+        Service.objects.create(
+            name="test2", organization="سازمان ب", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="dropdownuser", password="pass12345")
+        response = client.get("/search/")
+        content = response.content.decode()
+        assert 'name="organization"' in content
+        assert 'name="city"' in content
+        assert "سازمان الف" in content
+        assert "سازمان ب" in content
+
 
 @pytest.mark.django_db
 class TestServiceListView:
