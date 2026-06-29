@@ -544,6 +544,25 @@ def test_static_js_files_exist():
     assert os.path.isfile(os.path.join(base, "error-translate.js"))
 
 
+def test_vazirmatn_font_files_exist():
+    import os
+
+    base = os.path.join(os.path.dirname(__file__), "..", "static", "services", "fonts")
+    assert os.path.isfile(os.path.join(base, "Vazirmatn-Regular.woff2"))
+
+
+def test_vazirmatn_css_in_style_css():
+    import os
+
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "static", "services", "css", "style.css"
+    )
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    assert "Vazirmatn" in content
+    assert "@font-face" in content
+
+
 def test_error_code_catalog():
     from services.error_codes import ERROR_CODES
 
@@ -568,7 +587,7 @@ def test_get_error_message_fallback():
 
 
 @pytest.mark.django_db
-def test_base_template_loads_js_files():
+def test_base_template_loads_static_assets():
     client = Client()
     response = client.get("/")
     assert response.status_code == 200
@@ -576,6 +595,7 @@ def test_base_template_loads_js_files():
     assert "static/services/js/alpine.min.js" in content
     assert "static/services/js/error-translate.js" in content
     assert "static/services/js/main.js" in content
+    assert "static/services/css/style.css" in content
 
 
 @pytest.mark.django_db
