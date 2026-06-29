@@ -32,6 +32,9 @@ ERROR_CODES: dict[str, str] = {
     "contact/sent": "پیام شما با موفقیت ارسال شد.",
     # ---- Register ----
     "register/welcome": "خوش آمدید {username}!",
+    # ---- Uniqueness ----
+    "email/duplicate": "این ایمیل قبلاً ثبت شده است.",
+    "phone/duplicate": "این شماره تماس قبلاً ثبت شده است.",
 }
 
 

@@ -279,6 +279,25 @@ body {
     box-shadow: 0 8px 20px rgba(26,95,122,0.3);
 }
 
+.btn-reset {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #1a5f7a, #2c8faa);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+}
+
+.btn-reset:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(26,95,122,0.3);
+}
+
 /* --- Pagination --- */
 .pagination {
     text-align: center;
@@ -316,6 +335,33 @@ body {
 }
 
 .register-link {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.register-link a,
+.login-link a {
+    text-decoration: none;
+    color: #2563eb;
+    transition: color 0.15s;
+}
+
+.register-link a:hover,
+.login-link a:hover {
+    color: #1d4ed8;
+}
+
+.muted-link {
+    color: #6c757d;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.muted-link:hover {
+    color: #4a5568;
+}
+
+.login-link {
     text-align: center;
     margin-top: 20px;
 }

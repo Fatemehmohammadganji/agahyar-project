@@ -50,6 +50,25 @@ class TestRegisterForm:
         assert "email" in form.fields
         assert not form.fields["email"].required
 
+    def test_duplicate_username_error_in_persian(self):
+        User.objects.create_user("existinguser", password="pass12345")
+        form = RegisterForm(
+            data={
+                "username": "existinguser",
+                "first_name": "علی",
+                "last_name": "محمدی",
+                "email": "",
+                "password1": "ComplexPass1!",
+                "password2": "ComplexPass1!",
+                "city": "تهران",
+                "neighborhood": "ونک",
+                "phone": "09121234567",
+            }
+        )
+        assert not form.is_valid()
+        assert "username" in form.errors
+        assert "قبلاً ثبت شده است" in form.errors["username"][0]
+
 
 class TestLoginForm:
     def test_valid_form(self):

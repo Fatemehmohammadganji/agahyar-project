@@ -3,6 +3,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
 from .error_codes import get_error_message
+from .models import UserProfile
 from .validators import iranian_phone_number_validator
 
 REQUIRED_MSG: str = get_error_message("field/required")
@@ -94,6 +95,27 @@ class RegisterForm(UserCreationForm):
         widget=forms.TextInput(attrs={"placeholder": "مثال: 09121234567"}),
     )
 
+    def clean_username(self):
+        username = self.cleaned_data.get("username")
+        if username and User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError(
+                get_error_message("username/duplicate"),
+                code="duplicate_username",
+            )
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if email and User.objects.filter(email=email).exists():
+            raise forms.ValidationError(get_error_message("email/duplicate"))
+        return email
+
+    def clean_phone(self):
+        phone = self.cleaned_data.get("phone")
+        if phone and UserProfile.objects.filter(phone=phone).exists():
+            raise forms.ValidationError(get_error_message("phone/duplicate"))
+        return phone
+
     class Meta:
         model = User
         fields = [
@@ -111,6 +133,10 @@ class RegisterForm(UserCreationForm):
 
 class ProfileForm(forms.Form):
     """Form for editing user profile (city, neighborhood, phone)."""
+
+    def __init__(self, *args, **kwargs):
+        self.user_id = kwargs.pop("user_id", None)
+        super().__init__(*args, **kwargs)
 
     city = forms.CharField(
         label="شهر محل سکونت",
@@ -132,6 +158,16 @@ class ProfileForm(forms.Form):
         error_messages={"invalid": INVALID_PHONE_MSG},
         widget=forms.TextInput(attrs={"placeholder": "مثال: 09121234567"}),
     )
+
+    def clean_phone(self):
+        phone = self.cleaned_data.get("phone")
+        if phone:
+            qs = UserProfile.objects.filter(phone=phone)
+            if self.user_id:
+                qs = qs.exclude(user_id=self.user_id)
+            if qs.exists():
+                raise forms.ValidationError(get_error_message("phone/duplicate"))
+        return phone
 
 
 class ContactForm(forms.Form):

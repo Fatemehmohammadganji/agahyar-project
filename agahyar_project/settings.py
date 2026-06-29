@@ -144,6 +144,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Auth
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+
 # Email backend for development (prints to console)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 

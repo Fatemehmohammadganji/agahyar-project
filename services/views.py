@@ -280,7 +280,7 @@ def profile_view(request: HttpRequest) -> HttpResponse:
 
     if request.method == "POST":
         if "update_profile" in request.POST:
-            form = ProfileForm(request.POST)
+            form = ProfileForm(request.POST, user_id=request.user.id)
             password_form = PasswordChangeForm(request.user)
             if form.is_valid():
                 save_user_profile(
