@@ -1,6 +1,6 @@
 # Docker setup for production
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 65
 - TAGS: prod, docker
 
