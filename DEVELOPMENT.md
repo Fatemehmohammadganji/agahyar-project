@@ -80,17 +80,23 @@ uv run python manage.py createsuperuser
 Docker
 ------
 
-Build and run with Docker Compose:
+### Development
 
 ```bash
-# Copy and configure environment variables
 cp .env.example .env
-
-# Build and start
-docker compose up --build
+docker compose -f docker-compose.dev.yml up --build
 ```
 
 The application will be available at <http://localhost:8000>.
+
+### Production
+
+```bash
+# Adjust .env for production (postgres, redis, etc.)
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for full production instructions.
 
 Development Server
 ------------------

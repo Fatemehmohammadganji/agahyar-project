@@ -134,38 +134,11 @@ Production Deployment
 
 ### Production Docker Compose
 
-Create a `docker-compose.prod.yml`:
+The project includes a production-ready `docker-compose.prod.yml` with PostgreSQL
+and Redis services:
 
-```yaml
-services:
-  db:
-    image: postgres:16-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: agahyar
-      POSTGRES_USER: agahyar
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    restart: unless-stopped
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: >
-      sh -c "uv run python manage.py migrate
-      && uv run python manage.py collectstatic --noinput
-      && uv run gunicorn agahyar_project.wsgi:application --bind 0.0.0.0:8000"
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - db
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
 ```
 
 Update `.env` for production:
@@ -186,12 +159,7 @@ DB_USER=agahyar
 DB_PASSWORD=<strong-db-password>
 DB_HOST=db
 DB_PORT=5432
-```
-
-Then deploy:
-
-```bash
-docker compose -f docker-compose.prod.yml up --build -d
+REDIS_URL=redis://redis:6379/1
 ```
 
 After the containers are running, create the admin user:
@@ -199,6 +167,13 @@ After the containers are running, create the admin user:
 ```bash
 docker compose -f docker-compose.prod.yml exec web uv run create-superuser
 ```
+
+The application will be available at <http://localhost:8000>.
+
+> **Note:** The Dockerfile uses a multi-stage build. The first stage installs
+> dependencies, minifies CSS/JS assets, and collects static files. The second
+> (runtime) stage is a minimal image containing only what is needed to serve
+> the application via Gunicorn.
 
 ### Manual Deployment (bare metal / VPS)
 

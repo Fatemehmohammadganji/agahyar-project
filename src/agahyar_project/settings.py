@@ -156,6 +156,21 @@ CSRF_COOKIE_SAMESITE = "Lax"
 # Site URL (used in sitemap.xml, robots.txt, and canonical URLs)
 SITE_URL = config("SITE_URL", default="https://agahyar.ir")
 
+# Cache (Redis in production, local-memory fallback)
+REDIS_URL = config("REDIS_URL", default="")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+        }
+    }
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+    SESSION_CACHE_ALIAS = "default"
+
 # Rate limiting
 RATELIMIT_ENABLE = True
 RATELIMIT_FAIL_OPEN = False
