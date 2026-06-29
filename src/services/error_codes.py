@@ -35,6 +35,9 @@ ERROR_CODES: dict[str, str] = {
     # ---- Bookmark ----
     "bookmark/added": "خدمت مورد نظر به نشانک‌ها اضافه شد.",
     "bookmark/removed": "خدمت مورد نظر از نشانک‌ها حذف شد.",
+    # ---- Rating ----
+    "rating/added": "امتیاز شما با موفقیت ثبت شد.",
+    "rating/updated": "امتیاز شما با موفقیت به‌روزرسانی شد.",
     # ---- Rate limiting ----
     "ratelimit/exceeded": "درخواست‌های زیادی ارسال کرده‌اید. لطفاً چند دقیقه دیگر تلاش کنید.",
     # ---- Uniqueness ----

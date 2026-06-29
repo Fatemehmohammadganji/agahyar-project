@@ -5,6 +5,7 @@ from services.models import (
     FAQ,
     Bookmark,
     ContactMessage,
+    Rating,
     Service,
     ServiceCenter,
     UserProfile,
@@ -95,6 +96,39 @@ class TestContactMessageModel:
         )
         assert "علی" in str(msg)
         assert "ali@test.com" in str(msg)
+
+
+@pytest.mark.django_db
+@pytest.mark.django_db
+class TestRatingModel:
+    def test_str(self):
+        user = User.objects.create_user("rater", password="pass12345")
+        service = Service.objects.create(
+            name="خدمت تست", organization="org", documents="d", steps="s"
+        )
+        rating = Rating.objects.create(user=user, service=service, score=4)
+        assert "rater" in str(rating)
+        assert "خدمت تست" in str(rating)
+        assert "4" in str(rating)
+
+    def test_unique_together(self):
+        user = User.objects.create_user("rater2", password="pass12345")
+        service = Service.objects.create(
+            name="test", organization="org", documents="d", steps="s"
+        )
+        Rating.objects.create(user=user, service=service, score=3)
+        from django.db import IntegrityError
+
+        with pytest.raises(IntegrityError):
+            Rating.objects.create(user=user, service=service, score=5)
+
+    def test_score_range(self):
+        user = User.objects.create_user("rater3", password="pass12345")
+        service = Service.objects.create(
+            name="test2", organization="org", documents="d", steps="s"
+        )
+        rating = Rating.objects.create(user=user, service=service, score=5)
+        assert 1 <= rating.score <= 5
 
 
 @pytest.mark.django_db

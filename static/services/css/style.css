@@ -750,6 +750,177 @@ body {
     transform: translateY(-2px);
 }
 
+/* --- Rating Section --- */
+.rating-section {
+    margin-top: 10px;
+}
+
+.rating-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.avg-rating {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #1a5f7a;
+}
+
+.rating-summary .stars {
+    font-size: 1.6rem;
+    color: #f5a623;
+    letter-spacing: 4px;
+    unicode-bidi: bidi-override;
+    direction: ltr;
+}
+
+.rating-count {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.comments-list {
+    margin: 20px 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.comment-item {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-right: 3px solid #f5a623;
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.comment-user {
+    font-weight: 600;
+    color: #1a5f7a;
+    font-size: 0.95rem;
+}
+
+.comment-stars {
+    color: #f5a623;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+}
+
+.comment-date {
+    color: #6c757d;
+    font-size: 0.8rem;
+    margin-right: auto;
+}
+
+.comment-text {
+    color: #2c3e50;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.rating-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 16px;
+    margin-top: 10px;
+}
+
+.rating-score-row {
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.rating-score-row label {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* --- Pure CSS Star Rating Widget --- */
+.star-rating-input {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    gap: 2px;
+}
+
+.star-rating-input input {
+    display: none;
+}
+
+.star-rating-input label {
+    cursor: pointer;
+    font-size: 1.8rem;
+    color: #ddd;
+    transition: color 0.15s, transform 0.15s;
+    user-select: none;
+}
+
+.star-rating-input label::before {
+    content: "\2605";
+}
+
+.star-rating-input label:hover,
+.star-rating-input label:hover ~ label,
+.star-rating-input input:checked ~ label {
+    color: #f5a623;
+}
+
+.star-rating-input label:hover {
+    transform: scale(1.2);
+}
+
+.star-rating-input input:focus-visible + label {
+    outline: 2px solid #1a5f7a;
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.rating-comment-row textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.rating-comment-row textarea:focus {
+    border-color: #1a5f7a;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26,95,122,0.1);
+}
+
+.btn-rate {
+    background: #1a5f7a;
+    color: white;
+    border: none;
+    padding: 10px 28px;
+    border-radius: 40px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 12px;
+    transition: 0.2s;
+}
+
+.btn-rate:hover {
+    background: #0e4a60;
+    transform: translateY(-2px);
+}
+
 .no-results {
     text-align: center;
     background: white;

@@ -110,6 +110,28 @@ class ContactMessage(models.Model):
         return f"{self.name} - {self.email}"
 
 
+class Rating(models.Model):
+    """A user rating and feedback for a service."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ratings")
+    service = models.ForeignKey(
+        Service, on_delete=models.CASCADE, related_name="ratings"
+    )
+    score = models.PositiveSmallIntegerField("امتیاز (۱ تا ۵)")
+    comment = models.TextField("نظر", blank=True)
+    created_at = models.DateTimeField("تاریخ", auto_now_add=True)
+    updated_at = models.DateTimeField("آخرین ویرایش", auto_now=True)
+
+    class Meta:
+        verbose_name = "امتیاز"
+        verbose_name_plural = "امتیازها"
+        unique_together = ("user", "service")
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.service.name} - {self.score}"
+
+
 class Bookmark(models.Model):
     """A user's bookmark for a favorite service."""
 

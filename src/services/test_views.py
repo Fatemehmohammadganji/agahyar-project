@@ -8,6 +8,7 @@ from services.models import (
     FAQ,
     Bookmark,
     ContactMessage,
+    Rating,
     Service,
     ServiceCenter,
     UserProfile,
@@ -897,6 +898,74 @@ class TestBookmarkView:
         response = client.get(f"/service/{service.id}/")
         assert response.status_code == 200
         assert response.context["is_bookmarked"] is True
+
+
+@pytest.mark.django_db
+class TestRatingView:
+    def test_submit_creates_rating(self):
+        user = User.objects.create_user("rater", password="pass12345")
+        service = Service.objects.create(
+            name="rate-svc", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="rater", password="pass12345")
+        response = client.post(
+            f"/rate/{service.id}/", {"score": "4", "comment": "good"}
+        )
+        assert response.status_code == 302
+        rating = Rating.objects.get(user=user, service=service)
+        assert rating.score == 4
+        assert rating.comment == "good"
+
+    def test_submit_updates_existing_rating(self):
+        user = User.objects.create_user("rater2", password="pass12345")
+        service = Service.objects.create(
+            name="rate-svc2", organization="org", documents="d", steps="s"
+        )
+        Rating.objects.create(user=user, service=service, score=2, comment="bad")
+        client = Client()
+        client.login(username="rater2", password="pass12345")
+        response = client.post(
+            f"/rate/{service.id}/", {"score": "5", "comment": "updated"}
+        )
+        assert response.status_code == 302
+        rating = Rating.objects.get(user=user, service=service)
+        assert rating.score == 5
+        assert rating.comment == "updated"
+
+    def test_submit_requires_login(self):
+        service = Service.objects.create(
+            name="rate-svc3", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        response = client.post(f"/rate/{service.id}/")
+        assert response.status_code == 302
+        assert "/login/" in response.url
+
+    def test_submit_get_redirects_to_detail(self):
+        User.objects.create_user("rater3", password="pass12345")
+        service = Service.objects.create(
+            name="rate-svc4", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="rater3", password="pass12345")
+        response = client.get(f"/rate/{service.id}/")
+        assert response.status_code == 302
+        assert f"/service/{service.id}/" in response.url
+
+    def test_detail_shows_rating_context(self):
+        user = User.objects.create_user("rater4", password="pass12345")
+        service = Service.objects.create(
+            name="rate-svc5", organization="org", documents="d", steps="s"
+        )
+        Rating.objects.create(user=user, service=service, score=3)
+        client = Client()
+        client.login(username="rater4", password="pass12345")
+        response = client.get(f"/service/{service.id}/")
+        assert response.status_code == 200
+        assert response.context["avg_rating"] == 3.0
+        assert response.context["rating_count"] == 1
+        assert response.context["user_rating"] is not None
 
 
 class TestRateLimitPage:

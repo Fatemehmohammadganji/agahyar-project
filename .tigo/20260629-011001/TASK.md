@@ -1,6 +1,6 @@
 # Service rating / feedback system
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: feature
 

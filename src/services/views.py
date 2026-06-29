@@ -4,14 +4,29 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import Q, QuerySet
+from django.db.models import Avg, Q, QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django_ratelimit.decorators import ratelimit
 
 from .error_codes import get_error_message
-from .forms import CITY_CHOICES, ContactForm, LoginForm, ProfileForm, RegisterForm
-from .models import FAQ, Bookmark, ContactMessage, Service, ServiceCenter, UserProfile
+from .forms import (
+    CITY_CHOICES,
+    ContactForm,
+    LoginForm,
+    ProfileForm,
+    RatingForm,
+    RegisterForm,
+)
+from .models import (
+    FAQ,
+    Bookmark,
+    ContactMessage,
+    Rating,
+    Service,
+    ServiceCenter,
+    UserProfile,
+)
 from .scraper import get_nearest_center
 
 
@@ -220,6 +235,15 @@ def service_detail(request: HttpRequest, service_id: int) -> HttpResponse:
 
     is_bookmarked = Bookmark.objects.filter(user=request.user, service=service).exists()
 
+    ratings = (
+        Rating.objects.filter(service=service)
+        .select_related("user")
+        .order_by("-created_at")
+    )
+    avg_rating = ratings.aggregate(Avg("score"))["score__avg"]
+    user_rating = Rating.objects.filter(user=request.user, service=service).first()
+    comments = [r for r in ratings if r.comment]
+
     return render(
         request,
         "services/detail.html",
@@ -231,6 +255,11 @@ def service_detail(request: HttpRequest, service_id: int) -> HttpResponse:
             "user_city": user_city,
             "user_neighborhood": user_neighborhood,
             "is_bookmarked": is_bookmarked,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": ratings.count(),
+            "user_rating": user_rating,
+            "comments": comments,
+            "rating_form": RatingForm(),
         },
     )
 
@@ -431,6 +460,34 @@ def bookmarks_list(request: HttpRequest) -> HttpResponse:
     """List all bookmarked services for the current user."""
     bookmarks = Bookmark.objects.filter(user=request.user).select_related("service")
     return render(request, "services/bookmarks.html", {"bookmarks": bookmarks})
+
+
+@login_required
+def submit_rating(request: HttpRequest, service_id: int) -> HttpResponse:
+    """Submit or update a rating for a service.
+
+    POST only: validates :class:`RatingForm`, creates or updates the rating.
+    """
+    if request.method != "POST":
+        return redirect("service_detail", service_id=service_id)
+
+    service = get_object_or_404(Service, id=service_id)
+    form = RatingForm(request.POST)
+    if form.is_valid():
+        rating, created = Rating.objects.update_or_create(
+            user=request.user,
+            service=service,
+            defaults={
+                "score": int(form.cleaned_data["score"]),
+                "comment": form.cleaned_data.get("comment", ""),
+            },
+        )
+        if created:
+            messages.success(request, get_error_message("rating/added"))
+        else:
+            messages.success(request, get_error_message("rating/updated"))
+
+    return redirect("service_detail", service_id=service_id)
 
 
 def robots_txt(request: HttpRequest) -> HttpResponse:

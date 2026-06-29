@@ -15,9 +15,10 @@ urlpatterns: List[URLPattern] = [
     path("search/", views.search, name="search"),
     path("service/<int:service_id>/", views.service_detail, name="service_detail"),
     path("services/", views.services_list, name="services_list"),
-    # ===== Bookmarks =====
+    # ===== Bookmarks & Ratings =====
     path("bookmarks/", views.bookmarks_list, name="bookmarks_list"),
     path("bookmark/<int:service_id>/", views.toggle_bookmark, name="toggle_bookmark"),
+    path("rate/<int:service_id>/", views.submit_rating, name="submit_rating"),
     # ===== Supplementary pages =====
     path("profile/", views.profile_view, name="profile"),
     path("faq/", views.faq_view, name="faq"),

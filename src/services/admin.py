@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import FAQ, Bookmark, ContactMessage, Service, ServiceCenter, UserProfile
+from .models import (
+    FAQ,
+    Bookmark,
+    ContactMessage,
+    Rating,
+    Service,
+    ServiceCenter,
+    UserProfile,
+)
 
 
 @admin.register(Service)
@@ -46,6 +54,15 @@ class ContactMessageAdmin(admin.ModelAdmin):
     list_display = ("name", "email", "created_at")
     search_fields = ("name", "email", "message")
     readonly_fields = ("name", "email", "message", "created_at")
+
+
+@admin.register(Rating)
+class RatingAdmin(admin.ModelAdmin):
+    """Admin configuration for the Rating model."""
+
+    list_display = ("user", "service", "score", "created_at")
+    search_fields = ("user__username", "service__name", "comment")
+    list_filter = ("score", "created_at")
 
 
 @admin.register(Bookmark)
