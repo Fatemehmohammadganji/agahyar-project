@@ -108,6 +108,27 @@ Running Tests
 uv run pytest
 ```
 
+Populating Sample Data
+----------------------
+
+The repository includes scripts under ``scripts/`` to populate the database with
+realistic sample data:
+
+- ``populate_services.py`` -- creates (or updates) 9 government services
+  (idempotent, safe to re-run):
+
+  ```bash
+  uv run python scripts/populate_services.py
+  ```
+
+- ``populate_centers.py`` -- creates (or updates) 34 ServiceCenter records with
+  real addresses and phone numbers for Tehran, Karaj, and Qom. Requires that
+  ``populate_services.py`` has been run first (idempotent):
+
+  ```bash
+  uv run python scripts/populate_centers.py
+  ```
+
 Project Structure
 -----------------
 
