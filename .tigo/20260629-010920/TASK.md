@@ -1,7 +1,7 @@
 # Breadcrumb navigation
 
 - STATUS: OPEN
-- PRIORITY: 45
+- PRIORITY: 15
 - TAGS: ux, navigation
 
 Add breadcrumb navigation to all pages for better orientation.
