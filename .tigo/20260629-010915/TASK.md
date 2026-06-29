@@ -1,6 +1,6 @@
 # SEO and discoverability
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: seo, marketing
 

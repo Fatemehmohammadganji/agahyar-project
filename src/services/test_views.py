@@ -687,6 +687,46 @@ class TestAdminURLConfigurable:
 
 
 @pytest.mark.django_db
+class TestSeoEndpoints:
+    def test_robots_txt(self):
+        from django.test.utils import override_settings
+
+        with override_settings(SITE_URL="https://example.com"):
+            client = Client()
+            response = client.get("/robots.txt")
+            assert response.status_code == 200
+            assert response["Content-Type"] == "text/plain"
+            content = response.content.decode()
+            assert "User-agent: *" in content
+            assert "Sitemap: https://example.com/sitemap.xml" in content
+
+    def test_sitemap_xml(self):
+        from django.test.utils import override_settings
+
+        with override_settings(SITE_URL="https://example.com"):
+            client = Client()
+            response = client.get("/sitemap.xml")
+            assert response.status_code == 200
+            assert "application/xml" in response["Content-Type"]
+            content = response.content.decode()
+            assert '<?xml version="1.0" encoding="UTF-8"?>' in content
+            assert "<urlset" in content
+            assert "https://example.com" in content
+
+    def test_homepage_has_meta_tags(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'name="description"' in content
+        assert 'name="keywords"' in content
+        assert 'rel="canonical"' in content
+        assert 'property="og:title"' in content
+        assert 'property="og:description"' in content
+        assert 'name="twitter:title"' in content
+        assert 'name="twitter:description"' in content
+
+
+@pytest.mark.django_db
 def test_print_media_query_exists_in_css():
     import os
 

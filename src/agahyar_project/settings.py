@@ -153,6 +153,9 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = "Lax"
 
+# Site URL (used in sitemap.xml, robots.txt, and canonical URLs)
+SITE_URL = config("SITE_URL", default="https://agahyar.ir")
+
 # Rate limiting
 RATELIMIT_ENABLE = True
 RATELIMIT_FAIL_OPEN = False

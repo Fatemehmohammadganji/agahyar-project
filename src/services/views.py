@@ -368,3 +368,47 @@ def contact(request: HttpRequest) -> HttpResponse:
         form = ContactForm()
 
     return render(request, "services/contact.html", {"form": form})
+
+
+def robots_txt(request: HttpRequest) -> HttpResponse:
+    """Serve robots.txt."""
+    from django.conf import settings
+
+    return HttpResponse(
+        f"User-agent: *\nAllow: /\nSitemap: {settings.SITE_URL}/sitemap.xml\n",
+        content_type="text/plain",
+    )
+
+
+def sitemap_xml(request: HttpRequest) -> HttpResponse:
+    """Generate a simple sitemap.xml listing all public pages."""
+    from django.conf import settings
+    from django.urls import reverse
+
+    from .models import Service
+
+    site_url = settings.SITE_URL
+    pages = [
+        ("home", None, "0.9"),
+        ("about", None, "0.7"),
+        ("contact", None, "0.6"),
+        ("faq", None, "0.7"),
+        ("services_list", None, "0.8"),
+    ]
+    urls = ""
+    for name, arg, priority in pages:
+        url = (
+            site_url + reverse(name)
+            if arg is None
+            else site_url + reverse(name, args=[arg])
+        )
+        urls += f"<url><loc>{url}</loc><priority>{priority}</priority></url>\n"
+    for service in Service.objects.all():
+        url = site_url + reverse("service_detail", args=[service.id])
+        urls += f"<url><loc>{url}</loc><priority>0.6</priority></url>\n"
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}</urlset>"
+    )
+    return HttpResponse(xml, content_type="application/xml")

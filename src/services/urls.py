@@ -6,6 +6,9 @@ from django.urls import URLPattern, path
 from . import views
 
 urlpatterns: List[URLPattern] = [
+    # ===== SEO =====
+    path("robots.txt", views.robots_txt, name="robots_txt"),
+    path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
     # ===== Core pages =====
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),

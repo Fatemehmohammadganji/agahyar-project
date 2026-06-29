@@ -1,6 +1,9 @@
 {% extends 'services/base.html' %}
 
 {% block title %}جزئیات {{ service.name }} | آگاه‌یار{% endblock %}
+{% block meta_description %}مدارک، مراحل، هزینه و مدت زمان مورد نیاز برای {{ service.name }} - سامانه آگاه‌یار{% endblock %}
+{% block meta_keywords %}{{ service.name }}, {{ service.organization }}, خدمات دولتی{% endblock %}
+{% block og_title %}آگاه‌یار | {{ service.name }}{% endblock %}
 
 {% block content %}
 
