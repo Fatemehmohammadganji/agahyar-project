@@ -1,10 +1,10 @@
 /**
- * Aghahyar - Error code translation
+ * Agahyar - Error code translation
  *
  * Maps backend error codes to Persian messages for client-side use.
  */
 
-window.AghahyarErrors = {
+window.AgahyarErrors = {
     "field/required": "وارد کردن این فیلد الزامی است.",
     "field/invalid-email": "ایمیل وارد شده معتبر نیست.",
     "field/invalid-phone": "شماره تماس وارد شده معتبر نیست (مثال: 09121234567).",
@@ -14,5 +14,5 @@ window.AghahyarErrors = {
 };
 
 window.translateError = function (code) {
-    return window.AghahyarErrors[code] || code;
+    return window.AgahyarErrors[code] || code;
 };

@@ -1,5 +1,5 @@
 /**
- * Aghahyar - Main JavaScript
+ * Agahyar - Main JavaScript
  */
 
 function toggleMenu() {

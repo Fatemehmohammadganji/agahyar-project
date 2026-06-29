@@ -1,17 +1,17 @@
-# Aghahyar (آگاه‌یار)
+# Agahyar (آگاه‌یار)
 
 Smart Citizen Information System for Government Services.
 
 ## About the Project
 
-**Aghahyar** helps citizens access accurate information about government
+**Agahyar** helps citizens access accurate information about government
 services before visiting offices in person — showing **required documents**,
 **steps**, **costs**, **duration**, and **nearest service centers** in one
 place.
 
 > **Problem:** Millions of unsuccessful office visits happen every year due to
 > lack of awareness.
-> **Solution:** Aghahyar empowers citizens with knowledge, saving time, money,
+> **Solution:** Agahyar empowers citizens with knowledge, saving time, money,
 > and reducing frustration.
 
 ## Key Features
