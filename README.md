@@ -45,6 +45,17 @@ place.
 
 ---
 
+## 🎯 Why Agahyar?
+
+Agahyar aims to reduce unnecessary government office visits by providing
+accurate, centralized, and easy-to-understand information about public
+services.
+
+Instead of searching across multiple websites or asking others, citizens can
+find everything they need in one place.
+
+---
+
 ## 🛠️ Technologies Used
 
 - 🐍 **Python 3.12 / Django 6.0** – Backend
@@ -160,8 +171,78 @@ agahyar-project/
 
 ---
 
+## 🚀 Current Project Status
+
+Agahyar is currently in an active development stage.
+
+✅ Core features have been implemented, including:
+
+- User authentication
+- Smart service search
+- Service details
+- Service center locator
+- Bookmarks
+- Ratings and comments
+- Admin management
+- Responsive interface
+- Dark/Light mode
+- Security hardening
+
+Future development will focus on AI-powered recommendations, multi-city support, mobile applications, multilingual support, and integration with external APIs.
+
+---
+
+## 🎯 Project Goals
+
+The primary goal of **Agahyar** is to simplify access to government service information and reduce unnecessary in-person visits to public offices.
+
+The project focuses on:
+
+- Providing accurate and centralized information about government services
+- Helping citizens prepare required documents before visiting service centers
+- Saving citizens' time and reducing unnecessary travel costs
+- Improving transparency of administrative procedures
+- Offering a simple, accessible, and responsive user experience across devices
+- Building a secure and scalable web application using modern development practices
+
+---
+
+## 🌟 Project Highlights
+
+- 🏛️ Solves a real-world public service accessibility problem
+- ⚡ Built with Django 6 following modern backend development practices
+- 🔐 Security-focused architecture with rate limiting and CSP protection
+- 📱 Fully responsive design for desktop, tablet, and mobile devices
+- ⭐ User-centered features including bookmarks, ratings, and feedback
+- 🌙 Persistent Dark/Light theme support
+- 📍 Location-based service center discovery
+- 🐳 Docker-ready for development and deployment
+- 🧪 Structured project organization suitable for future scalability
+- 📖 Comprehensive documentation and easy local setup
+
+---
+
 ## 🤝🏻 Team
 
 -  Fatemeh Mohammadganji – Project Manager & Frontend Developer
 -  Zahra Kamalian – Backend Developer
 -  Mohsen Ali Ahmadi – Database Developer & Organization Liaison
+
+---
+
+## 🎓 Academic Project
+
+This project was developed as a **university team project** for the **Project Management and Control** course during the **1404–1405 (2025–2026)** academic year.
+
+The project was designed to simulate a real software development lifecycle, including project planning, requirement analysis, system design, implementation, documentation, testing, and team collaboration.
+
+Although developed for academic purposes, Agahyar was built with production-oriented practices and is intended to serve as a realistic portfolio project demonstrating modern web development principles.
+
+---
+
+## 💡 Motivation
+
+Government services are often scattered across multiple websites and organizations, making it difficult for citizens to find accurate and up-to-date information.
+
+Agahyar was created to centralize this information into a single platform where users can quickly learn about required documents, procedures, costs, service centers, and other essential details before visiting government offices.
+
