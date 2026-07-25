@@ -58,9 +58,11 @@
     <div style="display:none">{% csrf_token %}</div>
     <header class="header">
       <div class="header-container">
-        <a class="logo" href="{% url 'home' %}">
-          <h1>آگاه‌یار</h1>
-          <p>راهنمای هوشمند خدمات دولتی</p>
+        <a class="logo"
+           href="{% url 'home' %}"
+           aria-label="آگاه‌یار — راهنمای هوشمند خدمات دولتی">
+          <span class="logo-name">آگاه‌یار</span>
+          <span class="logo-tagline">راهنمای هوشمند خدمات دولتی</span>
         </a>
         <nav class="nav-links" id="navLinks">
           <a href="{% url 'services_list' %}">خدمات</a>

@@ -1,6 +1,6 @@
 # Replace site logo with SVG or PNG image
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 45
 - TAGS: ux, design
 

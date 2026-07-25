@@ -117,7 +117,7 @@ body {
   text-decoration: none;
 }
 
-.logo h1 {
+.logo-name {
   font-size: 1.6rem;
   font-weight: 700;
   background: linear-gradient(135deg, var(--color-accent), #2c8faa);
@@ -126,7 +126,7 @@ body {
   color: transparent;
 }
 
-.logo p {
+.logo-tagline {
   font-size: 0.7rem;
   color: var(--text-secondary);
   margin-top: -4px;
