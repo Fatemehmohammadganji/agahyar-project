@@ -1,0 +1,95 @@
+<div class="admin-comment {% if depth > 0 %}admin-comment--reply{% endif %}"
+     {% if depth > 0 %}style="margin-right: {{ depth|add:"1" }}0px;"{% endif %}>
+  <div class="admin-comment-header">
+    <span class="admin-comment-user">
+      {% if comment.user.get_full_name %}
+        {{ comment.user.get_full_name }}
+      {% else %}
+        {{ comment.user.username }}
+      {% endif %}
+    </span>
+    <span class="admin-comment-date">{{ comment.created_at|date:"Y/m/d H:i" }}</span>
+  </div>
+  <div class="admin-comment-meta">
+    <span class="item-card-badge badge-gray">ID: {{ comment.user.pk }}</span>
+    {% if comment.service %}
+      <span class="item-card-badge badge-blue">{{ comment.service.name }}</span>
+    {% elif comment.service_center %}
+      <span class="item-card-badge badge-green">{{ comment.service_center.name }}</span>
+    {% endif %}
+    {% if comment.is_deleted %}
+      <span class="item-card-badge badge-red">حذف شده</span>
+    {% endif %}
+    {% if depth > 0 %}
+      <span class="item-card-badge badge-yellow">پاسخ</span>
+    {% endif %}
+    {% if comment.edited_at %}
+      <span class="item-card-badge badge-gray">ویرایش شده</span>
+    {% endif %}
+    {% if comment.likes_count %}
+      <span class="item-card-badge badge-teal">
+        <i class="fas fa-thumbs-up"></i> {{ comment.likes_count }}
+      </span>
+    {% endif %}
+    {% if comment.dislikes_count %}
+      <span class="item-card-badge badge-yellow">
+        <i class="fas fa-thumbs-down"></i> {{ comment.dislikes_count }}
+      </span>
+    {% endif %}
+  </div>
+  <div class="admin-comment-text{% if comment.is_deleted %} admin-comment-text--deleted{% endif %}">{{ comment.text|linebreaksbr }}</div>
+  {% if comment.is_deleted and comment.deleted_by %}
+    <div class="admin-comment-detail">
+      <span class="detail-label">حذف شده توسط:</span> {{ comment.deleted_by.username }}
+    </div>
+  {% endif %}
+  <div class="admin-comment-actions">
+    {% if comment.service %}
+      <a href="{% url 'service_detail' comment.service.pk %}"
+         target="_blank"
+         class="btn-admin-icon"
+         title="باز کردن خدمت">
+        <i class="fas fa-up-right-from-square"></i>
+      </a>
+    {% elif comment.service_center %}
+      <a href="{% url 'center_detail' comment.service_center.pk %}"
+         target="_blank"
+         class="btn-admin-icon"
+         title="باز کردن مرکز">
+        <i class="fas fa-up-right-from-square"></i>
+      </a>
+    {% endif %}
+    <a href="{% url 'admin:services_comment_change' comment.pk %}"
+       class="btn-admin-icon"
+       title="ویرایش">
+      <i class="fas fa-pen"></i>
+    </a>
+    {% if not comment.is_deleted %}
+      <button type="button"
+              class="btn-admin-icon btn-admin-delete"
+              data-url="{% url 'admin_delete_comment' comment.pk %}"
+              onclick="deleteComment(this, {{ comment.pk }})"
+              title="حذف نظر">
+        <i class="fas fa-trash"></i>
+      </button>
+    {% endif %}
+  </div>
+  {% with replies=comment.replies.all %}
+    {% if replies %}
+      <button type="button"
+              class="btn-toggle-admin-replies"
+              onclick="toggleAdminReplies({{ comment.id }}, this)">
+        <i class="fas fa-comments"></i>
+        {{ replies|length }} پاسخ
+        <i class="fas fa-chevron-down admin-toggle-icon"></i>
+      </button>
+      <div id="admin-replies-{{ comment.id }}"
+           class="admin-comment-replies"
+           style="display:none">
+        {% for reply in replies %}
+          {% include "admin/card_views/comment_card.html" with comment=reply depth=depth|add:"1" %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+</div>

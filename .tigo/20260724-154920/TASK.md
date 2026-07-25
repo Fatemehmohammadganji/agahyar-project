@@ -1,6 +1,6 @@
 # Improve admin panel UI/UX
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: ux, admin, design
 

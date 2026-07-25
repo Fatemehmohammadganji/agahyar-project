@@ -1,0 +1,184 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}{{ page_title }} | آگاه‌یار{% endblock %}
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'services/css/admin-rtl.css' %}">
+  <link rel="stylesheet"
+        href="{% static 'services/css/admin-card-views.css' %}">
+{% endblock %}
+{% block content %}
+  {% csrf_token %}
+  <input type="hidden" id="csrf-token-field" value="{{ csrf_token }}">
+  <div id="content-main">
+    <a href="{% url 'admin:index' %}" class="back-link">&larr; بازگشت به پنل مدیریت</a>
+    <h1>{{ page_title }}</h1>
+    <p class="card-count">{{ page_obj.paginator.count }} مورد</p>
+    <div class="card-grid">
+      {% block cards %}{% endblock %}
+    </div>
+    {% if page_obj.has_other_pages %}
+      <nav class="card-pagination" aria-label="صفحه‌بندی">
+        {% if page_obj.has_previous %}
+          <a class="card-page-btn"
+             href="?page={{ page_obj.previous_page_number }}">&laquo; قبلی</a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+          {% if page_obj.number == num %}
+            <span class="card-page-btn card-page-active">{{ num }}</span>
+          {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+            <a class="card-page-btn" href="?page={{ num }}">{{ num }}</a>
+          {% elif num == 1 or num == page_obj.paginator.num_pages %}
+            <a class="card-page-btn" href="?page={{ num }}">{{ num }}</a>
+          {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+            <span class="card-page-ellipsis">&hellip;</span>
+          {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+          <a class="card-page-btn" href="?page={{ page_obj.next_page_number }}">بعدی &raquo;</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  </div>
+  <div class="card-modal-overlay" id="cardModal">
+    <div class="card-modal">
+      <div class="card-modal-header">
+        <span class="card-modal-title" id="cardModalTitle"></span>
+        <button class="card-modal-close" id="cardModalClose">&times;</button>
+      </div>
+      <div class="card-modal-body" id="cardModalBody"></div>
+    </div>
+  </div>
+  <script>
+      (function() {
+          var overlay = document.getElementById("cardModal");
+          var titleEl = document.getElementById("cardModalTitle");
+          var bodyEl = document.getElementById("cardModalBody");
+          var closeBtn = document.getElementById("cardModalClose");
+
+          function openModal(title, text) {
+              titleEl.textContent = title;
+              bodyEl.textContent = text;
+              overlay.classList.add("active");
+          }
+
+          function closeModal() {
+              overlay.classList.remove("active");
+          }
+
+          closeBtn.addEventListener("click", closeModal);
+          overlay.addEventListener("click", function(e) {
+              if (e.target === overlay) closeModal();
+          });
+          document.addEventListener("keydown", function(e) {
+              if (e.key === "Escape") closeModal();
+          });
+
+          var blocks = document.querySelectorAll(".item-card-truncated");
+          blocks.forEach(function(el) {
+              if (el.scrollHeight <= el.offsetHeight + 2) return;
+              el.classList.add("is-overflow");
+              el.addEventListener("click", function() {
+                  var card = el.closest(".item-card");
+                  var name = card ? card.querySelector(".item-card-title") : null;
+                  var title = name ? name.textContent : "متن";
+                  openModal(title, el.textContent.replace(/\s*$/, ""));
+              });
+          });
+      })();
+
+      function toggleAdminReplies(commentId, btn) {
+          var el = document.getElementById("admin-replies-" + commentId);
+          if (!el) return;
+          var icon = btn.querySelector(".admin-toggle-icon");
+          if (el.style.display === "none") {
+              el.style.display = "block";
+              icon.classList.replace("fa-chevron-down", "fa-chevron-up");
+          } else {
+              el.style.display = "none";
+              icon.classList.replace("fa-chevron-up", "fa-chevron-down");
+          }
+      }
+
+      function getCsrfToken() {
+          var el = document.getElementById("csrf-token-field");
+          return el ? el.value : "";
+      }
+
+      function toggleReport(btn, reportId) {
+          btn.disabled = true;
+          var hdrs = {
+              "X-CSRFToken": getCsrfToken(),
+              "X-Requested-With": "XMLHttpRequest"
+          };
+          fetch(btn.dataset.url, {
+              method: "POST",
+              headers: hdrs
+          }).then(function(r) {
+              if (!r.ok) throw new Error(r.status);
+              return r.json();
+          }).then(function(data) {
+              var card = btn.closest(".item-card");
+              if (data.is_resolved) {
+                  card.classList.remove("card-accent-red");
+                  card.classList.add("card-accent-green");
+                  btn.classList.remove("btn-admin-resolve");
+                  btn.classList.add("btn-admin-unresolve");
+                  btn.innerHTML = '<i class="fas fa-rotate-left"></i>';
+                  btn.title = "برگشت به بررسی نشده";
+              } else {
+                  card.classList.remove("card-accent-green");
+                  card.classList.add("card-accent-red");
+                  btn.classList.remove("btn-admin-unresolve");
+                  btn.classList.add("btn-admin-resolve");
+                  btn.innerHTML = '<i class="fas fa-check"></i>';
+                  btn.title = "بررسی شد";
+              }
+              var badge = card.querySelector(".report-status-badge");
+              if (badge) {
+                  var cls = data.is_resolved ? "badge-green" : "badge-red";
+                  badge.className = "item-card-badge report-status-badge " + cls;
+                  badge.textContent = data.is_resolved ?
+                      "بررسی شده" : "بررسی نشده";
+              }
+              btn.disabled = false;
+          }).catch(function() {
+              btn.disabled = false;
+              alert("خطا در ارتباط با سرور");
+          });
+      }
+
+      function deleteComment(btn, commentId) {
+          if (!confirm("آیا از حذف این نظر اطمینان دارید؟")) return;
+          btn.disabled = true;
+          var hdrs = {
+              "X-CSRFToken": getCsrfToken(),
+              "X-Requested-With": "XMLHttpRequest"
+          };
+          fetch(btn.dataset.url, {
+              method: "POST",
+              headers: hdrs
+          }).then(function(r) {
+              if (!r.ok) throw new Error(r.status);
+              return r.json();
+          }).then(function(data) {
+              var card = btn.closest(".item-card") || btn.closest(".admin-comment");
+              if (card) {
+                  card.classList.add("card-deleted");
+                  var meta = card.querySelector(".admin-comment-meta") ||
+                      card.querySelector(".item-card-meta");
+                  if (meta) {
+                      var d = document.createElement("span");
+                      d.className = "item-card-badge badge-red";
+                      d.textContent = "حذف شده";
+                      meta.appendChild(d);
+                  }
+                  btn.remove();
+              }
+          }).catch(function() {
+              btn.disabled = false;
+              alert("خطا در حذف نظر");
+          });
+      }
+  </script>
+{% endblock %}

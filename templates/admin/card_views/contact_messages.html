@@ -1,0 +1,23 @@
+{% extends "admin/card_views/base.html" %}
+{% block cards %}
+  {% for msg in page_obj %}
+    <div class="item-card card-accent-blue">
+      <div class="item-card-header">
+        <span class="item-card-title">{{ msg.name }}</span>
+        <span class="item-card-date">{{ msg.created_at|date:"Y/m/d H:i" }}</span>
+      </div>
+      <div class="item-card-meta">
+        <span class="item-card-badge badge-gray">ID: {{ msg.pk }}</span>
+        <span class="item-card-badge badge-blue item-card-ltr">{{ msg.email }}</span>
+      </div>
+      <div class="item-card-body item-card-truncated">{{ msg.message }}</div>
+      <div class="item-card-actions">
+        <a href="{% url 'admin:services_contactmessage_change' msg.pk %}"
+           class="btn-admin-icon"
+           title="ویرایش">
+          <i class="fas fa-pen"></i>
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+{% endblock %}

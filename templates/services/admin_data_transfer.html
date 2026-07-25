@@ -3,7 +3,7 @@
 {% block title %}انتقال داده | آگاه‌یار{% endblock %}
 {% block breadcrumbs %}
   <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">Home</a> &rsaquo; Data Transfer
+    <a href="{% url 'admin:index' %}">خانه</a> &rsaquo; درون‌ریزی / برون‌بری
   </div>
 {% endblock %}
 {% block extrastyle %}
@@ -153,7 +153,6 @@
 {% block content %}
   <div id="content-main">
     {% block messages %}{{ block.super }}{% endblock %}
-    <h1 style="margin-bottom: 24px;">{% if title %}{{ title }}{% else %}Data Transfer{% endif %}</h1>
     {% if error %}
       <div class="result-box result-error">{{ error }}</div>
     {% endif %}

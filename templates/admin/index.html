@@ -1,24 +1,86 @@
 {% extends "admin/index.html" %}
 {% block extrastyle %}
+  {{ block.super }}
   <style>
-      .button.pages-btn {
-          display: inline-block;
-          padding: 8px 16px;
-          margin-bottom: 10px;
-          font-size: 14px;
-          font-weight: bold;
+      .quick-links {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-bottom: 24px;
+      }
+
+      .quick-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 20px;
+          font-size: 0.9rem;
+          font-weight: 600;
           border: none;
-          border-radius: 4px;
+          border-radius: 6px;
           text-decoration: none !important;
+          color: #fff !important;
+          transition: opacity 0.15s, transform 0.1s;
+      }
+
+      .quick-link:hover {
+          opacity: 0.9;
+          transform: translateY(-1px);
+      }
+
+      .quick-link i {
+          font-size: 1rem;
+      }
+
+      .quick-link--stats {
+          background: #1a5f7a;
+      }
+
+      .quick-link--import {
+          background: #2e7d32;
+      }
+
+      .quick-link--status {
+          background: #555;
+      }
+
+      .quick-link--card {
+          background: #6c5ce7;
       }
   </style>
 {% endblock %}
 {% block content_title %}
-  <h1>پنل مدیریت آگاه‌یار</h1>
-  <a href="{% url 'admin_stats' %}" class="button pages-btn">
-    <i class="fas fa-chart-bar"></i> آمار مدیریت
-  </a>
-  <a href="{% url 'admin_data_transfer' %}" class="button pages-btn">
-    <i class="fas fa-exchange-alt"></i> Export / Import
-  </a>
+  <h1 style="margin-bottom: 20px;">پنل مدیریت آگاه‌یار</h1>
+  <div class="quick-links">
+    <a href="{% url 'admin_stats' %}" class="quick-link quick-link--stats">
+      <i class="fas fa-chart-bar"></i> آمار مدیریت
+    </a>
+    <a href="{% url 'admin_data_transfer' %}"
+       class="quick-link quick-link--import">
+      <i class="fas fa-exchange-alt"></i>       Import / Export
+    </a>
+    <a href="{% url 'server_status' %}"
+       class="quick-link quick-link--status"
+       target="_blank">
+      <i class="fas fa-server"></i> وضعیت سرور
+    </a>
+  </div>
+  <div class="quick-links">
+    <a href="{% url 'admin_card_reports' %}"
+       class="quick-link quick-link--card">
+      <i class="fas fa-flag"></i> گزارش‌ها
+    </a>
+    <a href="{% url 'admin_card_contacts' %}"
+       class="quick-link quick-link--card">
+      <i class="fas fa-envelope"></i> پیام‌های تماس
+    </a>
+    <a href="{% url 'admin_card_profiles' %}"
+       class="quick-link quick-link--card">
+      <i class="fas fa-id-card"></i> پروفایل‌ها
+    </a>
+    <a href="{% url 'admin_card_comments' %}"
+       class="quick-link quick-link--card">
+      <i class="fas fa-comments"></i> نظرات
+    </a>
+  </div>
 {% endblock %}

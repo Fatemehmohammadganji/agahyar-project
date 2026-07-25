@@ -33,3 +33,6 @@ static/Vazirmatn-Regular.woff2
 
 # Logs
 logs/
+
+# Debug scripts
+scripts/_debug_*.py

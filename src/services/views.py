@@ -23,11 +23,12 @@ from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Q, QuerySet
+from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
 from .error_codes import get_error_message
@@ -51,6 +52,7 @@ from .models import (
     Bookmark,
     CenterRating,
     Comment,
+    CommentReaction,
     ContactMessage,
     InfoReport,
     PhoneVerification,
@@ -2213,7 +2215,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
 
     context = {
         "model_choices": model_choices,
-        "title": "Bulk Data Export / Import",
+        "title": "Import / Export",
     }
 
     if request.method == "POST":
@@ -2253,22 +2255,22 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                         rows.append(row)
                 if not rows:
                     context["error"] = "No data to export."
-                    return render(request, "services/admin_data_transfer.html", context)
-                all_keys = []
-                seen = set()
-                for row in rows:
-                    for key in row:
-                        if key not in seen:
-                            all_keys.append(key)
-                            seen.add(key)
-                buf = io.StringIO()
-                writer = csv.DictWriter(buf, fieldnames=all_keys)
-                writer.writeheader()
-                for row in rows:
-                    writer.writerow(row)
-                content = buf.getvalue()
-                content_type = "text/csv"
-                ext = "csv"
+                else:
+                    all_keys = []
+                    seen = set()
+                    for row in rows:
+                        for key in row:
+                            if key not in seen:
+                                all_keys.append(key)
+                                seen.add(key)
+                    buf = io.StringIO()
+                    writer = csv.DictWriter(buf, fieldnames=all_keys)
+                    writer.writeheader()
+                    for row in rows:
+                        writer.writerow(row)
+                    content = buf.getvalue()
+                    content_type = "text/csv"
+                    ext = "csv"
 
             response = HttpResponse(content, content_type=content_type)
             filename = f"agahyar_export.{ext}"
@@ -2388,3 +2390,126 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
             return render(request, "services/admin_data_transfer.html", context)
 
     return render(request, "services/admin_data_transfer.html", context)
+
+
+@staff_member_required
+def admin_card_reports(request):
+    """Display info reports as cards (admin only)."""
+    qs = InfoReport.objects.select_related(
+        "user", "service", "service_center", "resolved_by"
+    ).all()
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "admin/card_views/info_reports.html",
+        {"page_title": "گزارش‌های اطلاعات", "page_obj": page},
+    )
+
+
+@staff_member_required
+def admin_card_contacts(request):
+    """Display contact messages as cards (admin only)."""
+    qs = ContactMessage.objects.all()
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "admin/card_views/contact_messages.html",
+        {"page_title": "پیام‌های تماس", "page_obj": page},
+    )
+
+
+@staff_member_required
+def admin_card_profiles(request):
+    """Display user profiles as cards (admin only)."""
+    qs = UserProfile.objects.select_related("user").all()
+    page = Paginator(qs, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "admin/card_views/user_profiles.html",
+        {"page_title": "پروفایل‌های کاربران", "page_obj": page},
+    )
+
+
+@staff_member_required
+def admin_card_comments(request):
+    """Display comments as cards (admin only).
+
+    Only top-level comments are paginated.  Replies are fetched via
+    ``prefetch_related`` so each card can render its thread inline.
+    """
+    top_level = (
+        Comment.objects.filter(parent__isnull=True)
+        .select_related("user", "service", "service_center", "deleted_by")
+        .annotate(
+            likes_count=Count(
+                "reactions", filter=Q(reactions__value=CommentReaction.LIKE)
+            ),
+            dislikes_count=Count(
+                "reactions", filter=Q(reactions__value=CommentReaction.DISLIKE)
+            ),
+        )
+        .prefetch_related(
+            Prefetch(
+                "replies",
+                queryset=Comment.objects.select_related(
+                    "user", "service", "service_center", "deleted_by"
+                ).annotate(
+                    likes_count=Count(
+                        "reactions",
+                        filter=Q(reactions__value=CommentReaction.LIKE),
+                    ),
+                    dislikes_count=Count(
+                        "reactions",
+                        filter=Q(reactions__value=CommentReaction.DISLIKE),
+                    ),
+                ),
+            )
+        )
+        .order_by("-created_at")
+    )
+    page = Paginator(top_level, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "admin/card_views/comments.html",
+        {"page_title": "نظرات", "page_obj": page},
+    )
+
+
+@require_POST
+@staff_member_required
+def admin_toggle_report(request: HttpRequest, report_id: int) -> JsonResponse:
+    """Toggle the resolved status of an info report (admin card view)."""
+    report = InfoReport.objects.filter(pk=report_id).first()
+    if report is None:
+        return JsonResponse({"error": "گزارش یافت نشد"}, status=404)
+    report.is_resolved = not report.is_resolved
+    if report.is_resolved:
+        report.resolved_at = timezone.now()
+        report.resolved_by = request.user
+    else:
+        report.resolved_at = None
+        report.resolved_by = None
+    report.save(update_fields=["is_resolved", "resolved_at", "resolved_by"])
+    return JsonResponse(
+        {
+            "is_resolved": report.is_resolved,
+            "resolved_at": report.resolved_at.isoformat()
+            if report.resolved_at
+            else None,
+            "resolved_by": request.user.username if report.is_resolved else None,
+        }
+    )
+
+
+@require_POST
+@staff_member_required
+def admin_delete_comment(request: HttpRequest, comment_id: int) -> JsonResponse:
+    """Soft-delete a comment from the admin card view."""
+    comment = Comment.objects.filter(pk=comment_id).first()
+    if comment is None:
+        return JsonResponse({"error": "نظر یافت نشد"}, status=404)
+    if comment.is_deleted:
+        return JsonResponse({"already_deleted": True})
+    comment.deleted_by = request.user
+    comment.save(update_fields=["deleted_by", "updated_at"])
+    return JsonResponse({"deleted": True})
