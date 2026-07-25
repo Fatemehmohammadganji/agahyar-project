@@ -1,6 +1,6 @@
 # Add keyword 'آگاه یار' (space variant) to pages for SEO
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: seo, feature
 
