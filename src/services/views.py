@@ -1982,7 +1982,12 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
         "total_bookmarks": Bookmark.objects.count(),
         "total_contact_messages": ContactMessage.objects.count(),
         "total_faqs": FAQ.objects.count(),
-        "otp_abandoned": PhoneVerification.objects.filter(is_used=False)
+        "otp_abandoned": PhoneVerification.objects.filter(
+            is_used=False,
+        )
+        .exclude(
+            phone__in=PhoneVerification.objects.filter(is_used=True).values("phone"),
+        )
         .values("phone")
         .distinct()
         .count(),
@@ -2035,11 +2040,15 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
 
     otp_abandoned_by_week = (
         PhoneVerification.objects.filter(
-            is_used=False, created_at__gte=twelve_weeks_ago
+            is_used=False,
+            created_at__gte=twelve_weeks_ago,
+        )
+        .exclude(
+            phone__in=PhoneVerification.objects.filter(is_used=True).values("phone"),
         )
         .annotate(week=TruncWeek("created_at"))
         .values("week")
-        .annotate(count=Count("id"))
+        .annotate(count=Count("phone", distinct=True))
         .order_by("week")
     )
 
