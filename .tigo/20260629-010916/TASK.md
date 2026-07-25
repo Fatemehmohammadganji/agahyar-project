@@ -1,6 +1,6 @@
 # REST API for external consumption
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: api, feature
 

@@ -6,6 +6,8 @@ list displays, search fields, and filters, plus import/export support.
 """
 
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.utils import timezone
 from import_export.admin import ImportExportModelAdmin
@@ -37,6 +39,17 @@ from .resources import (
     UserProfileResource,
 )
 from .widgets import LocalOpenLayersWidget
+
+admin.site.unregister(User)
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    """Extends the default User admin to show PK in the list view."""
+
+    list_display = ("id",) + BaseUserAdmin.list_display
+    search_fields = ("id",) + BaseUserAdmin.search_fields
+    ordering = ("-date_joined",)
 
 
 @admin.register(Service)
