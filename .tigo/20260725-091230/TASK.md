@@ -1,6 +1,6 @@
 # Show OTP-requested-but-not-signed-up count on admin stats page
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 45
 - TAGS: admin, analytics, feature
 

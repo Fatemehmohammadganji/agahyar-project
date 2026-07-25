@@ -1961,9 +1961,12 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
     STATS_CACHE_KEY = "admin_stats_data"
     STATS_CACHE_TTL = 300  # 5 minutes
 
-    cached = cache.get(STATS_CACHE_KEY)
-    if cached is not None:
-        return render(request, "services/admin_stats.html", cached)
+    force_refresh = "refresh" in request.GET
+
+    if not force_refresh:
+        cached = cache.get(STATS_CACHE_KEY)
+        if cached is not None:
+            return render(request, "services/admin_stats.html", cached)
 
     now = timezone.now()
     twelve_weeks_ago = now - timedelta(weeks=12)
@@ -1977,6 +1980,10 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
         "total_bookmarks": Bookmark.objects.count(),
         "total_contact_messages": ContactMessage.objects.count(),
         "total_faqs": FAQ.objects.count(),
+        "otp_abandoned": PhoneVerification.objects.filter(is_used=False)
+        .values("phone")
+        .distinct()
+        .count(),
     }
 
     recent_users = User.objects.order_by("-date_joined")[:10]
@@ -2024,6 +2031,16 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
         .order_by("week")
     )
 
+    otp_abandoned_by_week = (
+        PhoneVerification.objects.filter(
+            is_used=False, created_at__gte=twelve_weeks_ago
+        )
+        .annotate(week=TruncWeek("created_at"))
+        .values("week")
+        .annotate(count=Count("id"))
+        .order_by("week")
+    )
+
     chart_reg = json.dumps(
         [
             {"week": r["week"].strftime(week_fmt), "count": r["count"]}
@@ -2045,6 +2062,12 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
     chart_services = json.dumps(
         [{"name": s.name, "count": s.comment_count} for s in popular_services]
     )
+    chart_otp_abandoned = json.dumps(
+        [
+            {"week": r["week"].strftime(week_fmt), "count": r["count"]}
+            for r in otp_abandoned_by_week
+        ]
+    )
 
     context = {
         "overview": overview,
@@ -2056,6 +2079,7 @@ def admin_stats(request: HttpRequest) -> HttpResponse:
         "chart_comments": chart_comments,
         "chart_ratings": chart_ratings,
         "chart_services": chart_services,
+        "chart_otp_abandoned": chart_otp_abandoned,
     }
 
     cache.set(STATS_CACHE_KEY, context, STATS_CACHE_TTL)

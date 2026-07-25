@@ -2723,6 +2723,24 @@ class TestAdminStats:
         assert json.loads(response.context["chart_ratings"]) is not None
         assert json.loads(response.context["chart_services"]) is not None
 
+    @pytest.mark.django_db
+    def test_otp_abandoned_count(self):
+        User.objects.create_user("admin", password="pass12345", is_staff=True)
+        PhoneVerification.objects.create(
+            phone="09121000001", otp_code=hash_otp("111111")
+        )
+        PhoneVerification.objects.create(
+            phone="09121000002", otp_code=hash_otp("222222")
+        )
+        PhoneVerification.objects.create(
+            phone="09121000003", otp_code=hash_otp("333333"), is_used=True
+        )
+        client = Client()
+        client.login(username="admin", password="pass12345")
+        response = client.get("/admin/stats/")
+        assert response.context["overview"]["otp_abandoned"] == 2
+        assert "chart_otp_abandoned" in response.context
+
 
 @pytest.mark.django_db
 class TestNeshanSearchProxy:
