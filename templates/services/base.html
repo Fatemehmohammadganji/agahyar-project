@@ -176,8 +176,6 @@
           {% endif %}
           _paq.push(["trackPageView"]);
           _paq.push(["enableLinkTracking"]);
-          _paq.push(["setTrackerUrl", "{{ MATOMO_URL }}/matomo.php"]);
-          _paq.push(["setSiteId", "{{ MATOMO_SITE_ID }}"]);
           (function() {
               var u = "{{ MATOMO_URL }}/";
               _paq.push(["setTrackerUrl", u + "matomo.php"]);
