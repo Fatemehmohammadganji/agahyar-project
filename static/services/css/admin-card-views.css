@@ -1,0 +1,455 @@
+/* Admin card views -- shared styles for the standalone card pages. */
+
+/* --- Grid --- */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* --- Card base --- */
+.item-card {
+  background: var(--darkened-bg, #fff);
+  border: 1px solid var(--hairline-color, #ddd);
+  border-radius: 8px;
+  padding: 20px;
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+
+.item-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* --- Card accent borders (RTL: border-right) --- */
+.card-accent-green {
+  border-right: 4px solid #28a745;
+}
+.card-accent-red {
+  border-right: 4px solid #dc3545;
+}
+.card-accent-blue {
+  border-right: 4px solid #0d6efd;
+}
+.card-accent-yellow {
+  border-right: 4px solid #ffc107;
+}
+
+/* --- Card deleted state --- */
+.card-deleted {
+  opacity: 0.55;
+  border-right: 4px solid #dc3545;
+}
+
+/* --- Header row (title + date) --- */
+.item-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.item-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--body-loud-color, var(--body-fg));
+}
+
+.item-card-date {
+  font-size: 0.75rem;
+  color: var(--body-quiet-color, #999);
+  white-space: nowrap;
+}
+
+/* --- Subtitle (below title, e.g. full name) --- */
+.item-card-subtitle {
+  font-size: 0.85rem;
+  color: var(--body-quiet-color, #666);
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+
+/* --- Badge row --- */
+.item-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.item-card-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* --- Body text (truncated) --- */
+.item-card-body {
+  font-size: 0.85rem;
+  color: var(--body-fg);
+  line-height: 1.6;
+  margin-bottom: 10px;
+  white-space: pre-line;
+}
+
+.item-card-truncated {
+  max-height: 4.8em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.item-card-truncated.is-overflow {
+  cursor: pointer;
+}
+
+/* --- Nested comment replies --- */
+.admin-comment {
+  background: var(--darkened-bg, #fff);
+  border: 1px solid var(--hairline-color, #ddd);
+  border-radius: 8px;
+  padding: 16px 18px;
+  border-right: 3px solid var(--primary, #0d6efd);
+}
+
+.admin-comment--reply {
+  border-right-color: var(--hairline-color, #ddd);
+  background: var(--body-bg, #f9f9f9);
+  margin-top: 10px;
+}
+
+.admin-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.admin-comment-user {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--body-loud-color, var(--body-fg));
+}
+
+.admin-comment-date {
+  font-size: 0.75rem;
+  color: var(--body-quiet-color, #999);
+}
+
+.admin-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.admin-comment-text {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--body-fg);
+  margin-bottom: 8px;
+}
+
+.admin-comment-text--deleted {
+  color: var(--body-quiet-color, #999);
+  font-style: italic;
+}
+
+.admin-comment-actions {
+  margin-bottom: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-comment-actions .btn-admin-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+}
+
+.admin-comment-replies {
+  margin-top: 10px;
+  padding-right: 20px;
+}
+
+.btn-toggle-admin-replies {
+  background: none;
+  border: none;
+  color: var(--primary, #0d6efd);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-top: 6px;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.btn-toggle-admin-replies:hover {
+  color: color-mix(in srgb, var(--primary, #0d6efd) 80%, black);
+}
+
+.admin-toggle-icon {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+/* --- Detail lines (label: value) --- */
+.item-card-detail {
+  font-size: 0.8rem;
+  color: var(--body-quiet-color, #666);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.item-card-detail .detail-label {
+  font-weight: 600;
+  color: var(--body-loud-color, #444);
+}
+
+/* --- LTR fields (email, phone, etc.) --- */
+.item-card-ltr {
+  direction: ltr;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Actions row --- */
+.item-card-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-admin-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--hairline-color, #ddd);
+  background: var(--darkened-bg, #fff);
+  color: var(--primary, #0d6efd);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.btn-admin-icon:hover {
+  background: var(--primary, #0d6efd);
+  color: #fff;
+  border-color: var(--primary, #0d6efd);
+}
+
+.btn-admin-icon:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-admin-resolve {
+  color: #28a745;
+  border-color: #28a745;
+}
+
+.btn-admin-resolve:hover {
+  background: #28a745;
+  color: #fff;
+  border-color: #28a745;
+}
+
+.btn-admin-unresolve {
+  color: #e0a800;
+  border-color: #e0a800;
+}
+
+.btn-admin-unresolve:hover {
+  background: #ffc107;
+  color: #333;
+  border-color: #ffc107;
+}
+
+.btn-admin-delete {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-admin-delete:hover {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+
+/* --- Page header --- */
+.card-count {
+  font-size: 0.85rem;
+  color: var(--body-quiet-color, #999);
+  margin-bottom: 4px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* --- Shared badge colors --- */
+.badge-green {
+  background: #d4edda;
+  color: #155724;
+}
+.badge-red {
+  background: #f8d7da;
+  color: #721c24;
+}
+.badge-blue {
+  background: #cce5ff;
+  color: #004085;
+}
+.badge-gray {
+  background: #e2e3e5;
+  color: #383d41;
+}
+.badge-yellow {
+  background: #fff3cd;
+  color: #856404;
+}
+.badge-purple {
+  background: #e8daef;
+  color: #4a235a;
+}
+.badge-teal {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+/* --- Pagination --- */
+.card-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 24px;
+}
+
+.card-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--body-fg);
+  background: var(--darkened-bg, #fff);
+  border: 1px solid var(--hairline-color, #ddd);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.card-page-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.card-page-active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 700;
+  cursor: default;
+}
+
+.card-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  font-size: 0.85rem;
+  color: var(--body-quiet-color, #999);
+}
+
+/* --- Modal --- */
+.card-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-modal-overlay.active {
+  display: flex;
+}
+
+.card-modal {
+  background: var(--darkened-bg, #fff);
+  border-radius: 10px;
+  padding: 28px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.card-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--body-loud-color, var(--body-fg));
+}
+
+.card-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--body-quiet-color, #999);
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.card-modal-close:hover {
+  color: var(--body-fg);
+}
+
+.card-modal-body {
+  font-size: 0.9rem;
+  color: var(--body-fg);
+  line-height: 1.8;
+  white-space: pre-line;
+}

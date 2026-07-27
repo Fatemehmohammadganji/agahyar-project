@@ -11,6 +11,11 @@ Instructions
   them in rare cases (e.g. when a hotfix is needed before the task is fully
   done).
 
+- NEVER use `git commit --amend`. Always create a new commit. If
+  pre-commit hooks modify files, re-stage the modified files and
+  re-commit with the SAME message. Do NOT create a separate follow-up
+  commit — the original commit never happened when hooks failed.
+
 - Do not commit anything without asking the user for confirmation first.
   Always verify that the user is ready for the changes to be committed.
 

@@ -2723,6 +2723,24 @@ class TestAdminStats:
         assert json.loads(response.context["chart_ratings"]) is not None
         assert json.loads(response.context["chart_services"]) is not None
 
+    @pytest.mark.django_db
+    def test_otp_abandoned_count(self):
+        User.objects.create_user("admin", password="pass12345", is_staff=True)
+        PhoneVerification.objects.create(
+            phone="09121000001", otp_code=hash_otp("111111")
+        )
+        PhoneVerification.objects.create(
+            phone="09121000002", otp_code=hash_otp("222222")
+        )
+        PhoneVerification.objects.create(
+            phone="09121000003", otp_code=hash_otp("333333"), is_used=True
+        )
+        client = Client()
+        client.login(username="admin", password="pass12345")
+        response = client.get("/admin/stats/")
+        assert response.context["overview"]["otp_abandoned"] == 2
+        assert "chart_otp_abandoned" in response.context
+
 
 @pytest.mark.django_db
 class TestNeshanSearchProxy:
@@ -3364,3 +3382,47 @@ class TestDataUploadMaxMemorySize:
 
         assert hasattr(settings, "DATA_UPLOAD_MAX_MEMORY_SIZE")
         assert settings.DATA_UPLOAD_MAX_MEMORY_SIZE == 10 * 1024 * 1024
+
+
+@pytest.mark.django_db
+class TestMatomoUserIdTracking:
+    """Matomo user ID tracking: setUserId sent only when Matomo is enabled
+    and user is authenticated."""
+
+    def _render_home(
+        self, user=None, matomo_url="https://analytics.example.com", matomo_site_id="1"
+    ):
+        client = Client()
+        if user:
+            client.login(username=user.username, password="pass12345")
+        with override_settings(MATOMO_URL=matomo_url, MATOMO_SITE_ID=matomo_site_id):
+            return client.get("/")
+
+    def test_authenticated_user_gets_setUserId(self):
+        user = User.objects.create_user("matomouid", password="pass12345")
+        resp = self._render_home(user=user)
+        content = resp.content.decode()
+        assert f'setUserId", "{user.pk}"' in content
+
+    def test_anonymous_user_no_setUserId(self):
+        resp = self._render_home(user=None)
+        content = resp.content.decode()
+        assert "setUserId" not in content
+
+    def test_matomo_disabled_no_setUserId(self):
+        user = User.objects.create_user("matomouid2", password="pass12345")
+        resp = self._render_home(user=user, matomo_url="", matomo_site_id="")
+        content = resp.content.decode()
+        assert "setUserId" not in content
+        assert "_paq" not in content
+
+    def test_user_id_is_pk_not_username(self):
+        user = User.objects.create_user("matomouid3", password="pass12345")
+        resp = self._render_home(user=user)
+        content = resp.content.decode()
+        assert f'setUserId", "{user.pk}"' in content
+        assert (
+            "matomouid3" not in content.split("setUserId")[1].split("</script>")[0]
+            if "setUserId" in content
+            else True
+        )

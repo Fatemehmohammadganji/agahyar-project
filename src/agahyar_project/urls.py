@@ -109,21 +109,51 @@ def server_status(request: HttpRequest) -> HttpResponse:
 
 urlpatterns: List[URLPattern] = [
     path("health/", health_check, name="health_check"),
-    path("admin/server-status/", server_status, name="server_status"),
+    path(ADMIN_URL + "server-status/", server_status, name="server_status"),
     path(
-        "admin/stats/",
+        ADMIN_URL + "stats/",
         services_views.admin_stats,
         name="admin_stats",
     ),
     path(
-        "admin/neshan-search/",
+        ADMIN_URL + "neshan-search/",
         staff_member_required(services_views.neshan_search),
         name="neshan_search",
     ),
     path(
-        "admin/data-transfer/",
+        ADMIN_URL + "data-transfer/",
         staff_member_required(services_views.admin_data_transfer),
         name="admin_data_transfer",
+    ),
+    path(
+        ADMIN_URL + "card/reports/",
+        services_views.admin_card_reports,
+        name="admin_card_reports",
+    ),
+    path(
+        ADMIN_URL + "card/contacts/",
+        services_views.admin_card_contacts,
+        name="admin_card_contacts",
+    ),
+    path(
+        ADMIN_URL + "card/profiles/",
+        services_views.admin_card_profiles,
+        name="admin_card_profiles",
+    ),
+    path(
+        ADMIN_URL + "card/comments/",
+        services_views.admin_card_comments,
+        name="admin_card_comments",
+    ),
+    path(
+        ADMIN_URL + "ajax/toggle-report/<int:report_id>/",
+        services_views.admin_toggle_report,
+        name="admin_toggle_report",
+    ),
+    path(
+        ADMIN_URL + "ajax/delete-comment/<int:comment_id>/",
+        services_views.admin_delete_comment,
+        name="admin_delete_comment",
     ),
     path(ADMIN_URL, admin.site.urls),
     path("api/v1/", include("services.api_urls")),

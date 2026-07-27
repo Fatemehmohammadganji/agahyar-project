@@ -19,11 +19,20 @@ body {
 .module caption,
 .inline-group h2 {
   background: var(--primary);
+  border-radius: 4px 4px 0 0;
 }
 
 div.breadcrumbs {
   background: color-mix(in srgb, var(--primary) 80%, black);
   padding: 12px 20px;
+}
+
+div.breadcrumbs a {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+div.breadcrumbs a:hover {
+  color: #fff;
 }
 
 .button,
@@ -32,6 +41,8 @@ input[type="button"],
 .submit-row input,
 a.button {
   background: var(--primary);
+  border-radius: 4px;
+  transition: background 0.15s;
 }
 
 .button:hover,
@@ -49,6 +60,36 @@ input[type="submit"].default,
 .button.default:hover,
 input[type="submit"].default:hover {
   background: color-mix(in srgb, var(--primary) 80%, black);
+}
+
+/* Improve module boxes */
+.module {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.module caption {
+  padding: 10px 16px;
+  font-weight: 600;
+}
+
+/* Improve change list table rows */
+.results table tbody tr:hover {
+  background: var(--selected-row, #f0f0f0);
+}
+
+/* Better form field spacing */
+.form-row {
+  padding: 10px 12px;
+}
+
+.form-row label {
+  font-weight: 600;
+}
+
+/* Improve delete confirmation page */
+.deletion-confirmation-content {
+  padding: 20px;
 }
 
 a:link,

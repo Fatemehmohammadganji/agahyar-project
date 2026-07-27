@@ -1,0 +1,75 @@
+{% extends "admin/card_views/base.html" %}
+{% block cards %}
+  {% for report in page_obj %}
+    <div class="item-card {% if report.is_resolved %}card-accent-green{% else %}card-accent-red{% endif %}">
+      <div class="item-card-header">
+        <span class="item-card-title">{{ report.user.username }}</span>
+        <span class="item-card-date">{{ report.created_at|date:"Y/m/d H:i" }}</span>
+      </div>
+      <div class="item-card-meta">
+        <span class="item-card-badge badge-gray">ID: {{ report.user.pk }}</span>
+        <span class="item-card-badge report-status-badge {% if report.is_resolved %}badge-green{% else %}badge-red{% endif %}">
+          {% if report.is_resolved %}بررسی شده{% else %}بررسی نشده{% endif %}
+        </span>
+        <span class="item-card-badge badge-blue">{{ report.get_target_type_display }}</span>
+        <span class="item-card-badge badge-gray">{{ report.get_reason_display }}</span>
+      </div>
+      {% if report.description %}
+        <div class="item-card-body item-card-truncated">{{ report.description }}</div>
+      {% endif %}
+      {% if report.service or report.service_center %}
+        <div class="item-card-detail">
+          {% if report.service %}
+            <span class="detail-label">خدمت:</span> {{ report.service.name }}
+          {% elif report.service_center %}
+            <span class="detail-label">مرکز:</span> {{ report.service_center.name }}
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if report.admin_notes %}
+        <div class="item-card-detail">
+          <span class="detail-label">یادداشت:</span> {{ report.admin_notes }}
+        </div>
+      {% endif %}
+      {% if report.resolved_by %}
+        <div class="item-card-detail">
+          <span class="detail-label">بررسی توسط:</span>
+          {{ report.resolved_by.username }}
+        </div>
+      {% endif %}
+      <div class="item-card-actions">
+        {% if report.service %}
+          <a href="{% url 'service_detail' report.service.pk %}"
+             target="_blank"
+             class="btn-admin-icon"
+             title="باز کردن خدمت">
+            <i class="fas fa-up-right-from-square"></i>
+          </a>
+        {% elif report.service_center %}
+          <a href="{% url 'center_detail' report.service_center.pk %}"
+             target="_blank"
+             class="btn-admin-icon"
+             title="باز کردن مرکز">
+            <i class="fas fa-up-right-from-square"></i>
+          </a>
+        {% endif %}
+        <a href="{% url 'admin:services_inforeport_change' report.pk %}"
+           class="btn-admin-icon"
+           title="ویرایش">
+          <i class="fas fa-pen"></i>
+        </a>
+        <button type="button"
+                class="btn-admin-icon {% if report.is_resolved %}btn-admin-unresolve{% else %}btn-admin-resolve{% endif %}"
+                data-url="{% url 'admin_toggle_report' report.pk %}"
+                onclick="toggleReport(this, {{ report.pk }})"
+                title="{% if report.is_resolved %}برگشت به بررسی نشده{% else %}بررسی شد{% endif %}">
+          {% if report.is_resolved %}
+            <i class="fas fa-rotate-left"></i>
+          {% else %}
+            <i class="fas fa-check"></i>
+          {% endif %}
+        </button>
+      </div>
+    </div>
+  {% endfor %}
+{% endblock %}

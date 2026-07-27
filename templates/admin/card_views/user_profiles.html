@@ -1,0 +1,51 @@
+{% extends "admin/card_views/base.html" %}
+{% block cards %}
+  {% for profile in page_obj %}
+    <div class="item-card card-accent-green">
+      <div class="item-card-header">
+        <span class="item-card-title">{{ profile.user.username }}</span>
+        <span class="item-card-date">{{ profile.user.date_joined|date:"Y/m/d" }}</span>
+      </div>
+      {% if profile.user.get_full_name %}
+        <div class="item-card-subtitle">{{ profile.user.get_full_name }}</div>
+      {% endif %}
+      <div class="item-card-meta">
+        <span class="item-card-badge badge-gray">ID: {{ profile.user.pk }}</span>
+        <span class="item-card-badge badge-blue">{{ profile.city }}</span>
+        {% if profile.neighborhood %}
+          <span class="item-card-badge badge-gray">{{ profile.neighborhood }}</span>
+        {% endif %}
+        {% if profile.user.is_staff %}
+          <span class="item-card-badge badge-purple">staff</span>
+        {% endif %}
+        {% if not profile.user.is_active %}
+          <span class="item-card-badge badge-red">غیرفعال</span>
+        {% endif %}
+      </div>
+      {% if profile.user.email %}
+        <div class="item-card-detail">
+          <span class="detail-label">ایمیل:</span>
+          <span class="item-card-ltr">{{ profile.user.email }}</span>
+        </div>
+      {% endif %}
+      {% if profile.phone %}
+        <div class="item-card-detail">
+          <span class="detail-label">تلفن:</span>
+          <span class="item-card-ltr">{{ profile.phone }}</span>
+        </div>
+      {% endif %}
+      <div class="item-card-actions">
+        <a href="{% url 'admin:services_userprofile_change' profile.pk %}"
+           class="btn-admin-icon"
+           title="ویرایش پروفایل">
+          <i class="fas fa-id-card"></i>
+        </a>
+        <a href="{% url 'admin:auth_user_change' profile.user.pk %}"
+           class="btn-admin-icon"
+           title="ویرایش کاربر">
+          <i class="fas fa-user-pen"></i>
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "admin/card_views/base.html" %}
+{% block cards %}
+  {% for comment in page_obj %}
+    {% include "admin/card_views/comment_card.html" with comment=comment depth=0 %}
+  {% endfor %}
+{% endblock %}

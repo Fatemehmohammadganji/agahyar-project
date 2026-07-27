@@ -67,6 +67,13 @@
         <div class="stat-value">{{ overview.total_faqs }}</div>
         <div class="stat-label">سؤالات متداول</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-user-slash"></i>
+        </div>
+        <div class="stat-value">{{ overview.otp_abandoned }}</div>
+        <div class="stat-label">رهاشدگان ثبت‌نام</div>
+      </div>
     </div>
     <div class="stats-charts">
       <div class="chart-container">
@@ -80,6 +87,10 @@
       <div class="chart-container">
         <h2>امتیازهای هفتگی</h2>
         <canvas id="chart-ratings"></canvas>
+      </div>
+      <div class="chart-container">
+        <h2>رهاشدگان ثبت‌نام هفتگی</h2>
+        <canvas id="chart-otp-abandoned"></canvas>
       </div>
       <div class="chart-container">
         <h2>محبوب‌ترین خدمات</h2>
@@ -318,10 +329,12 @@
           var commentsData = {{ chart_comments|safe }};
           var ratingsData = {{ chart_ratings|safe }};
           var servicesData = {{ chart_services|safe }};
+          var otpAbandonedData = {{ chart_otp_abandoned|default:"[]"|safe }};
 
           makeLineChart("chart-registrations", regData, teal, tealLight);
           makeLineChart("chart-comments", commentsData, teal, tealLight);
           makeLineChart("chart-ratings", ratingsData, teal, tealLight);
+          makeLineChart("chart-otp-abandoned", otpAbandonedData, "#c0392b", "rgba(192, 57, 43, 0.2)");
           makeBarChart("chart-services", servicesData, teal);
       })();
   </script>

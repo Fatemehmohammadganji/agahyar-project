@@ -30,7 +30,7 @@
     <meta name="description"
           content="{% block meta_description %}آگاه‌یار، راهنمای هوشمند خدمات دولتی ایران — اطلاعات دقیق مراکز دولتی، شرایط دریافت خدمات، و پیگیری درخواست‌ها{% endblock %}" />
     <meta name="keywords"
-          content="{% block meta_keywords %}خدمات دولتی, آگاه‌یار, سامانه اطلاع‌رسانی, مراکز دولتی, راهنمای خدمات{% endblock %}" />
+          content="{% block meta_keywords %}خدمات دولتی, آگاه‌یار, آگاه یار, سامانه اطلاع‌رسانی, مراکز دولتی, راهنمای خدمات{% endblock %}" />
     <link rel="canonical"
           href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}" />
     <meta property="og:title"
@@ -58,9 +58,11 @@
     <div style="display:none">{% csrf_token %}</div>
     <header class="header">
       <div class="header-container">
-        <a class="logo" href="{% url 'home' %}">
-          <h1>آگاه‌یار</h1>
-          <p>راهنمای هوشمند خدمات دولتی</p>
+        <a class="logo"
+           href="{% url 'home' %}"
+           aria-label="آگاه‌یار — راهنمای هوشمند خدمات دولتی">
+          <span class="logo-name">آگاه‌یار</span>
+          <span class="logo-tagline">راهنمای هوشمند خدمات دولتی</span>
         </a>
         <nav class="nav-links" id="navLinks">
           <a href="{% url 'services_list' %}">خدمات</a>
@@ -169,10 +171,11 @@
     {% if MATOMO_URL and MATOMO_SITE_ID %}
       <script>
           var _paq = window._paq = window._paq || [];
+          {% if MATOMO_USER_ID %}
+          _paq.push(["setUserId", "{{ MATOMO_USER_ID }}"]);
+          {% endif %}
           _paq.push(["trackPageView"]);
           _paq.push(["enableLinkTracking"]);
-          _paq.push(["setTrackerUrl", "{{ MATOMO_URL }}/matomo.php"]);
-          _paq.push(["setSiteId", "{{ MATOMO_SITE_ID }}"]);
           (function() {
               var u = "{{ MATOMO_URL }}/";
               _paq.push(["setTrackerUrl", u + "matomo.php"]);
