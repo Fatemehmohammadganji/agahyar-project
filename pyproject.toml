@@ -17,6 +17,7 @@ dependencies = [
   "httpx>=0.28.1",
   "jdatetime>=6",
   "log21>=3.3.2",
+  "pillow>=12.3",
   "psutil>=7",
   "psycopg2-binary>=2.9.10",
   "python-decouple>=3.8",
@@ -37,9 +38,6 @@ dev = [
 ]
 prod = [
   "gunicorn>=23",
-]
-scripts = [
-  "Pillow>=12",
 ]
 [tool.uv.build-backend]
 module-name = ["agahyar_project", "services"]

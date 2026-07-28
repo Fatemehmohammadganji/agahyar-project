@@ -64,5 +64,10 @@ curl -fsSL "$SWAGGER_CDN/swagger-ui-bundle.js" -o static/libs/swagger-ui/swagger
 curl -fsSL "$SWAGGER_CDN/swagger-ui-standalone-preset.js" -o static/libs/swagger-ui/swagger-ui-standalone-preset.js
 curl -fsSL "$SWAGGER_CDN/swagger-ui.css" -o static/libs/swagger-ui/swagger-ui.css
 curl -fsSL "$SWAGGER_CDN/favicon-32x32.png" -o static/libs/swagger-ui/favicon-32x32.png
+# CKEditor 5 (classic build)
+echo "Downloading CKEditor 5 ..."
+mkdir -p static/libs/ckeditor5
+curl -fsSL "https://cdn.jsdelivr.net/npm/@ckeditor/ckeditor5-build-decoupled-document@44.3.0/build/ckeditor.js" -o static/libs/ckeditor5/ckeditor.js
+curl -fsSL "https://cdn.jsdelivr.net/npm/@ckeditor/ckeditor5-build-decoupled-document@44.3.0/build/translations/fa.js" -o static/libs/ckeditor5/fa.js
 
 echo "Done."

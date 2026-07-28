@@ -15,6 +15,8 @@ from import_export.admin import ImportExportModelAdmin
 from .forms import ServiceAdminForm
 from .models import (
     FAQ,
+    BlogPost,
+    BlogPostRating,
     Bookmark,
     CenterRating,
     Comment,
@@ -226,3 +228,33 @@ class InfoReportAdmin(ImportExportModelAdmin):
             resolved_by=request.user,
         )
         self.message_user(request, f"{count} گزارش بررسی شد.")
+
+
+class BlogPostRatingInline(admin.TabularInline):
+    """Inline display of ratings for a blog post (read-only)."""
+
+    model = BlogPostRating
+    fields = ("user", "score", "created_at")
+    readonly_fields = ("user", "score", "created_at")
+    extra = 0
+    can_delete = False
+    verbose_name = "امتیاز"
+    verbose_name_plural = "امتیازها"
+
+
+@admin.register(BlogPost)
+class BlogPostAdmin(admin.ModelAdmin):
+    """Admin configuration for the BlogPost model."""
+
+    list_display = ("title", "author", "is_published", "published_at", "created_at")
+    list_filter = ("is_published", "author", "published_at")
+    search_fields = ("title", "body")
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = ("created_at", "updated_at", "published_at")
+    fieldsets = (
+        (None, {"fields": ("title", "slug", "author")}),
+        ("محتوا", {"fields": ("summary", "body", "image", "image_url")}),
+        ("وضعیت", {"fields": ("is_published", "published_at")}),
+        ("زمان", {"fields": ("created_at", "updated_at")}),
+    )
+    inlines = [BlogPostRatingInline]

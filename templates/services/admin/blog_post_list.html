@@ -1,0 +1,71 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}{{ title }} | آگاه‌یار{% endblock %}
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">خانه</a> &rsaquo; {{ title }}
+  </div>
+{% endblock %}
+{% block content %}
+  <div id="content-main">
+    {% block messages %}{{ block.super }}{% endblock %}
+    <div style="display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:16px">
+      <h1>{{ title }}</h1>
+      <a href="{% url 'admin_blog_create' %}"
+         class="button"
+         style="background:var(--button-bg,#1a5f7a);
+                color:#fff;
+                padding:8px 16px;
+                text-decoration:none;
+                border-radius:4px">ایجاد پست جدید</a>
+    </div>
+    <table class="stats-table" style="width:100%">
+      <thead>
+        <tr>
+          <th>عنوان</th>
+          <th>نویسنده</th>
+          <th>وضعیت</th>
+          <th>تاریخ انتشار</th>
+          <th>ایجاد</th>
+          <th>عملیات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for post in posts %}
+          <tr>
+            <td><a href="{% url 'blog_detail' slug=post.slug %}" target="_blank">{{ post.title }}</a></td>
+            <td>{{ post.author.get_full_name|default:post.author.username }}</td>
+            <td>{% if post.is_published %}<span style="color:#2ecc71;">منتشر شده</span>{% else %}<span style="color:#e67e22;">پیش‌نویس</span>{% endif %}</td>
+            <td>{{ post.published_at|date:"Y-m-d H:i"|default:"-" }}</td>
+            <td>{{ post.created_at|date:"Y-m-d H:i" }}</td>
+            <td>
+              <a href="{% url 'admin_blog_edit' post_id=post.id %}"
+                 style="margin-left:8px">ویرایش</a>
+              <form method="post"
+                    action="{% url 'admin_blog_delete' post_id=post.id %}"
+                    style="display:inline"
+                    onsubmit="return confirm('آیا از حذف این پست اطمینان دارید؟');">
+                {% csrf_token %}
+                <button type="submit"
+                        style="background:none;
+                               border:none;
+                               color:#c0392b;
+                               cursor:pointer;
+                               padding:0;
+                               font-family:inherit;
+                               font-size:inherit">حذف</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6">هیچ پستی یافت نشد.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

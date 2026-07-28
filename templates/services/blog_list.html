@@ -1,0 +1,49 @@
+{% extends "services/base.html" %}
+{% load static %}
+{% load jalali_tags %}
+{% block title %}وبلاگ | آگاه‌یار{% endblock %}
+{% block meta_description %}مقالات و مطالب آموزشی آگاه‌یار — راهنمای خدمات دولتی{% endblock %}
+{% block meta_keywords %}وبلاگ, مقالات, آگاه‌یار, خدمات دولتی, آگاه یار{% endblock %}
+{% block content %}
+  <h1>وبلاگ آگاه‌یار</h1>
+  {% if page_obj.object_list %}
+    <div class="blog-grid">
+      {% for post in page_obj.object_list %}
+        <article class="blog-card">
+          <a href="{% url 'blog_detail' slug=post.slug %}" class="blog-card-image">
+            {% if post.display_image_url %}
+              <img src="{{ post.display_image_url }}"
+                   alt="{{ post.title }}"
+                   loading="lazy" />
+            {% else %}
+              <div class="blog-placeholder-img">
+                <i class="fas fa-newspaper"></i>
+              </div>
+            {% endif %}
+          </a>
+          <div class="blog-card-body">
+            <h2 class="blog-card-title"><a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title|fa }}</a></h2>
+            <p class="blog-card-summary">{{ post.summary|truncatewords:30|fa }}</p>
+            <div class="blog-card-meta">
+              <span>{{ post.published_at|jalali }}</span>
+              <span>{{ post.author.get_full_name|default:post.author.username }}</span>
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}">« قبلی</a>
+        {% endif %}
+        <span>صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}">بعدی »</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="empty-state">هیچ مقاله‌ای یافت نشد.</p>
+  {% endif %}
+{% endblock %}

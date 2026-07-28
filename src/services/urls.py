@@ -46,6 +46,19 @@ urlpatterns: List[URLPattern] = [
         views.delete_comment,
         name="delete_comment",
     ),
+    # ===== Blog =====
+    path("blog/", views.blog_list, name="blog_list"),
+    path("blog/<str:slug>/", views.blog_detail, name="blog_detail"),
+    path(
+        "comment/blog/<int:blog_post_id>/",
+        views.submit_comment,
+        name="submit_comment_blog_post",
+    ),
+    path(
+        "api/rate-blog-post/<int:post_id>/",
+        views.rate_blog_post,
+        name="rate_blog_post",
+    ),
     # ===== Center ratings =====
     path(
         "rate-center/<int:center_id>/",

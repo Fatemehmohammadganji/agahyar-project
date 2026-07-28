@@ -1,0 +1,90 @@
+{% extends "services/base.html" %}
+{% load static %}
+{% load jalali_tags %}
+{% block title %}{{ post.title|fa }} | آگاه‌یار{% endblock %}
+{% block meta_description %}{{ post.summary|default:"" }}{% endblock %}
+{% block meta_keywords %}{% if post.keywords %}{{ post.keywords }}{% else %}{{ post.title|fa }}, وبلاگ, آگاه‌یار{% endif %}{% endblock %}
+{% block content %}
+  <article class="blog-detail">
+    <header class="blog-detail-header">
+      <h1>{{ post.title|fa }}</h1>
+      <div class="blog-card-meta">
+        <span>{{ post.published_at|jalali }}</span>
+        <span>{{ post.author.get_full_name|default:post.author.username }}</span>
+      </div>
+    </header>
+    {% with image_url=post.display_image_url %}
+      {% if image_url %}
+        <div class="blog-detail-image">
+          <img src="{{ image_url }}" alt="{{ post.title }}" />
+        </div>
+      {% endif %}
+    {% endwith %}
+    <div class="blog-detail-body">{{ post.body|safe }}</div>
+    {% with kw_list=post.get_keywords_list %}
+      {% if kw_list %}
+        <div class="blog-keywords">
+          <h3>کلمات کلیدی</h3>
+          <ul class="keyword-list">
+            {% for kw in kw_list %}
+              <li class="keyword-tag">{{ kw|fa }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% if avg_rating is not None %}
+      <div class="blog-rating-section">
+        <div class="rating-stars"
+             data-post-id="{{ post.id }}"
+             data-user-rating="{{ user_rating|default:'' }}">
+          {% for i in "12345"|make_list %}
+            <span class="rating-star{% if user_rating and forloop.counter <= user_rating %} filled{% endif %}"
+                  data-value="{{ forloop.counter }}">&#9733;</span>
+          {% endfor %}
+        </div>
+        <div class="rating-info">
+          {% if avg_rating %}
+            <span class="rating-average">{{ avg_rating }}</span>
+            <span class="rating-count">({{ rating_count }} امتیاز)</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+    <a href="{% url 'blog_list' %}" class="back-link">&laquo; بازگشت به وبلاگ</a>
+    <div class="comments-section info-card">
+      <h3>نظرات</h3>
+      {% if comments %}
+        <div class="comments-list" id="comments-list">
+          {% for comment in comments %}
+            {% include "services/partials/comment.html" with comment=comment depth=0 %}
+          {% endfor %}
+        </div>
+        {% if has_more_comments %}
+          <button type="button"
+                  class="btn-load-more"
+                  data-target="blog_post"
+                  data-target-id="{{ post.id }}"
+                  data-page="2"
+                  onclick="loadMoreComments(this)">نمایش نظرات بیشتر</button>
+        {% endif %}
+      {% else %}
+        <p class="empty-text">هنوز نظری ثبت نشده است.</p>
+      {% endif %}
+      {% if user.is_authenticated %}
+        <form method="post"
+              action="{% url 'submit_comment_blog_post' post.id %}"
+              class="comment-form">
+          {% csrf_token %}
+          {{ comment_form.text }}
+          {{ comment_form.parent_id }}
+          <button type="submit" class="btn-rate">ارسال نظر</button>
+        </form>
+      {% else %}
+        <div class="login-prompt">
+          <p>برای ارسال نظر باید <a href="{% url 'login' %}">وارد شوید</a>.</p>
+        </div>
+      {% endif %}
+    </div>
+  </article>
+{% endblock %}

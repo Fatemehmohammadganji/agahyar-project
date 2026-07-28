@@ -33,6 +33,7 @@ from django_ratelimit.decorators import ratelimit
 
 from .error_codes import get_error_message
 from .forms import (
+    BlogPostAdminForm,
     CenterRatingForm,
     CommentForm,
     ContactForm,
@@ -49,6 +50,8 @@ from .forms import (
 from .maps import get_center_locations, get_city_center
 from .models import (
     FAQ,
+    BlogPost,
+    BlogPostRating,
     Bookmark,
     CenterRating,
     Comment,
@@ -1082,6 +1085,191 @@ def faq_view(request: HttpRequest) -> HttpResponse:
     )
 
 
+def blog_list(request: HttpRequest) -> HttpResponse:
+    """Display a paginated list of published blog posts.
+
+    Shows 9 posts per page.  Only posts with ``is_published=True``
+    are included.
+    """
+    posts = BlogPost.objects.filter(is_published=True).select_related("author")
+    paginator = Paginator(posts, 9)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+    return render(request, "services/blog_list.html", {"page_obj": page_obj})
+
+
+def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
+    post = get_object_or_404(
+        BlogPost.objects.select_related("author"),
+        slug=slug,
+        is_published=True,
+    )
+    avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
+    rating_count = post.ratings.count()
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = post.ratings.filter(user=request.user).first()
+        user_rating = user_rating_obj.score if user_rating_obj else None
+
+    top_level_comments = (
+        Comment.objects.filter(blog_post=post, parent__isnull=True)
+        .select_related("user", "deleted_by")
+        .prefetch_related(
+            "replies__user", "replies__deleted_by", "reactions", "replies__reactions"
+        )
+    )
+    comment_page = int(request.GET.get("comment_page", 1))
+    comment_paginator = Paginator(top_level_comments, COMMENTS_PER_PAGE)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+    has_more_comments = comment_page_obj.has_next()
+
+    from .models import CommentReaction
+
+    comment_reaction_data = {}
+    all_comments = list(comment_page_obj) + [
+        r for c in comment_page_obj for r in c.replies.all()
+    ]
+    for c in all_comments:
+        likes = 0
+        dislikes = 0
+        user_rx = None
+        user_id = request.user.id if request.user.is_authenticated else None
+        for rx in c.reactions.all():
+            if rx.value == CommentReaction.LIKE:
+                likes += 1
+            elif rx.value == CommentReaction.DISLIKE:
+                dislikes += 1
+            if user_rx is None and user_id and rx.user_id == user_id:
+                user_rx = rx.value
+        comment_reaction_data[c.id] = (likes, dislikes, user_rx)
+
+    comment_form = None
+    if request.user.is_authenticated:
+        comment_form = CommentForm()
+
+    return render(
+        request,
+        "services/blog_detail.html",
+        {
+            "post": post,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": rating_count,
+            "user_rating": user_rating,
+            "comments": comment_page_obj,
+            "has_more_comments": has_more_comments,
+            "comment_page": comment_page,
+            "comment_form": comment_form,
+            "comment_reaction_data": comment_reaction_data,
+            "breadcrumbs": [
+                {"label": "خانه", "url": "/"},
+                {"label": "وبلاگ", "url": "/blog/"},
+                {"label": post.title},
+            ],
+        },
+    )
+
+
+@require_POST
+def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
+    """API endpoint to rate a blog post (1-5).
+
+    POST with JSON ``{\"score\": N}``.  Requires authentication.
+    Idempotent: updates the existing rating if the user has already
+    rated this post.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "login required"}, status=401)
+    post = get_object_or_404(BlogPost, id=post_id, is_published=True)
+    try:
+        data = json.loads(request.body)
+        score = int(data.get("score", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid score"}, status=400)
+    if score < 1 or score > 5:
+        return JsonResponse({"error": "score must be between 1 and 5"}, status=400)
+    rating, _ = BlogPostRating.objects.update_or_create(
+        user=request.user,
+        blog_post=post,
+        defaults={"score": score},
+    )
+    avg = post.ratings.aggregate(Avg("score"))["score__avg"]
+    return JsonResponse(
+        {
+            "average": round(avg, 1) if avg else None,
+            "count": post.ratings.count(),
+            "user_score": rating.score,
+        }
+    )
+
+
+@staff_member_required
+def admin_blog_list(request: HttpRequest) -> HttpResponse:
+    posts = BlogPost.objects.select_related("author").all()
+    return render(
+        request,
+        "services/admin/blog_post_list.html",
+        {
+            "posts": posts,
+            "title": "مدیریت پست‌های وبلاگ",
+        },
+    )
+
+
+@staff_member_required
+def admin_blog_create(request: HttpRequest) -> HttpResponse:
+    if request.method == "POST":
+        form = BlogPostAdminForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            messages.success(request, "پست وبلاگ ایجاد شد.")
+            return redirect("admin_blog_list")
+    else:
+        form = BlogPostAdminForm()
+    return render(
+        request,
+        "services/admin/blog_post_form.html",
+        {
+            "form": form,
+            "title": "ایجاد پست جدید",
+            "is_create": True,
+        },
+    )
+
+
+@staff_member_required
+def admin_blog_edit(request: HttpRequest, post_id: int) -> HttpResponse:
+    post = get_object_or_404(BlogPost, id=post_id)
+    if request.method == "POST":
+        form = BlogPostAdminForm(request.POST, request.FILES, instance=post)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "پست وبلاگ به‌روزرسانی شد.")
+            return redirect("admin_blog_list")
+    else:
+        form = BlogPostAdminForm(instance=post)
+    return render(
+        request,
+        "services/admin/blog_post_form.html",
+        {
+            "form": form,
+            "title": "ویرایش پست",
+            "is_create": False,
+            "post": post,
+        },
+    )
+
+
+@staff_member_required
+@require_POST
+def admin_blog_delete(request: HttpRequest, post_id: int) -> HttpResponse:
+    post = get_object_or_404(BlogPost, id=post_id)
+    post.delete()
+    messages.success(request, "پست وبلاگ حذف شد.")
+    return redirect("admin_blog_list")
+
+
 @login_required
 def nearby_centers_view(request: HttpRequest) -> HttpResponse:
     """List nearby service centers grouped by service for the user's city.
@@ -1344,17 +1532,17 @@ def bookmarks_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def submit_comment(
-    request: HttpRequest, service_id: int = 0, center_id: int = 0
+    request: HttpRequest,
+    service_id: int = 0,
+    center_id: int = 0,
+    blog_post_id: int = 0,
 ) -> HttpResponse:
-    """Submit a comment on a service or service center.
-
-    POST only: validates :class:`CommentForm`, creates the comment.
-    Supports threaded replies via optional ``parent_id`` field.
-    """
     if request.method != "POST":
         if service_id:
             return redirect("service_detail", service_id=service_id)
-        return redirect("center_detail", center_id=center_id)
+        if center_id:
+            return redirect("center_detail", center_id=center_id)
+        return redirect("blog_detail", slug=BlogPost.objects.get(id=blog_post_id).slug)
 
     form = CommentForm(request.POST)
     if form.is_valid():
@@ -1368,7 +1556,9 @@ def submit_comment(
                 )
                 if service_id:
                     return redirect("service_detail", service_id=service_id)
-                return redirect("center_detail", center_id=center_id)
+                if center_id:
+                    return redirect("center_detail", center_id=center_id)
+                return redirect("blog_detail", slug=parent.blog_post.slug)
 
         comment = Comment(
             user=request.user,
@@ -1380,15 +1570,21 @@ def submit_comment(
             comment.save()
             messages.success(request, get_error_message("comment/added"))
             return redirect("service_detail", service_id=service_id)
-        else:
+        if center_id:
             comment.service_center = get_object_or_404(ServiceCenter, id=center_id)
             comment.save()
             messages.success(request, get_error_message("comment/added"))
             return redirect("center_detail", center_id=center_id)
+        comment.blog_post = get_object_or_404(BlogPost, id=blog_post_id)
+        comment.save()
+        messages.success(request, get_error_message("comment/added"))
+        return redirect("blog_detail", slug=comment.blog_post.slug)
 
     if service_id:
         return redirect("service_detail", service_id=service_id)
-    return redirect("center_detail", center_id=center_id)
+    if center_id:
+        return redirect("center_detail", center_id=center_id)
+    return redirect("blog_detail", slug=BlogPost.objects.get(id=blog_post_id).slug)
 
 
 @login_required
@@ -1444,10 +1640,13 @@ def delete_comment(request: HttpRequest, comment_id: int) -> HttpResponse:
 
 
 def _comment_redirect(comment: Comment) -> HttpResponse:
-    """Redirect back to the page containing *comment*."""
     if comment.service_id:
         return redirect("service_detail", service_id=comment.service_id)
-    return redirect("center_detail", center_id=comment.service_center_id)
+    if comment.service_center_id:
+        return redirect("center_detail", center_id=comment.service_center_id)
+    if comment.blog_post_id:
+        return redirect("blog_detail", slug=comment.blog_post.slug)
+    return redirect("home")
 
 
 def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
@@ -1811,6 +2010,9 @@ def load_comments(
     elif target_type == "center":
         target = get_object_or_404(ServiceCenter, id=target_id)
         qs = Comment.objects.filter(service_center=target, parent__isnull=True)
+    elif target_type == "blog_post":
+        get_object_or_404(BlogPost, id=target_id, is_published=True)
+        qs = Comment.objects.filter(blog_post_id=target_id, parent__isnull=True)
     else:
         return JsonResponse({"error": "invalid target"}, status=400)
 
@@ -1918,7 +2120,7 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
     from django.conf import settings
     from django.urls import reverse
 
-    from .models import Service, ServiceCenter
+    from .models import BlogPost, Service, ServiceCenter
 
     site_url = settings.SITE_URL
     pages = [
@@ -1927,6 +2129,7 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
         ("contact", None, "0.6"),
         ("faq", None, "0.7"),
         ("services_list", None, "0.8"),
+        ("blog_list", None, "0.7"),
     ]
     urls = ""
     for name, arg, priority in pages:
@@ -1942,6 +2145,9 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
     for center in ServiceCenter.objects.all().iterator():
         url = site_url + reverse("center_detail", args=[center.id])
         urls += f"<url><loc>{url}</loc><priority>0.5</priority></url>\n"
+    for post in BlogPost.objects.filter(is_published=True).iterator():
+        url = site_url + reverse("blog_detail", args=[post.slug])
+        urls += f"<url><loc>{url}</loc><priority>0.6</priority></url>\n"
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

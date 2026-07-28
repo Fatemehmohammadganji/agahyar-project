@@ -236,6 +236,96 @@ class ContactMessage(models.Model):
         return f"{self.name} - {self.email}"
 
 
+class BlogPost(models.Model):
+    """A blog post written by staff and published on the public website."""
+
+    title = models.CharField("عنوان", max_length=200)
+    slug = models.SlugField("اسلاگ", max_length=200, unique=True, allow_unicode=True)
+    keywords = models.TextField("کلمات کلیدی", blank=True)
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="blog_posts",
+        verbose_name="نویسنده",
+    )
+    summary = models.TextField("خلاصه", blank=True)
+    body = models.TextField("متن")
+    image = models.ImageField("تصویر", upload_to="blog/", blank=True, null=True)
+    image_url = models.URLField("لینک تصویر (جایگزین)", blank=True, max_length=500)
+    is_published = models.BooleanField("منتشر شده", default=False, db_index=True)
+    published_at = models.DateTimeField("تاریخ انتشار", null=True, blank=True)
+    created_at = models.DateTimeField("تاریخ ایجاد", auto_now_add=True)
+    updated_at = models.DateTimeField("آخرین به‌روزرسانی", auto_now=True)
+
+    class Meta:
+        verbose_name = "پست وبلاگ"
+        verbose_name_plural = "پست‌های وبلاگ"
+        ordering = ["-published_at", "-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def get_keywords_list(self) -> list:
+        """Return keywords as a list split by ``,``."""
+        return (
+            [k.strip() for k in self.keywords.split(",") if k.strip()]
+            if self.keywords
+            else []
+        )
+
+    @property
+    def display_image_url(self) -> str | None:
+        if self.image_url:
+            return self.image_url
+        if self.image:
+            return self.image.url
+        return None
+
+    def save(self, *args, **kwargs):
+        from django.utils.text import slugify
+
+        if not self.slug:
+            self.slug = slugify(self.title, allow_unicode=True)
+        if self.is_published and not self.published_at:
+            self.published_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class BlogPostRating(models.Model):
+    """A user star rating for a blog post (1 to 5)."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="blog_ratings",
+        verbose_name="کاربر",
+    )
+    blog_post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.CASCADE,
+        related_name="ratings",
+        verbose_name="پست وبلاگ",
+    )
+    score = models.PositiveSmallIntegerField("امتیاز (۱ تا ۵)")
+    created_at = models.DateTimeField("تاریخ ایجاد", auto_now_add=True)
+    updated_at = models.DateTimeField("آخرین ویرایش", auto_now=True)
+
+    class Meta:
+        verbose_name = "امتیاز پست وبلاگ"
+        verbose_name_plural = "امتیازهای پست‌های وبلاگ"
+        unique_together = ("user", "blog_post")
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(score__gte=1, score__lte=5),
+                name="blog_rating_score_range",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.blog_post.title} - {self.score}"
+
+
 class Comment(models.Model):
     """A user comment on a service or service center, with optional nesting."""
 
@@ -255,6 +345,14 @@ class Comment(models.Model):
         null=True,
         blank=True,
         related_name="comments",
+    )
+    blog_post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="comments",
+        verbose_name="پست وبلاگ",
     )
     parent = models.ForeignKey(
         "self",
@@ -284,13 +382,21 @@ class Comment(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(service__isnull=False)
-                | models.Q(service_center__isnull=False),
+                | models.Q(service_center__isnull=False)
+                | models.Q(blog_post__isnull=False),
                 name="comment_has_target",
             )
         ]
 
     def __str__(self) -> str:
-        target = self.service.name if self.service else self.service_center.name
+        if self.service:
+            target = self.service.name
+        elif self.service_center:
+            target = self.service_center.name
+        elif self.blog_post:
+            target = self.blog_post.title
+        else:
+            target = "(deleted)"
         return f"{self.user.username} - {target}"
 
     @property

@@ -61,5 +61,10 @@ Invoke-WebRequest -Uri "$SWAGGER_CDN/swagger-ui-bundle.js" -OutFile static/libs/
 Invoke-WebRequest -Uri "$SWAGGER_CDN/swagger-ui-standalone-preset.js" -OutFile static/libs/swagger-ui/swagger-ui-standalone-preset.js
 Invoke-WebRequest -Uri "$SWAGGER_CDN/swagger-ui.css" -OutFile static/libs/swagger-ui/swagger-ui.css
 Invoke-WebRequest -Uri "$SWAGGER_CDN/favicon-32x32.png" -OutFile static/libs/swagger-ui/favicon-32x32.png
+# CKEditor 5 (classic build)
+Write-Host "Downloading CKEditor 5 ..."
+$null = New-Item -ItemType Directory -Force -Path static/libs/ckeditor5
+Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/@ckeditor/ckeditor5-build-decoupled-document@44.3.0/build/ckeditor.js" -OutFile static/libs/ckeditor5/ckeditor.js
+Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/@ckeditor/ckeditor5-build-decoupled-document@44.3.0/build/translations/fa.js" -OutFile static/libs/ckeditor5/fa.js
 
 Write-Host "Done."

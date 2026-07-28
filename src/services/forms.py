@@ -11,7 +11,7 @@ from django.contrib.auth.forms import PasswordChangeForm, UserCreationForm
 from django.contrib.auth.models import User
 
 from .error_codes import get_error_message
-from .models import Service, UserProfile
+from .models import BlogPost, Service, UserProfile
 from .validators import iranian_phone_number_validator
 from .widgets import TagListWidget
 
@@ -500,3 +500,30 @@ class SetNewPasswordForm(forms.Form):
                     self.add_error(
                         "new_password1", forms.ValidationError(msg, code=code)
                     )
+
+
+class BlogPostAdminForm(forms.ModelForm):
+    body = forms.CharField(
+        label="متن",
+        widget=forms.Textarea(attrs={"class": "ckeditor-textarea", "dir": "rtl"}),
+    )
+
+    class Meta:
+        model = BlogPost
+        fields = (
+            "title",
+            "slug",
+            "keywords",
+            "summary",
+            "body",
+            "image",
+            "image_url",
+            "is_published",
+        )
+        widgets = {
+            "summary": forms.Textarea(attrs={"rows": 3, "dir": "rtl"}),
+            "slug": forms.TextInput(attrs={"dir": "ltr"}),
+            "keywords": forms.TextInput(
+                attrs={"dir": "rtl", "placeholder": "مثلاً: آموزش, روانشناسی, سلامت"}
+            ),
+        }
