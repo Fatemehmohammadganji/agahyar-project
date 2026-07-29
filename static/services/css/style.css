@@ -3929,6 +3929,13 @@ button.muted-link:disabled {
   margin: 1.5rem 0;
   box-shadow: 0 2px 8px var(--shadow-light);
 }
+/* Divider */
+.blog-detail-divider {
+  height: 1px;
+  background: var(--border-light);
+  opacity: 0.6;
+  margin: 2rem 0;
+}
 /* Shared card style for consistent sections */
 .blog-detail-card {
   background: var(--bg-card);
