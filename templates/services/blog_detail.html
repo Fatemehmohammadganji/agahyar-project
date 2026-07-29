@@ -51,24 +51,76 @@
         </div>
       {% endif %}
     {% endwith %}
-    {% if avg_rating is not None %}
-      <div class="blog-rating-section">
-        <div class="rating-stars"
-             data-post-id="{{ post.id }}"
-             data-user-rating="{{ user_rating|default:'' }}">
-          {% for i in "12345"|make_list %}
-            <span class="rating-star{% if user_rating and forloop.counter <= user_rating %} filled{% endif %}"
-                  data-value="{{ forloop.counter }}">&#9733;</span>
-          {% endfor %}
+    <div class="blog-rating-section">
+      <div class="star-rating-input"
+           id="blog-star-rating"
+           data-post-id="{{ post.id }}"
+           data-user-auth="{{ user.is_authenticated|lower }}">
+        {% for i in "54321"|make_list %}
+          <input type="radio"
+                 id="bstar{{ post.id }}_{{ i }}"
+                 name="bstar_{{ post.id }}"
+                 value="{{ i }}"
+                 {% if user_rating|stringformat:"s" == i %}checked{% endif %}>
+          <label for="bstar{{ post.id }}_{{ i }}"></label>
+        {% endfor %}
+      </div>
+      <div class="rating-info">
+        <span class="rating-average" id="rating-average">{% if avg_rating is not None %}{{ avg_rating|fa }}{% else %}&mdash;{% endif %}</span>
+        <span class="rating-count" id="rating-count">({{ rating_count|fa }} امتیاز)</span>
+      </div>
+    </div>
+    <div class="modal-overlay" id="login-modal" style="display:none">
+      <div class="modal-content">
+        <button type="button" class="modal-close" id="login-modal-close">&times;</button>
+        <h2>ورود به آگاه‌یار</h2>
+        <p style="margin-bottom:16px;
+                  color:var(--text-muted,#666);
+                  font-size:0.9rem">برای ثبت امتیاز وارد شوید</p>
+        <div id="login-modal-error"
+             style="display:none;
+                    color:#dc3545;
+                    margin-bottom:12px;
+                    font-size:0.85rem"></div>
+        <form id="login-modal-form">
+          {% csrf_token %}
+          <div class="form-group">
+            <label>نام کاربری، ایمیل یا شماره موبایل</label>
+            <input type="text"
+                   name="username"
+                   placeholder="نام کاربری خود را وارد کنید"
+                   class="ltr-input"
+                   dir="ltr"
+                   required>
+          </div>
+          <div class="form-group">
+            <label>رمز عبور</label>
+            <input type="password"
+                   name="password"
+                   placeholder="رمز عبور خود را وارد کنید"
+                   class="ltr-input"
+                   dir="ltr"
+                   required>
+          </div>
+          <div class="remember-me-group" style="margin-bottom:16px">
+            <label class="remember-me-label">
+              <input type="checkbox" name="remember_me" class="remember-me-checkbox">
+              مرا به خاطر بسپار
+            </label>
+          </div>
+          <button type="submit" class="btn-primary" style="width:100%">ورود</button>
+        </form>
+        <div class="register-link"
+             style="margin-top:12px;
+                    text-align:center;
+                    font-size:0.85rem">
+          حساب کاربری ندارید؟ <a href="{% url 'register' %}">ثبت‌نام کنید</a>
         </div>
-        <div class="rating-info">
-          {% if avg_rating %}
-            <span class="rating-average">{{ avg_rating }}</span>
-            <span class="rating-count">({{ rating_count }} امتیاز)</span>
-          {% endif %}
+        <div style="margin-top:8px;text-align:center">
+          <a href="{% url 'password_reset_phone' %}" class="muted-link">رمز عبور را فراموش کرده‌اید؟</a>
         </div>
       </div>
-    {% endif %}
+    </div>
     <div class="blog-detail-card blog-detail-author-box">
       <div class="blog-author-avatar">{{ post.author.get_full_name|default:post.author.username|first }}</div>
       <div class="blog-author-info">
@@ -106,61 +158,13 @@
         </form>
       {% else %}
         <div class="login-prompt">
-          <p>برای ارسال نظر باید <a href="{% url 'login' %}">وارد شوید</a>.</p>
+          <p>برای ارسال نظر باید <a href="#"
+    onclick="document.getElementById('login-modal').style.display='flex';return false">وارد شوید</a>.</p>
         </div>
       {% endif %}
     </div>
   </article>
 {% endblock %}
-{% block extra_scripts %}
-  <script>
-      document.addEventListener("DOMContentLoaded", function() {
-          var bodyEl = document.getElementById("blog-detail-body");
-          var tocList = document.getElementById("blog-toc-list");
-          var tocSection = document.getElementById("blog-toc");
-          if (bodyEl && tocList) {
-              var headings = bodyEl.querySelectorAll("h2, h3");
-              if (headings.length > 1) {
-                  headings.forEach(function(h, i) {
-                      var id = "section-" + i;
-                      h.setAttribute("id", id);
-                      var li = document.createElement("li");
-                      if (h.tagName === "H3") li.style.paddingRight = "1rem";
-                      var a = document.createElement("a");
-                      a.href = "#" + id;
-                      a.textContent = h.textContent;
-                      li.appendChild(a);
-                      tocList.appendChild(li);
-                  });
-                  tocSection.style.display = "";
-              }
-          }
-          var mainImage = document.getElementById("blog-detail-main-image");
-          var lightbox = document.getElementById("blog-lightbox");
-          if (mainImage && lightbox) {
-              mainImage.addEventListener("click", function() {
-                  lightbox.classList.add("open");
-              });
-          }
-          var progressBar = document.getElementById("blog-progress-bar");
-          if (progressBar) {
-              window.addEventListener("scroll", function() {
-                  var scrollTop = window.scrollY;
-                  var docHeight = document.documentElement.scrollHeight - window.innerHeight;
-                  var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-                  progressBar.style.width = progress + "%";
-              });
-          }
-          var observer = new IntersectionObserver(function(entries) {
-              entries.forEach(function(entry) {
-                  if (entry.isIntersecting) {
-                      entry.target.classList.add("fade-in--visible");
-                      observer.unobserve(entry.target);
-                  }
-              });
-          }, {
-              threshold: 0.1
-          });
-      });
-  </script>
+{% block extra_js %}
+  <script src="{% static 'services/js/blog-detail.js' %}"></script>
 {% endblock %}

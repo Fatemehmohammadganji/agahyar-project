@@ -26,6 +26,7 @@ from django.core.paginator import Paginator
 from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -511,8 +512,14 @@ def login_view(request: HttpRequest) -> HttpResponse:
     """Handle user login.
 
     Authenticates with :class:`LoginForm`; redirects to home on success.
+    For AJAX requests (``X-Requested-With: XMLHttpRequest``) returns JSON
+    responses with ``{\"success\": true/false}``.
     """
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     if request.user.is_authenticated:
+        if is_ajax:
+            return JsonResponse({"success": True, "csrfToken": get_token(request)})
         return redirect("home")
 
     if request.method == "POST":
@@ -527,6 +534,10 @@ def login_view(request: HttpRequest) -> HttpResponse:
                     request.session.set_expiry(2592000)  # 30 days
                 else:
                     request.session.set_expiry(0)  # expire on browser close
+                if is_ajax:
+                    return JsonResponse(
+                        {"success": True, "csrfToken": get_token(request)}
+                    )
                 messages.success(
                     request,
                     get_error_message(
@@ -535,7 +546,23 @@ def login_view(request: HttpRequest) -> HttpResponse:
                     ),
                 )
                 return redirect("home")
+            if is_ajax:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": get_error_message("auth/invalid-credentials"),
+                    },
+                    status=400,
+                )
             messages.error(request, get_error_message("auth/invalid-credentials"))
+        elif is_ajax:
+            errors = []
+            for field_errors in form.errors.values():
+                errors.extend(field_errors)
+            return JsonResponse(
+                {"success": False, "error": " ".join(errors)},
+                status=400,
+            )
     else:
         form = LoginForm()
 
@@ -1187,7 +1214,8 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
 def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
     """API endpoint to rate a blog post (1-5).
 
-    POST with JSON ``{\"score\": N}``.  Requires authentication.
+    POST with JSON ``{\"score\": N}`` or form-encoded ``score=N``.
+    Requires authentication.
     Idempotent: updates the existing rating if the user has already
     rated this post.
     """
@@ -1195,8 +1223,11 @@ def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
         return JsonResponse({"error": "login required"}, status=401)
     post = get_object_or_404(BlogPost, id=post_id, is_published=True)
     try:
-        data = json.loads(request.body)
-        score = int(data.get("score", 0))
+        if request.content_type == "application/json":
+            data = json.loads(request.body)
+            score = int(data.get("score", 0))
+        else:
+            score = int(request.POST.get("score", 0))
     except (json.JSONDecodeError, ValueError, TypeError):
         return JsonResponse({"error": "invalid score"}, status=400)
     if score < 1 or score > 5:
