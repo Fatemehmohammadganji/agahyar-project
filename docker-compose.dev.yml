@@ -16,6 +16,7 @@ services:
       - ./static/services:/app/static/services
       - ./manage.py:/app/manage.py
       - ./scripts:/app/scripts
+      - ./media:/app/media
     command: uv run --no-sync python manage.py runserver 0.0.0.0:8000
     depends_on:
       db:
