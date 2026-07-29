@@ -256,6 +256,7 @@ class BlogPost(models.Model):
     published_at = models.DateTimeField("تاریخ انتشار", null=True, blank=True)
     created_at = models.DateTimeField("تاریخ ایجاد", auto_now_add=True)
     updated_at = models.DateTimeField("آخرین به‌روزرسانی", auto_now=True)
+    view_count = models.PositiveIntegerField("تعداد بازدید", default=0)
 
     class Meta:
         verbose_name = "پست وبلاگ"
@@ -280,6 +281,11 @@ class BlogPost(models.Model):
         if self.image:
             return self.image.url
         return None
+
+    @property
+    def reading_time(self) -> int:
+        word_count = len(self.body.split())
+        return max(1, round(word_count / 150))
 
     def save(self, *args, **kwargs):
         from django.utils.text import slugify

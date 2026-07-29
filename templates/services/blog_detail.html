@@ -5,25 +5,43 @@
 {% block meta_description %}{{ post.summary|default:"" }}{% endblock %}
 {% block meta_keywords %}{% if post.keywords %}{{ post.keywords }}{% else %}{{ post.title|fa }}, وبلاگ, آگاه‌یار{% endif %}{% endblock %}
 {% block content %}
+  <div class="blog-progress-bar" id="blog-progress-bar"></div>
   <article class="blog-detail">
     <header class="blog-detail-header">
-      <h1>{{ post.title|fa }}</h1>
-      <div class="blog-card-meta">
+      <div class="blog-detail-meta-top">
         <span>{{ post.published_at|jalali }}</span>
-        <span>{{ post.author.get_full_name|default:post.author.username }}</span>
+        <span>{{ post.reading_time }} دقیقه مطالعه</span>
+        <span>{{ post.view_count }} بازدید</span>
       </div>
+      <h1>{{ post.title|fa }}</h1>
     </header>
     {% with image_url=post.display_image_url %}
       {% if image_url %}
         <div class="blog-detail-image">
+          <img src="{{ image_url }}"
+               alt="{{ post.title }}"
+               id="blog-detail-main-image"
+               style="cursor:pointer" />
+        </div>
+        <div class="blog-lightbox"
+             id="blog-lightbox"
+             onclick="this.classList.remove('open')">
+          <span class="blog-lightbox-close">&times;</span>
           <img src="{{ image_url }}" alt="{{ post.title }}" />
         </div>
       {% endif %}
     {% endwith %}
-    <div class="blog-detail-body">{{ post.body|safe }}</div>
+    <div class="blog-detail-toc" id="blog-toc" style="display:none">
+      <h3>فهرست مطالب</h3>
+      <ul id="blog-toc-list">
+      </ul>
+    </div>
+    <div class="blog-detail-body-wrapper">
+      <div class="blog-detail-body" id="blog-detail-body">{{ post.body|safe }}</div>
+    </div>
     {% with kw_list=post.get_keywords_list %}
       {% if kw_list %}
-        <div class="blog-keywords">
+        <div class="blog-detail-card blog-keywords">
           <h3>کلمات کلیدی</h3>
           <ul class="keyword-list">
             {% for kw in kw_list %}
@@ -51,8 +69,14 @@
         </div>
       </div>
     {% endif %}
-    <a href="{% url 'blog_list' %}" class="back-link">&laquo; بازگشت به وبلاگ</a>
-    <div class="comments-section info-card">
+    <div class="blog-detail-card blog-detail-author-box">
+      <div class="blog-author-avatar">{{ post.author.get_full_name|default:post.author.username|first }}</div>
+      <div class="blog-author-info">
+        <strong>{{ post.author.get_full_name|default:post.author.username }}</strong>
+        <p>نویسنده و محتواساز آگاه‌یار</p>
+      </div>
+    </div>
+    <div class="comments-section blog-detail-card">
       <h3>نظرات</h3>
       {% if comments %}
         <div class="comments-list" id="comments-list">
@@ -87,4 +111,56 @@
       {% endif %}
     </div>
   </article>
+{% endblock %}
+{% block extra_scripts %}
+  <script>
+      document.addEventListener("DOMContentLoaded", function() {
+          var bodyEl = document.getElementById("blog-detail-body");
+          var tocList = document.getElementById("blog-toc-list");
+          var tocSection = document.getElementById("blog-toc");
+          if (bodyEl && tocList) {
+              var headings = bodyEl.querySelectorAll("h2, h3");
+              if (headings.length > 1) {
+                  headings.forEach(function(h, i) {
+                      var id = "section-" + i;
+                      h.setAttribute("id", id);
+                      var li = document.createElement("li");
+                      if (h.tagName === "H3") li.style.paddingRight = "1rem";
+                      var a = document.createElement("a");
+                      a.href = "#" + id;
+                      a.textContent = h.textContent;
+                      li.appendChild(a);
+                      tocList.appendChild(li);
+                  });
+                  tocSection.style.display = "";
+              }
+          }
+          var mainImage = document.getElementById("blog-detail-main-image");
+          var lightbox = document.getElementById("blog-lightbox");
+          if (mainImage && lightbox) {
+              mainImage.addEventListener("click", function() {
+                  lightbox.classList.add("open");
+              });
+          }
+          var progressBar = document.getElementById("blog-progress-bar");
+          if (progressBar) {
+              window.addEventListener("scroll", function() {
+                  var scrollTop = window.scrollY;
+                  var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                  var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+                  progressBar.style.width = progress + "%";
+              });
+          }
+          var observer = new IntersectionObserver(function(entries) {
+              entries.forEach(function(entry) {
+                  if (entry.isIntersecting) {
+                      entry.target.classList.add("fade-in--visible");
+                      observer.unobserve(entry.target);
+                  }
+              });
+          }, {
+              threshold: 0.1
+          });
+      });
+  </script>
 {% endblock %}

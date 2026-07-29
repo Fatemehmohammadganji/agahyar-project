@@ -4,29 +4,41 @@
 {% block title %}وبلاگ | آگاه‌یار{% endblock %}
 {% block meta_description %}مقالات و مطالب آموزشی آگاه‌یار — راهنمای خدمات دولتی{% endblock %}
 {% block meta_keywords %}وبلاگ, مقالات, آگاه‌یار, خدمات دولتی, آگاه یار{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+{% endblock %}
 {% block content %}
-  <h1>وبلاگ آگاه‌یار</h1>
+  <h1 class="blog-page-title">وبلاگ آگاه‌یار</h1>
+  <p class="blog-page-subtitle">مقالات و مطالب آموزشی درباره خدمات دولتی و راهنمای مراجعین</p>
   {% if page_obj.object_list %}
-    <div class="blog-grid">
+    <div class="blog-grid" id="blog-grid">
       {% for post in page_obj.object_list %}
         <article class="blog-card">
-          <a href="{% url 'blog_detail' slug=post.slug %}" class="blog-card-image">
+          <a href="{% url 'blog_detail' slug=post.slug %}"
+             class="blog-card-image-link">
             {% if post.display_image_url %}
-              <img src="{{ post.display_image_url }}"
-                   alt="{{ post.title }}"
-                   loading="lazy" />
+              <div class="blog-card-image">
+                <img src="{{ post.display_image_url }}"
+                     alt="{{ post.title }}"
+                     loading="lazy" />
+              </div>
             {% else %}
-              <div class="blog-placeholder-img">
+              <div class="blog-card-image blog-card-image--placeholder">
                 <i class="fas fa-newspaper"></i>
               </div>
             {% endif %}
           </a>
           <div class="blog-card-body">
-            <h2 class="blog-card-title"><a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title|fa }}</a></h2>
+            <div class="blog-card-meta-top">
+              <span class="blog-card-date">{{ post.published_at|jalali }}</span>
+              <span class="blog-card-reading-time">{{ post.reading_time }} دقیقه مطالعه</span>
+            </div>
+            <h2 class="blog-card-title">
+              <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title|fa }}</a>
+            </h2>
             <p class="blog-card-summary">{{ post.summary|truncatewords:30|fa }}</p>
-            <div class="blog-card-meta">
-              <span>{{ post.published_at|jalali }}</span>
-              <span>{{ post.author.get_full_name|default:post.author.username }}</span>
+            <div class="blog-card-footer">
+              <span class="blog-card-author">{{ post.author.get_full_name|default:post.author.username }}</span>
             </div>
           </div>
         </article>
@@ -37,13 +49,38 @@
         {% if page_obj.has_previous %}
           <a href="?page={{ page_obj.previous_page_number }}">« قبلی</a>
         {% endif %}
-        <span>صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
+        <span class="page-info">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
         {% if page_obj.has_next %}
           <a href="?page={{ page_obj.next_page_number }}">بعدی »</a>
         {% endif %}
       </div>
     {% endif %}
   {% else %}
-    <p class="empty-state">هیچ مقاله‌ای یافت نشد.</p>
+    <div class="blog-empty">
+      <div class="blog-empty-icon">
+        <i class="fas fa-newspaper"></i>
+      </div>
+      <h3>هیچ مقاله‌ای یافت نشد</h3>
+      <p>در حال حاضر مقاله‌ای برای نمایش وجود ندارد. لطفاً بعداً مراجعه کنید.</p>
+    </div>
   {% endif %}
+{% endblock %}
+{% block extra_scripts %}
+  <script>
+      document.addEventListener("DOMContentLoaded", function() {
+          var observer = new IntersectionObserver(function(entries) {
+              entries.forEach(function(entry) {
+                  if (entry.isIntersecting) {
+                      entry.target.classList.add("fade-in--visible");
+                      observer.unobserve(entry.target);
+                  }
+              });
+          }, {
+              threshold: 0.1
+          });
+          document.querySelectorAll(".blog-card").forEach(function(el) {
+              observer.observe(el);
+          });
+      });
+  </script>
 {% endblock %}

@@ -1095,7 +1095,11 @@ def blog_list(request: HttpRequest) -> HttpResponse:
     paginator = Paginator(posts, 9)
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
-    return render(request, "services/blog_list.html", {"page_obj": page_obj})
+    return render(
+        request,
+        "services/blog_list.html",
+        {"page_obj": page_obj},
+    )
 
 
 def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
@@ -1104,6 +1108,16 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
         slug=slug,
         is_published=True,
     )
+    now = timezone.now()
+    viewed = request.session.setdefault("viewed_posts", {})
+    last_view = viewed.get(str(post.pk))
+    if last_view is None or (now - datetime.fromisoformat(last_view)) > timedelta(
+        hours=24
+    ):
+        BlogPost.objects.filter(pk=post.pk).update(view_count=F("view_count") + 1)
+        post.refresh_from_db(fields=["view_count"])
+        viewed[str(post.pk)] = now.isoformat()
+        request.session.modified = True
     avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
     rating_count = post.ratings.count()
     user_rating = None

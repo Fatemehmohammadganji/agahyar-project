@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 80
-- TAGS: feature, blog, ux, frontend
+- TAGS: ux, blog, feature, frontend
 
 Improve the visual design and user experience of the blog list and detail pages to match modern blog standards. Areas to cover:
 
@@ -12,3 +12,4 @@ Improve the visual design and user experience of the blog list and detail pages 
 - Loading states: skeleton screens while images load
 - Animations: subtle fade-in for cards on scroll, smooth transitions
 - Empty states: better design when no posts or no search results
+- Styles: Properly sized and styled tables and other elements
