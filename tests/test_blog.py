@@ -358,3 +358,66 @@ class TestBlogRatingAPI:
             content_type="application/json",
         )
         assert response.status_code == 400
+
+
+@pytest.mark.django_db
+class TestBlogFeeds:
+    """Tests for RSS and Atom feeds."""
+
+    def test_rss_feed_returns_200(self, client):
+        BlogPost.objects.create(
+            title="test",
+            author=User.objects.create_user(username="author1"),
+            is_published=True,
+        )
+        response = client.get(reverse("blog_rss_feed"))
+        assert response.status_code == 200
+        assert response["Content-Type"].startswith("application/rss+xml")
+
+    def test_atom_feed_returns_200(self, client):
+        BlogPost.objects.create(
+            title="test",
+            author=User.objects.create_user(username="author1"),
+            is_published=True,
+        )
+        response = client.get(reverse("blog_atom_feed"))
+        assert response.status_code == 200
+        assert response["Content-Type"].startswith("application/atom+xml")
+
+    def test_feed_excludes_unpublished(self, client):
+        BlogPost.objects.create(
+            title="published",
+            author=User.objects.create_user(username="author1"),
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="draft",
+            author=User.objects.create_user(username="author2"),
+            is_published=False,
+        )
+        rss = client.get(reverse("blog_rss_feed"))
+        atom = client.get(reverse("blog_atom_feed"))
+        for response in (rss, atom):
+            assert response.status_code == 200
+            assert "published" in response.content.decode()
+            assert "draft" not in response.content.decode()
+
+    def test_feed_item_fields(self, client):
+        BlogPost.objects.create(
+            title="آزمایش",
+            summary="خلاصه",
+            keywords="آموزش, سلامت",
+            author=User.objects.create_user(
+                username="author1",
+                first_name="علی",
+                last_name="کریمی",
+            ),
+            is_published=True,
+        )
+        rss = client.get(reverse("blog_rss_feed"))
+        content = rss.content.decode()
+        assert "آزمایش" in content
+        assert "خلاصه" in content
+        assert "علی کریمی" in content
+        assert "آموزش" in content
+        assert "سلامت" in content

@@ -1,6 +1,6 @@
 # RSS/Atom feed for blog
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: feature, blog, rss
 
