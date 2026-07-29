@@ -2742,3 +2742,81 @@ def admin_delete_comment(request: HttpRequest, comment_id: int) -> JsonResponse:
     comment.deleted_by = request.user
     comment.save(update_fields=["deleted_by", "updated_at"])
     return JsonResponse({"deleted": True})
+
+
+@staff_member_required
+def admin_media_manager(request: HttpRequest) -> HttpResponse:
+    import os
+    from datetime import datetime
+
+    from django.conf import settings
+
+    blog_dir = os.path.join(settings.MEDIA_ROOT, "blog")
+    files = []
+
+    if os.path.isdir(blog_dir):
+        for entry in os.scandir(blog_dir):
+            if not entry.is_file():
+                continue
+            url = settings.MEDIA_URL + "blog/" + entry.name
+            direct_qs = BlogPost.objects.filter(image="blog/" + entry.name)
+            body_qs = BlogPost.objects.filter(body__icontains=entry.name)
+            direct_count = direct_qs.count()
+            body_count = body_qs.count()
+
+            used_by: dict[int, dict] = {}
+            for p in direct_qs.only("id", "title"):
+                used_by[p.id] = {"id": p.id, "title": p.title}
+            for p in body_qs.only("id", "title"):
+                used_by.setdefault(p.id, {"id": p.id, "title": p.title})
+
+            stat = entry.stat()
+            files.append(
+                {
+                    "name": entry.name,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime),
+                    "url": url,
+                    "direct_usage": direct_count,
+                    "body_usage": body_count,
+                    "total_usage": direct_count + body_count,
+                    "used_by": sorted(used_by.values(), key=lambda x: x["title"]),
+                }
+            )
+
+    if request.method == "POST":
+        filename = request.POST.get("filename", "").strip()
+        if not filename:
+            messages.error(request, "نام فایل مشخص نشده است.")
+        else:
+            filepath = os.path.join(blog_dir, filename)
+            if not os.path.normpath(filepath).startswith(os.path.normpath(blog_dir)):
+                messages.error(request, "نام فایل نامعتبر است.")
+            elif not os.path.isfile(filepath):
+                messages.error(request, f"فایل «{filename}» یافت نشد.")
+            else:
+                qs = BlogPost.objects.filter(
+                    Q(image="blog/" + filename) | Q(body__icontains=filename)
+                )
+                if qs.exists():
+                    count = qs.count()
+                    messages.warning(
+                        request,
+                        f"این فایل در {count} پست استفاده شده است. ابتدا استفاده‌ها را حذف کنید.",
+                    )
+                else:
+                    os.remove(filepath)
+                    messages.success(request, f"فایل «{filename}» حذف شد.")
+                    return redirect("admin_media_manager")
+
+        return redirect("admin_media_manager")
+
+    files.sort(key=lambda f: f["modified"], reverse=True)
+    return render(
+        request,
+        "services/admin/media_manager.html",
+        {
+            "files": files,
+            "title": "مدیریت فایل‌های رسانه",
+        },
+    )

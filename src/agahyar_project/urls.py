@@ -166,6 +166,11 @@ urlpatterns: List[URLPattern] = [
         name="admin_blog_delete",
     ),
     path(
+        ADMIN_URL + "media/",
+        services_views.admin_media_manager,
+        name="admin_media_manager",
+    ),
+    path(
         ADMIN_URL + "ajax/toggle-report/<int:report_id>/",
         services_views.admin_toggle_report,
         name="admin_toggle_report",
