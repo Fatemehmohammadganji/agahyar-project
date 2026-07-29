@@ -1,8 +1,10 @@
 """Custom admin widgets for the Agahyar services application.
 
 Provides ``LocalOpenLayersWidget`` with Neshan search and manual
-coordinate input for the admin map widget, and ``TagListWidget``
-for editing pipe/comma-separated lists with add/remove/reorder.
+coordinate input for the admin map widget, ``TagListWidget``
+for editing pipe/comma-separated lists with add/remove/reorder,
+``BlogImageWidget`` for Persian drag-and-drop image upload,
+and ``PersianCheckboxInput`` for modern styled checkboxes.
 """
 
 import html as html_module
@@ -12,6 +14,35 @@ from django import forms
 from django.contrib.gis.forms.widgets import OpenLayersWidget
 from django.forms.widgets import Media
 from django.utils.safestring import mark_safe
+
+
+class BlogImageWidget(forms.ClearableFileInput):
+    """Image upload widget with Persian text, drag-and-drop, and preview.
+
+    Overrides Django's built-in ``ClearableFileInput`` to use Persian
+    labels and a custom template with drag-and-drop support and
+    visual feedback.
+    """
+
+    clear_checkbox_label = "\u062d\u0630\u0641"
+    initial_text = "\u0641\u0627\u06cc\u0644 \u0641\u0639\u0644\u06cc"
+    input_text = "\u062a\u063a\u06cc\u06cc\u0631"
+    template_name = "services/admin/widgets/clearable_file_input.html"
+    use_fieldset = False
+
+    class Media:
+        css = {"all": ["services/css/admin-blog-form.css"]}
+        js = ["services/js/admin-blog-image-widget.js"]
+
+
+class PersianCheckboxInput(forms.CheckboxInput):
+    """Checkbox widget rendered as a modern toggle switch.
+
+    The hidden native checkbox is wrapped in a styled ``<label>``
+    so the visual appearance is a pill-shaped toggle.
+    """
+
+    template_name = "services/admin/widgets/checkbox_input.html"
 
 
 class LocalOpenLayersWidget(OpenLayersWidget):

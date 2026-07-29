@@ -3,8 +3,7 @@
 {% block title %}{{ title }} | آگاه‌یار{% endblock %}
 {% block extrastyle %}
   {{ block.super }}
-  <link rel="stylesheet"
-        href="{% static 'services/css/admin-blog-form.css' %}">
+  {{ form.media }}
 {% endblock %}
 {% block breadcrumbs %}
   <div class="breadcrumbs">
@@ -22,7 +21,7 @@
         {% for field in form %}
           <div class="form-row{% if field.errors %} errors{% endif %}">
             <div class="field-box">
-              {% if field.field.widget.input_type == "checkbox" %}
+              {% if field.name == "is_published" %}
                 <div class="checkbox-row">
                   {{ field }}
                   <label for="{{ field.id_for_label }}" class="vCheckboxLabel">{{ field.label }}</label>

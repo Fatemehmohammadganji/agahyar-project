@@ -292,3 +292,218 @@
   font-size: 0.9rem;
   padding: 1rem !important;
 }
+
+/* --- Persian checkbox toggle --- */
+.persian-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+.persian-checkbox-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.persian-checkbox-switch {
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  background: var(--hairline-color, #ccc);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.25s;
+}
+.persian-checkbox-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.persian-checkbox-input:checked + .persian-checkbox-switch {
+  background: var(--primary, #447e9b);
+}
+.persian-checkbox-input:checked + .persian-checkbox-switch::after {
+  transform: translateX(-20px);
+}
+.persian-checkbox-input:focus-visible + .persian-checkbox-switch {
+  outline: 2px solid var(--primary, #447e9b);
+  outline-offset: 2px;
+}
+.blog-admin-form .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.blog-admin-form .checkbox-row label.vCheckboxLabel {
+  font-weight: 500;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--body-fg, #333);
+}
+
+/* --- Image upload (drag & drop) --- */
+.blog-image-widget {
+  width: 100%;
+  box-sizing: border-box;
+}
+.blog-image-dropzone {
+  width: 100%;
+  min-height: 180px;
+  border: 2px dashed var(--hairline-color, #ccc);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition:
+    border-color 0.25s,
+    background-color 0.25s;
+  background: var(--darkened-bg, #f8f8f8);
+  box-sizing: border-box;
+  padding: 24px;
+}
+.blog-image-dropzone:hover {
+  border-color: var(--primary, #447e9b);
+  background: color-mix(
+    in srgb,
+    var(--primary, #447e9b) 5%,
+    var(--darkened-bg, #f8f8f8)
+  );
+}
+.blog-image-dropzone--dragover {
+  border-color: var(--primary, #447e9b);
+  background: color-mix(
+    in srgb,
+    var(--primary, #447e9b) 12%,
+    var(--darkened-bg, #f8f8f8)
+  );
+  transform: scale(1.01);
+}
+.blog-image-dropzone-icon {
+  color: var(--body-quiet-color, #888);
+  opacity: 0.6;
+}
+.blog-image-dropzone-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--body-fg, #333);
+  text-align: center;
+}
+.blog-image-dropzone-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--body-quiet-color, #888);
+  text-align: center;
+}
+.blog-image-file-input {
+  display: none;
+}
+.blog-image-preview {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  margin-top: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.blog-image-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+  background: var(--darkened-bg, #eee);
+}
+.blog-image-preview-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.blog-image-preview-remove:hover {
+  background: rgba(186, 33, 33, 0.85);
+}
+.blog-image-current-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--darkened-bg, #f8f8f8);
+  border: 1px solid var(--hairline-color, #ccc);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  transition: border-color 0.2s;
+  direction: ltr;
+}
+.blog-image-current-info:has(.blog-image-clear-label input:checked) {
+  border-color: var(--delete-button-bg, #ba2121);
+  background: color-mix(
+    in srgb,
+    var(--delete-button-bg, #ba2121) 6%,
+    var(--darkened-bg, #f8f8f8)
+  );
+}
+.blog-image-current-name {
+  color: var(--body-fg, #333);
+  direction: ltr;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-size: 0.85rem;
+}
+.blog-image-clear-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 6px 14px;
+  border: 1px solid var(--delete-button-bg, #ba2121);
+  border-radius: 8px;
+  color: var(--delete-button-bg, #ba2121);
+  transition:
+    background 0.2s,
+    color 0.2s;
+  user-select: none;
+}
+.blog-image-clear-label:hover {
+  background: var(--delete-button-bg, #ba2121);
+  color: var(--delete-button-fg, #fff);
+}
+.blog-image-clear-label input[type="checkbox"] {
+  width: auto;
+  flex: none;
+  accent-color: var(--delete-button-bg, #ba2121);
+}
+.blog-image-clear-label-text {
+  font-size: 0.85rem;
+}

@@ -1,0 +1,55 @@
+<div class="blog-image-widget" id="{{ widget.name }}-widget">
+  <div class="blog-image-dropzone" id="{{ widget.name }}-dropzone">
+    <div class="blog-image-dropzone-icon">
+      <svg width="40"
+           height="40"
+           viewBox="0 0 24 24"
+           fill="none"
+           stroke="currentColor"
+           stroke-width="1.5"
+           stroke-linecap="round"
+           stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    </div>
+    <p class="blog-image-dropzone-text">
+      {% if widget.is_initial %}
+        برای آپلود تصویر جدید کلیک کنید یا فایل را اینجا رها کنید
+      {% else %}
+        برای آپلود عکس کلیک کنید یا فایل را اینجا رها کنید
+      {% endif %}
+    </p>
+    <p class="blog-image-dropzone-hint">فرمت‌های مجاز: JPEG, PNG, GIF, WebP</p>
+    <input type="{{ widget.type }}"
+           name="{{ widget.name }}"
+           id="{{ widget.name }}-input"
+           class="blog-image-file-input"
+           {% include "django/forms/widgets/attrs.html" %}>
+  </div>
+  <div class="blog-image-preview"
+       id="{{ widget.name }}-preview"
+       {% if not widget.is_initial %}style="display:none"{% endif %}>
+    <img src="{% if widget.is_initial %}{{ widget.value.url }}{% endif %}"
+         alt=""
+         class="blog-image-preview-img"
+         id="{{ widget.name }}-preview-img">
+    <button type="button"
+            class="blog-image-preview-remove"
+            id="{{ widget.name }}-preview-remove"
+            title="حذف تصویر">&times;</button>
+  </div>
+  {% if widget.is_initial %}
+    <div class="blog-image-current-info">
+      <span class="blog-image-current-name">{{ widget.value.name }}</span>
+      <label class="blog-image-clear-label">
+        <input type="checkbox"
+               name="{{ widget.checkbox_name }}"
+               id="{{ widget.checkbox_id }}"
+               {% if widget.checked %}checked{% endif %}>
+        <span class="blog-image-clear-label-text">حذف فایل فعلی</span>
+      </label>
+    </div>
+  {% endif %}
+</div>

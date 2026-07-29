@@ -13,7 +13,7 @@ from django.contrib.auth.models import User
 from .error_codes import get_error_message
 from .models import BlogPost, Service, UserProfile
 from .validators import iranian_phone_number_validator
-from .widgets import TagListWidget
+from .widgets import BlogImageWidget, PersianCheckboxInput, TagListWidget
 
 REQUIRED_MSG: str = get_error_message("field/required")
 INVALID_EMAIL_MSG: str = get_error_message("field/invalid-email")
@@ -521,6 +521,8 @@ class BlogPostAdminForm(forms.ModelForm):
             "is_published",
         )
         widgets = {
+            "image": BlogImageWidget,
+            "is_published": PersianCheckboxInput,
             "summary": forms.Textarea(attrs={"rows": 3, "dir": "rtl"}),
             "slug": forms.TextInput(attrs={"dir": "ltr"}),
             "keywords": forms.TextInput(
