@@ -3600,6 +3600,24 @@ button.muted-link:disabled {
 .blog-card-author {
   font-weight: 500;
 }
+/* Blog section */
+.blog-card-excerpt {
+  text-align: justify;
+}
+.blog-section-footer {
+  text-align: center;
+  margin: 0.5rem 0 2rem;
+}
+.blog-section-link {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.blog-section-link:hover {
+  color: var(--color-accent);
+}
 /* Fade-in animation (progressive enhancement — cards visible without JS) */
 .fade-in--visible {
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;

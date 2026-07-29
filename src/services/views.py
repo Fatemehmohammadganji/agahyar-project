@@ -828,6 +828,7 @@ def home(request: HttpRequest) -> HttpResponse:
     """Render the public home page with popular services and recent FAQs."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
+    blog_posts = BlogPost.objects.filter(is_published=True).select_related("author")[:3]
     bookmarked_ids: set[int] = set()
     if request.user.is_authenticated:
         bookmarked_ids = set(
@@ -841,6 +842,7 @@ def home(request: HttpRequest) -> HttpResponse:
         {
             "popular_services": popular_services,
             "faqs": faqs,
+            "blog_posts": blog_posts,
             "bookmarked_ids": bookmarked_ids,
         },
     )
