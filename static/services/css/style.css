@@ -3640,9 +3640,9 @@ button.muted-link:disabled {
 .blog-progress-bar {
   position: fixed;
   top: 0;
-  left: 0;
+  right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), #2c8faa);
+  background: linear-gradient(to left, var(--color-accent), #2c8faa);
   z-index: 9999;
   width: 0;
   transition: width 0.1s linear;

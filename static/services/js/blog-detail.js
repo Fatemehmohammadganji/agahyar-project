@@ -44,15 +44,24 @@
       });
     }
 
-    /* --- Scroll progress bar --- */
+    /* --- Scroll progress bar (based on article body) --- */
     var progressBar = document.getElementById("blog-progress-bar");
-    if (progressBar) {
+    var bodyEl = document.getElementById("blog-detail-body");
+    if (progressBar && bodyEl) {
       window.addEventListener("scroll", function () {
-        var scrollTop = window.scrollY;
-        var docHeight =
-          document.documentElement.scrollHeight - window.innerHeight;
-        var progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
-        progressBar.style.width = progress + "%";
+        var bodyTop = bodyEl.getBoundingClientRect().top + window.scrollY;
+        var bodyHeight = bodyEl.offsetHeight;
+        var scrollY = window.scrollY;
+
+        /* 0% when body top aligns with viewport top, 100% when body bottom aligns with viewport top */
+        var startPos = bodyTop;
+        var endPos = bodyTop + bodyHeight - window.innerHeight;
+
+        var progress = Math.min(
+          1,
+          Math.max(0, (scrollY - startPos) / (endPos - startPos)),
+        );
+        progressBar.style.width = progress * 100 + "%";
       });
     }
 
