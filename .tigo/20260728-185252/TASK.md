@@ -1,6 +1,6 @@
 # Image alt text for blog cover image
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 45
 - TAGS: feature, blog, seo, a11y
 

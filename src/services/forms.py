@@ -518,6 +518,7 @@ class BlogPostAdminForm(forms.ModelForm):
             "body",
             "image",
             "image_url",
+            "alt_text",
             "is_published",
         )
         widgets = {

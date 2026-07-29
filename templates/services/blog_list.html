@@ -27,7 +27,7 @@
             {% if post.display_image_url %}
               <div class="blog-card-image">
                 <img src="{{ post.display_image_url }}"
-                     alt="{{ post.title }}"
+                     alt="{{ post.alt_text|default:post.title }}"
                      loading="lazy" />
               </div>
             {% else %}

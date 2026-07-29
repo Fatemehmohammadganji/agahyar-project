@@ -252,6 +252,7 @@ class BlogPost(models.Model):
     body = models.TextField("متن")
     image = models.ImageField("تصویر", upload_to="blog/", blank=True, null=True)
     image_url = models.URLField("لینک تصویر (جایگزین)", blank=True, max_length=500)
+    alt_text = models.CharField("متن جایگزین تصویر", max_length=500, blank=True)
     is_published = models.BooleanField("منتشر شده", default=False, db_index=True)
     published_at = models.DateTimeField("تاریخ انتشار", null=True, blank=True)
     created_at = models.DateTimeField("تاریخ ایجاد", auto_now_add=True)

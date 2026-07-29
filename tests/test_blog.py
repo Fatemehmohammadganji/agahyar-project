@@ -97,6 +97,55 @@ class TestBlogPostModel:
         assert "آموزش" in response.content.decode()
         assert "سلامت" in response.content.decode()
 
+    def test_alt_text_defaults_to_empty_string(self):
+        post = BlogPost.objects.create(
+            title="test",
+            author=User.objects.create_user(username="author1"),
+        )
+        assert post.alt_text == ""
+
+    def test_alt_text_fallback_to_title_in_detail_image(self):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="عنوان پست",
+            author=author,
+            image_url="https://example.com/img.jpg",
+            is_published=True,
+        )
+        client = Client()
+        response = client.get(reverse("blog_detail", kwargs={"slug": post.slug}))
+        html = response.content.decode()
+        assert 'alt="عنوان پست"' in html
+
+    def test_alt_text_used_when_set_in_detail_image(self):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="عنوان پست",
+            alt_text="توضیح تصویر",
+            author=author,
+            image_url="https://example.com/img.jpg",
+            is_published=True,
+        )
+        client = Client()
+        response = client.get(reverse("blog_detail", kwargs={"slug": post.slug}))
+        html = response.content.decode()
+        assert 'alt="توضیح تصویر"' in html
+        assert 'alt="عنوان پست"' not in html
+
+    def test_alt_text_used_in_list_when_set(self):
+        author = User.objects.create_user(username="author1")
+        BlogPost.objects.create(
+            title="عنوان پست",
+            alt_text="توضیح تصویر",
+            author=author,
+            image_url="https://example.com/img.jpg",
+            is_published=True,
+        )
+        client = Client()
+        response = client.get(reverse("blog_list"))
+        html = response.content.decode()
+        assert 'alt="توضیح تصویر"' in html
+
 
 @pytest.mark.django_db
 class TestBlogPostRatingModel:

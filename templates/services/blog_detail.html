@@ -19,7 +19,7 @@
       {% if image_url %}
         <div class="blog-detail-image">
           <img src="{{ image_url }}"
-               alt="{{ post.title }}"
+               alt="{{ post.alt_text|default:post.title }}"
                id="blog-detail-main-image"
                style="cursor:pointer" />
         </div>
@@ -27,7 +27,7 @@
              id="blog-lightbox"
              onclick="this.classList.remove('open')">
           <span class="blog-lightbox-close">&times;</span>
-          <img src="{{ image_url }}" alt="{{ post.title }}" />
+          <img src="{{ image_url }}" alt="{{ post.alt_text|default:post.title }}" />
         </div>
       {% endif %}
     {% endwith %}

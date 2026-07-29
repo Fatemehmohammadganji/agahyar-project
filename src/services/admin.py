@@ -253,7 +253,7 @@ class BlogPostAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at", "published_at")
     fieldsets = (
         (None, {"fields": ("title", "slug", "author")}),
-        ("محتوا", {"fields": ("summary", "body", "image", "image_url")}),
+        ("محتوا", {"fields": ("summary", "body", "image", "image_url", "alt_text")}),
         ("وضعیت", {"fields": ("is_published", "published_at")}),
         ("زمان", {"fields": ("created_at", "updated_at")}),
     )
