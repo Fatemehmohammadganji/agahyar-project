@@ -10,6 +10,7 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 from services.validators import (
     center_phone_validator,
@@ -290,10 +291,18 @@ class BlogPost(models.Model):
         return max(1, round(word_count / 150))
 
     def save(self, *args, **kwargs):
-        from django.utils.text import slugify
-
+        """Save the blog post, auto-generating slug and published_at."""
         if not self.slug:
-            self.slug = slugify(self.title, allow_unicode=True)
+            self.slug = slugify(self.title, allow_unicode=True) or "post"
+        if not self.slug:
+            self.slug = "post"
+        self.slug = self.slug[:200]
+        if not self.pk:
+            original = self.slug
+            counter = 1
+            while BlogPost.objects.filter(slug=self.slug).exists():
+                self.slug = f"{original[: 200 - len(str(counter)) - 1]}-{counter}"
+                counter += 1
         if self.is_published and not self.published_at:
             self.published_at = timezone.now()
         super().save(*args, **kwargs)
