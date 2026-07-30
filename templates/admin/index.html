@@ -47,6 +47,14 @@
       .quick-link--card {
           background: #6c5ce7;
       }
+
+      .quick-link--blog {
+          background: #1a5f7a;
+      }
+
+      .quick-link--media {
+          background: #555;
+      }
   </style>
 {% endblock %}
 {% block content_title %}
@@ -81,6 +89,14 @@
     <a href="{% url 'admin_card_comments' %}"
        class="quick-link quick-link--card">
       <i class="fas fa-comments"></i> نظرات
+    </a>
+    <a href="{% url 'admin_blog_list' %}"
+       class="quick-link quick-link--blog">
+      <i class="fas fa-blog"></i> وبلاگ
+    </a>
+    <a href="{% url 'admin_media_manager' %}"
+       class="quick-link quick-link--media">
+      <i class="fas fa-images"></i> رسانه
     </a>
   </div>
 {% endblock %}

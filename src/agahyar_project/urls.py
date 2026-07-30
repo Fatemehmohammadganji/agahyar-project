@@ -146,6 +146,31 @@ urlpatterns: List[URLPattern] = [
         name="admin_card_comments",
     ),
     path(
+        ADMIN_URL + "blog/",
+        services_views.admin_blog_list,
+        name="admin_blog_list",
+    ),
+    path(
+        ADMIN_URL + "blog/create/",
+        services_views.admin_blog_create,
+        name="admin_blog_create",
+    ),
+    path(
+        ADMIN_URL + "blog/<int:post_id>/edit/",
+        services_views.admin_blog_edit,
+        name="admin_blog_edit",
+    ),
+    path(
+        ADMIN_URL + "blog/<int:post_id>/delete/",
+        services_views.admin_blog_delete,
+        name="admin_blog_delete",
+    ),
+    path(
+        ADMIN_URL + "media/",
+        services_views.admin_media_manager,
+        name="admin_media_manager",
+    ),
+    path(
         ADMIN_URL + "ajax/toggle-report/<int:report_id>/",
         services_views.admin_toggle_report,
         name="admin_toggle_report",

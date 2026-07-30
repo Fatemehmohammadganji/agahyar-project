@@ -1,0 +1,8 @@
+<label class="persian-checkbox-label">
+  <input type="{{ widget.type }}"
+         name="{{ widget.name }}"
+         class="persian-checkbox-input"
+         {% if widget.value != None %}value="{{ widget.value|stringformat:'s' }}"{% endif %}
+         {% include "django/forms/widgets/attrs.html" %}>
+  <span class="persian-checkbox-switch"></span>
+</label>

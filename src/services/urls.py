@@ -9,7 +9,7 @@ from typing import List
 from django.contrib.auth import views as auth_views
 from django.urls import URLPattern, path
 
-from . import views
+from . import feeds, views
 
 urlpatterns: List[URLPattern] = [
     # ===== SEO =====
@@ -45,6 +45,27 @@ urlpatterns: List[URLPattern] = [
         "comment/<int:comment_id>/delete/",
         views.delete_comment,
         name="delete_comment",
+    ),
+    # ===== Blog =====
+    path("blog/", views.blog_list, name="blog_list"),
+    path("blog/<str:slug>/preview/", views.blog_preview, name="blog_preview"),
+    path("blog/<str:slug>/", views.blog_detail, name="blog_detail"),
+    path("blog/feed/rss/", feeds.BlogRssFeed(), name="blog_rss_feed"),
+    path("blog/feed/atom/", feeds.BlogAtomFeed(), name="blog_atom_feed"),
+    path(
+        "comment/blog/<int:blog_post_id>/",
+        views.submit_comment,
+        name="submit_comment_blog_post",
+    ),
+    path(
+        "api/rate-blog-post/<int:post_id>/",
+        views.rate_blog_post,
+        name="rate_blog_post",
+    ),
+    path(
+        "api/ckeditor-upload/",
+        views.ckeditor_upload,
+        name="ckeditor_upload",
     ),
     # ===== Center ratings =====
     path(

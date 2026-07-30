@@ -1,6 +1,6 @@
 # Add blog post feature: admin writing and public publishing
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: feature, admin, content
 

@@ -23,6 +23,40 @@
       </div>
     {% endif %}
   </section>
+  {% with blog_posts=blog_posts %}
+    {% if blog_posts %}
+      <h2 class="section-title">مطالب اخیر</h2>
+      <div class="blog-grid">
+        {% for post in blog_posts %}
+          <article class="blog-card">
+            <a href="{% url 'blog_detail' slug=post.slug %}"
+               class="blog-card-image-link">
+              {% if post.display_image_url %}
+                <div class="blog-card-image">
+                  <img src="{{ post.display_image_url }}"
+                       alt="{{ post.alt_text|default:post.title }}"
+                       loading="lazy" />
+                </div>
+              {% else %}
+                <div class="blog-card-image blog-card-image--placeholder">
+                  <i class="fas fa-newspaper"></i>
+                </div>
+              {% endif %}
+            </a>
+            <div class="blog-card-body">
+              <h3 class="blog-card-title">
+                <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title }}</a>
+              </h3>
+              <p class="blog-card-excerpt">{{ post.summary|default:post.body|truncatewords:25 }}</p>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+      <div class="blog-section-footer">
+        <a href="{% url 'blog_list' %}" class="blog-section-link">مطالب بیشتر...</a>
+      </div>
+    {% endif %}
+  {% endwith %}
   <h2 class="section-title">خدمات پرطرفدار</h2>
   <div class="services-grid">
     {% for service in popular_services %}

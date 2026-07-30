@@ -24,7 +24,7 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
             f"script-src 'self' 'unsafe-inline' *.{domain}; "
             "style-src 'self' 'unsafe-inline'; "
             "font-src 'self'; "
-            "img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; "
+            "img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org *; "
             "frame-ancestors 'none'; "
             "form-action 'self'"
         )

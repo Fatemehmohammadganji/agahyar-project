@@ -26,6 +26,7 @@ from django.core.paginator import Paginator
 from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -33,6 +34,7 @@ from django_ratelimit.decorators import ratelimit
 
 from .error_codes import get_error_message
 from .forms import (
+    BlogPostAdminForm,
     CenterRatingForm,
     CommentForm,
     ContactForm,
@@ -49,6 +51,8 @@ from .forms import (
 from .maps import get_center_locations, get_city_center
 from .models import (
     FAQ,
+    BlogPost,
+    BlogPostRating,
     Bookmark,
     CenterRating,
     Comment,
@@ -508,8 +512,14 @@ def login_view(request: HttpRequest) -> HttpResponse:
     """Handle user login.
 
     Authenticates with :class:`LoginForm`; redirects to home on success.
+    For AJAX requests (``X-Requested-With: XMLHttpRequest``) returns JSON
+    responses with ``{\"success\": true/false}``.
     """
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     if request.user.is_authenticated:
+        if is_ajax:
+            return JsonResponse({"success": True, "csrfToken": get_token(request)})
         return redirect("home")
 
     if request.method == "POST":
@@ -524,6 +534,10 @@ def login_view(request: HttpRequest) -> HttpResponse:
                     request.session.set_expiry(2592000)  # 30 days
                 else:
                     request.session.set_expiry(0)  # expire on browser close
+                if is_ajax:
+                    return JsonResponse(
+                        {"success": True, "csrfToken": get_token(request)}
+                    )
                 messages.success(
                     request,
                     get_error_message(
@@ -532,7 +546,23 @@ def login_view(request: HttpRequest) -> HttpResponse:
                     ),
                 )
                 return redirect("home")
+            if is_ajax:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": get_error_message("auth/invalid-credentials"),
+                    },
+                    status=400,
+                )
             messages.error(request, get_error_message("auth/invalid-credentials"))
+        elif is_ajax:
+            errors = []
+            for field_errors in form.errors.values():
+                errors.extend(field_errors)
+            return JsonResponse(
+                {"success": False, "error": " ".join(errors)},
+                status=400,
+            )
     else:
         form = LoginForm()
 
@@ -798,6 +828,7 @@ def home(request: HttpRequest) -> HttpResponse:
     """Render the public home page with popular services and recent FAQs."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
+    blog_posts = BlogPost.objects.filter(is_published=True).select_related("author")[:3]
     bookmarked_ids: set[int] = set()
     if request.user.is_authenticated:
         bookmarked_ids = set(
@@ -811,6 +842,7 @@ def home(request: HttpRequest) -> HttpResponse:
         {
             "popular_services": popular_services,
             "faqs": faqs,
+            "blog_posts": blog_posts,
             "bookmarked_ids": bookmarked_ids,
         },
     )
@@ -1082,6 +1114,366 @@ def faq_view(request: HttpRequest) -> HttpResponse:
     )
 
 
+def blog_list(request: HttpRequest) -> HttpResponse:
+    """Display a paginated list of published blog posts.
+
+    Shows 9 posts per page.  Only posts with ``is_published=True``
+    are included.  Supports searching by title, summary and keywords
+    via the ``q`` query parameter.
+    """
+    posts = BlogPost.objects.filter(is_published=True).select_related("author")
+    query = request.GET.get("q", "").strip()
+    if query:
+        posts = posts.filter(
+            Q(title__icontains=query)
+            | Q(summary__icontains=query)
+            | Q(keywords__icontains=query)
+        )
+    paginator = Paginator(posts, 9)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+    return render(
+        request,
+        "services/blog_list.html",
+        {"page_obj": page_obj, "query": query},
+    )
+
+
+def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
+    post = get_object_or_404(
+        BlogPost.objects.select_related("author__profile"),
+        slug=slug,
+        is_published=True,
+    )
+    now = timezone.now()
+    viewed = request.session.setdefault("viewed_posts", {})
+    last_view = viewed.get(str(post.pk))
+    if last_view is None or (now - datetime.fromisoformat(last_view)) > timedelta(
+        hours=24
+    ):
+        BlogPost.objects.filter(pk=post.pk).update(view_count=F("view_count") + 1)
+        post.refresh_from_db(fields=["view_count"])
+        viewed[str(post.pk)] = now.isoformat()
+        request.session.modified = True
+    avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
+    rating_count = post.ratings.count()
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = post.ratings.filter(user=request.user).first()
+        user_rating = user_rating_obj.score if user_rating_obj else None
+
+    top_level_comments = (
+        Comment.objects.filter(blog_post=post, parent__isnull=True)
+        .select_related("user", "deleted_by")
+        .prefetch_related(
+            "replies__user", "replies__deleted_by", "reactions", "replies__reactions"
+        )
+    )
+    comment_page = int(request.GET.get("comment_page", 1))
+    comment_paginator = Paginator(top_level_comments, COMMENTS_PER_PAGE)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+    has_more_comments = comment_page_obj.has_next()
+
+    from .models import CommentReaction
+
+    comment_reaction_data = {}
+    all_comments = list(comment_page_obj) + [
+        r for c in comment_page_obj for r in c.replies.all()
+    ]
+    for c in all_comments:
+        likes = 0
+        dislikes = 0
+        user_rx = None
+        user_id = request.user.id if request.user.is_authenticated else None
+        for rx in c.reactions.all():
+            if rx.value == CommentReaction.LIKE:
+                likes += 1
+            elif rx.value == CommentReaction.DISLIKE:
+                dislikes += 1
+            if user_rx is None and user_id and rx.user_id == user_id:
+                user_rx = rx.value
+        comment_reaction_data[c.id] = (likes, dislikes, user_rx)
+
+    related_posts = BlogPost.objects.none()
+    kw_list = post.get_keywords_list()
+    if kw_list:
+        q_filter = Q()
+        for kw in kw_list:
+            q_filter |= Q(keywords__icontains=kw)
+        related_posts = (
+            BlogPost.objects.filter(q_filter, is_published=True)
+            .exclude(pk=post.pk)
+            .distinct()[:4]
+        )
+
+    comment_form = None
+    if request.user.is_authenticated:
+        comment_form = CommentForm()
+
+    return render(
+        request,
+        "services/blog_detail.html",
+        {
+            "post": post,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": rating_count,
+            "user_rating": user_rating,
+            "related_posts": related_posts,
+            "comments": comment_page_obj,
+            "has_more_comments": has_more_comments,
+            "comment_page": comment_page,
+            "comment_form": comment_form,
+            "comment_reaction_data": comment_reaction_data,
+            "breadcrumbs": [
+                {"label": "خانه", "url": "/"},
+                {"label": "وبلاگ", "url": "/blog/"},
+                {"label": post.title},
+            ],
+        },
+    )
+
+
+def blog_preview(request: HttpRequest, slug: str) -> HttpResponse:
+    """Preview a blog post (published or draft) – staff only."""
+    if not request.user.is_staff:
+        post = get_object_or_404(
+            BlogPost.objects.select_related("author__profile"),
+            slug=slug,
+            is_published=True,
+        )
+        return redirect("blog_detail", slug=slug)
+    post = get_object_or_404(
+        BlogPost.objects.select_related("author__profile"),
+        slug=slug,
+    )
+    avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
+    rating_count = post.ratings.count()
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = post.ratings.filter(user=request.user).first()
+        user_rating = user_rating_obj.score if user_rating_obj else None
+
+    top_level_comments = (
+        Comment.objects.filter(blog_post=post, parent__isnull=True)
+        .select_related("user", "deleted_by")
+        .prefetch_related(
+            "replies__user", "replies__deleted_by", "reactions", "replies__reactions"
+        )
+    )
+    comment_page = int(request.GET.get("comment_page", 1))
+    comment_paginator = Paginator(top_level_comments, COMMENTS_PER_PAGE)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+    has_more_comments = comment_page_obj.has_next()
+
+    from .models import CommentReaction
+
+    comment_reaction_data = {}
+    all_comments = list(comment_page_obj) + [
+        r for c in comment_page_obj for r in c.replies.all()
+    ]
+    for c in all_comments:
+        likes = 0
+        dislikes = 0
+        user_rx = None
+        user_id = request.user.id if request.user.is_authenticated else None
+        for rx in c.reactions.all():
+            if rx.value == CommentReaction.LIKE:
+                likes += 1
+            elif rx.value == CommentReaction.DISLIKE:
+                dislikes += 1
+            if user_rx is None and user_id and rx.user_id == user_id:
+                user_rx = rx.value
+        comment_reaction_data[c.id] = (likes, dislikes, user_rx)
+
+    related_posts = BlogPost.objects.none()
+    kw_list = post.get_keywords_list()
+    if kw_list:
+        q_filter = Q()
+        for kw in kw_list:
+            q_filter |= Q(keywords__icontains=kw)
+        related_posts = (
+            BlogPost.objects.filter(q_filter, is_published=True)
+            .exclude(pk=post.pk)
+            .distinct()[:4]
+        )
+
+    comment_form = None
+    if request.user.is_authenticated:
+        comment_form = CommentForm()
+
+    return render(
+        request,
+        "services/blog_detail.html",
+        {
+            "post": post,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": rating_count,
+            "user_rating": user_rating,
+            "related_posts": related_posts,
+            "comments": comment_page_obj,
+            "has_more_comments": has_more_comments,
+            "comment_page": comment_page,
+            "comment_form": comment_form,
+            "comment_reaction_data": comment_reaction_data,
+            "breadcrumbs": [
+                {"label": "خانه", "url": "/"},
+                {"label": "وبلاگ", "url": "/blog/"},
+                {"label": post.title},
+            ],
+            "is_preview": True,
+        },
+    )
+
+
+@require_POST
+def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
+    """API endpoint to rate a blog post (1-5).
+
+    POST with JSON ``{\"score\": N}`` or form-encoded ``score=N``.
+    Requires authentication.
+    Idempotent: updates the existing rating if the user has already
+    rated this post.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "login required"}, status=401)
+    post = get_object_or_404(BlogPost, id=post_id, is_published=True)
+    try:
+        if request.content_type == "application/json":
+            data = json.loads(request.body)
+            score = int(data.get("score", 0))
+        else:
+            score = int(request.POST.get("score", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid score"}, status=400)
+    if score < 1 or score > 5:
+        return JsonResponse({"error": "score must be between 1 and 5"}, status=400)
+    rating, _ = BlogPostRating.objects.update_or_create(
+        user=request.user,
+        blog_post=post,
+        defaults={"score": score},
+    )
+    avg = post.ratings.aggregate(Avg("score"))["score__avg"]
+    return JsonResponse(
+        {
+            "average": round(avg, 1) if avg else None,
+            "count": post.ratings.count(),
+            "user_score": rating.score,
+        }
+    )
+
+
+@staff_member_required
+@require_POST
+def ckeditor_upload(request: HttpRequest) -> JsonResponse:
+    """CKEditor 5 image upload endpoint — staff only."""
+    import uuid
+
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    if "upload" not in request.FILES:
+        return JsonResponse(
+            {"error": {"message": "هیچ فایلی ارسال نشده است."}}, status=400
+        )
+    uploaded = request.FILES["upload"]
+    allowed = ("image/jpeg", "image/png", "image/gif", "image/webp")
+    if uploaded.content_type not in allowed:
+        return JsonResponse(
+            {"error": {"message": "فرمت فایل مجاز نیست. JPEG, PNG, GIF, WebP"}},
+            status=400,
+        )
+    ext = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    path = default_storage.save(f"blog/{filename}", ContentFile(uploaded.read()))
+    url = django_settings.MEDIA_URL + path
+    return JsonResponse({"url": url})
+
+
+@staff_member_required
+def admin_blog_list(request: HttpRequest) -> HttpResponse:
+    posts = BlogPost.objects.select_related("author").all()
+    return render(
+        request,
+        "services/admin/blog_post_list.html",
+        {
+            "posts": posts,
+            "title": "مدیریت پست‌های وبلاگ",
+        },
+    )
+
+
+def _get_all_blog_keywords(max_tags: int = 512) -> list[str]:
+    """Return the most frequently used keywords (up to ``max_tags``)."""
+    from collections import Counter
+
+    counter: Counter[str] = Counter()
+    for kw_str in BlogPost.objects.exclude(keywords="").values_list(
+        "keywords", flat=True
+    ):
+        for kw in kw_str.split(","):
+            kw = kw.strip()
+            if kw:
+                counter[kw] += 1
+    return [kw for kw, _ in counter.most_common(max_tags)]
+
+
+@staff_member_required
+def admin_blog_create(request: HttpRequest) -> HttpResponse:
+    if request.method == "POST":
+        form = BlogPostAdminForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            messages.success(request, "پست وبلاگ ایجاد شد.")
+            return redirect("admin_blog_list")
+    else:
+        form = BlogPostAdminForm()
+    return render(
+        request,
+        "services/admin/blog_post_form.html",
+        {
+            "form": form,
+            "title": "ایجاد پست جدید",
+            "is_create": True,
+            "existing_keywords": _get_all_blog_keywords(),
+        },
+    )
+
+
+@staff_member_required
+def admin_blog_edit(request: HttpRequest, post_id: int) -> HttpResponse:
+    post = get_object_or_404(BlogPost, id=post_id)
+    if request.method == "POST":
+        form = BlogPostAdminForm(request.POST, request.FILES, instance=post)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "پست وبلاگ به‌روزرسانی شد.")
+            return redirect("admin_blog_list")
+    else:
+        form = BlogPostAdminForm(instance=post)
+    return render(
+        request,
+        "services/admin/blog_post_form.html",
+        {
+            "form": form,
+            "title": "ویرایش پست",
+            "is_create": False,
+            "post": post,
+            "existing_keywords": _get_all_blog_keywords(),
+        },
+    )
+
+
+@staff_member_required
+@require_POST
+def admin_blog_delete(request: HttpRequest, post_id: int) -> HttpResponse:
+    post = get_object_or_404(BlogPost, id=post_id)
+    post.delete()
+    messages.success(request, "پست وبلاگ حذف شد.")
+    return redirect("admin_blog_list")
+
+
 @login_required
 def nearby_centers_view(request: HttpRequest) -> HttpResponse:
     """List nearby service centers grouped by service for the user's city.
@@ -1344,17 +1736,17 @@ def bookmarks_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def submit_comment(
-    request: HttpRequest, service_id: int = 0, center_id: int = 0
+    request: HttpRequest,
+    service_id: int = 0,
+    center_id: int = 0,
+    blog_post_id: int = 0,
 ) -> HttpResponse:
-    """Submit a comment on a service or service center.
-
-    POST only: validates :class:`CommentForm`, creates the comment.
-    Supports threaded replies via optional ``parent_id`` field.
-    """
     if request.method != "POST":
         if service_id:
             return redirect("service_detail", service_id=service_id)
-        return redirect("center_detail", center_id=center_id)
+        if center_id:
+            return redirect("center_detail", center_id=center_id)
+        return redirect("blog_detail", slug=BlogPost.objects.get(id=blog_post_id).slug)
 
     form = CommentForm(request.POST)
     if form.is_valid():
@@ -1368,7 +1760,9 @@ def submit_comment(
                 )
                 if service_id:
                     return redirect("service_detail", service_id=service_id)
-                return redirect("center_detail", center_id=center_id)
+                if center_id:
+                    return redirect("center_detail", center_id=center_id)
+                return redirect("blog_detail", slug=parent.blog_post.slug)
 
         comment = Comment(
             user=request.user,
@@ -1380,15 +1774,21 @@ def submit_comment(
             comment.save()
             messages.success(request, get_error_message("comment/added"))
             return redirect("service_detail", service_id=service_id)
-        else:
+        if center_id:
             comment.service_center = get_object_or_404(ServiceCenter, id=center_id)
             comment.save()
             messages.success(request, get_error_message("comment/added"))
             return redirect("center_detail", center_id=center_id)
+        comment.blog_post = get_object_or_404(BlogPost, id=blog_post_id)
+        comment.save()
+        messages.success(request, get_error_message("comment/added"))
+        return redirect("blog_detail", slug=comment.blog_post.slug)
 
     if service_id:
         return redirect("service_detail", service_id=service_id)
-    return redirect("center_detail", center_id=center_id)
+    if center_id:
+        return redirect("center_detail", center_id=center_id)
+    return redirect("blog_detail", slug=BlogPost.objects.get(id=blog_post_id).slug)
 
 
 @login_required
@@ -1444,10 +1844,13 @@ def delete_comment(request: HttpRequest, comment_id: int) -> HttpResponse:
 
 
 def _comment_redirect(comment: Comment) -> HttpResponse:
-    """Redirect back to the page containing *comment*."""
     if comment.service_id:
         return redirect("service_detail", service_id=comment.service_id)
-    return redirect("center_detail", center_id=comment.service_center_id)
+    if comment.service_center_id:
+        return redirect("center_detail", center_id=comment.service_center_id)
+    if comment.blog_post_id:
+        return redirect("blog_detail", slug=comment.blog_post.slug)
+    return redirect("home")
 
 
 def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
@@ -1811,6 +2214,9 @@ def load_comments(
     elif target_type == "center":
         target = get_object_or_404(ServiceCenter, id=target_id)
         qs = Comment.objects.filter(service_center=target, parent__isnull=True)
+    elif target_type == "blog_post":
+        get_object_or_404(BlogPost, id=target_id, is_published=True)
+        qs = Comment.objects.filter(blog_post_id=target_id, parent__isnull=True)
     else:
         return JsonResponse({"error": "invalid target"}, status=400)
 
@@ -1918,7 +2324,7 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
     from django.conf import settings
     from django.urls import reverse
 
-    from .models import Service, ServiceCenter
+    from .models import BlogPost, Service, ServiceCenter
 
     site_url = settings.SITE_URL
     pages = [
@@ -1927,6 +2333,7 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
         ("contact", None, "0.6"),
         ("faq", None, "0.7"),
         ("services_list", None, "0.8"),
+        ("blog_list", None, "0.7"),
     ]
     urls = ""
     for name, arg, priority in pages:
@@ -1942,6 +2349,9 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
     for center in ServiceCenter.objects.all().iterator():
         url = site_url + reverse("center_detail", args=[center.id])
         urls += f"<url><loc>{url}</loc><priority>0.5</priority></url>\n"
+    for post in BlogPost.objects.filter(is_published=True).iterator():
+        url = site_url + reverse("blog_detail", args=[post.slug])
+        urls += f"<url><loc>{url}</loc><priority>0.6</priority></url>\n"
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -2522,3 +2932,82 @@ def admin_delete_comment(request: HttpRequest, comment_id: int) -> JsonResponse:
     comment.deleted_by = request.user
     comment.save(update_fields=["deleted_by", "updated_at"])
     return JsonResponse({"deleted": True})
+
+
+@staff_member_required
+def admin_media_manager(request: HttpRequest) -> HttpResponse:
+    import os
+    from datetime import datetime
+
+    from django.conf import settings
+
+    blog_dir = os.path.join(settings.MEDIA_ROOT, "blog")
+    files = []
+
+    if os.path.isdir(blog_dir):
+        for entry in os.scandir(blog_dir):
+            if not entry.is_file():
+                continue
+            url = settings.MEDIA_URL + "blog/" + entry.name
+            direct_qs = BlogPost.objects.filter(image="blog/" + entry.name)
+            body_qs = BlogPost.objects.filter(body__icontains=entry.name)
+            direct_count = direct_qs.count()
+            body_count = body_qs.count()
+
+            used_by: dict[int, dict] = {}
+            for p in direct_qs.only("id", "title"):
+                used_by[p.id] = {"id": p.id, "title": p.title}
+            for p in body_qs.only("id", "title"):
+                used_by.setdefault(p.id, {"id": p.id, "title": p.title})
+
+            stat = entry.stat()
+            files.append(
+                {
+                    "name": entry.name,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime),
+                    "url": url,
+                    "direct_usage": direct_count,
+                    "body_usage": body_count,
+                    "total_usage": direct_count + body_count,
+                    "used_by": sorted(used_by.values(), key=lambda x: x["title"]),
+                }
+            )
+
+    if request.method == "POST":
+        filename = request.POST.get("filename", "").strip()
+        if not filename:
+            messages.error(request, "نام فایل مشخص نشده است.")
+        else:
+            filepath = os.path.realpath(os.path.join(blog_dir, filename))
+            blog_dir_resolved = os.path.realpath(blog_dir)
+            if not filepath.startswith(blog_dir_resolved + os.sep):
+                messages.error(request, "نام فایل نامعتبر است.")
+            elif not os.path.isfile(filepath):
+                messages.error(request, f"فایل «{filename}» یافت نشد.")
+            else:
+                qs = BlogPost.objects.filter(
+                    Q(image="blog/" + filename) | Q(body__icontains=filename)
+                )
+                if qs.exists():
+                    count = qs.count()
+                    messages.warning(
+                        request,
+                        f"این فایل در {count} پست استفاده شده است. ابتدا استفاده‌ها را حذف کنید.",
+                    )
+                else:
+                    os.remove(filepath)
+                    messages.success(request, f"فایل «{filename}» حذف شد.")
+                    return redirect("admin_media_manager")
+
+        return redirect("admin_media_manager")
+
+    files.sort(key=lambda f: f["modified"], reverse=True)
+    return render(
+        request,
+        "services/admin/media_manager.html",
+        {
+            "files": files,
+            "title": "مدیریت فایل‌های رسانه",
+        },
+    )

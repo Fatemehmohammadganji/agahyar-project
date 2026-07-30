@@ -111,7 +111,7 @@
            class="reply-form"
            style="display:none">
         <form method="post"
-              action="{% if comment.service %}{% url 'submit_comment_service' comment.service.id %}{% else %}{% url 'submit_comment_center' comment.service_center.id %}{% endif %}">
+              action="{% if comment.service %}{% url 'submit_comment_service' comment.service.id %}{% elif comment.service_center %}{% url 'submit_comment_center' comment.service_center.id %}{% else %}{% url 'submit_comment_blog_post' comment.blog_post.id %}{% endif %}">
           {% csrf_token %}
           <textarea name="text"
                     rows="3"
