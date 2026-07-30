@@ -135,13 +135,15 @@
         <div class="blog-related-grid">
           {% for rp in related_posts %}
             <a href="{% url 'blog_detail' slug=rp.slug %}" class="blog-related-card">
-              {% if rp.display_image_url %}
-                <div class="blog-related-image">
+              <div class="blog-related-image{% if not rp.display_image_url %} blog-related-image--placeholder{% endif %}">
+                {% if rp.display_image_url %}
                   <img src="{{ rp.display_image_url }}"
                        alt="{{ rp.alt_text|default:rp.title }}"
                        loading="lazy">
-                </div>
-              {% endif %}
+                {% else %}
+                  <i class="fas fa-newspaper"></i>
+                {% endif %}
+              </div>
               <div class="blog-related-body">
                 <h4>{{ rp.title|fa }}</h4>
               </div>

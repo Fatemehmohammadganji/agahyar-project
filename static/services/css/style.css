@@ -1067,6 +1067,14 @@ button.muted-link:disabled {
   aspect-ratio: 16 / 9;
   overflow: hidden;
 }
+.blog-related-image--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light);
+  color: var(--text-muted);
+  font-size: 2rem;
+}
 .blog-related-image img {
   width: 100%;
   height: 100%;
