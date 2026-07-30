@@ -1,5 +1,7 @@
 """Template tags and filters for Jalali (Persian) date formatting."""
 
+import re
+
 import jdatetime
 from django import template
 from django.utils import timezone
@@ -68,6 +70,32 @@ def jalali(value, fmt="DD MN YYYY - HH:mm"):
     result = result.replace("HH", to_persian_digits(f"{jt.hour:02d}"))
     result = result.replace("mm", to_persian_digits(f"{jt.minute:02d}"))
     return result
+
+
+@register.filter
+def plaintext(value):
+    """Strip HTML tags after inserting spaces around block-level elements.
+
+    Django's built-in ``striptags`` filter removes all tags without adding
+    separators, so ``<p>foo</p><p>bar</p>`` becomes ``foobar`` instead of
+    ``foo bar``.  This filter normalises such markup by inserting spaces
+    before ``striptags``, preserving word boundaries across block elements.
+
+    Example usage::
+
+        {{ post.body|plaintext|truncatewords:30 }}
+    """
+    if value is None:
+        return ""
+    # Insert space after closing block tags and self-closing line breaks
+    value = re.sub(
+        r"</(?:p|div|li|h[1-6]|tr|td|th|blockquote|pre|ol|ul)>",
+        " ",
+        value,
+        flags=re.IGNORECASE,
+    )
+    value = re.sub(r"<br\s*/?>", " ", value, flags=re.IGNORECASE)
+    return value
 
 
 @register.filter(name="fa")

@@ -1,5 +1,6 @@
 {% extends 'services/base.html' %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}آگاه‌یار — راهنمای هوشمند خدمات دولتی{% endblock %}
 {% block meta_description %}آگاه‌یار، راهنمای هوشمند خدمات دولتی ایران — جستجو و دریافت اطلاعات مراکز دولتی{% endblock %}
 {% block meta_keywords %}خدمات دولتی, آگاه‌یار, آگاه یار, سامانه دولتی, راهنمای خدمات, ایران{% endblock %}
@@ -47,7 +48,7 @@
               <h3 class="blog-card-title">
                 <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title }}</a>
               </h3>
-              <p class="blog-card-excerpt">{{ post.summary|default:post.body|striptags|truncatewords:25 }}</p>
+              <p class="blog-card-excerpt">{{ post.summary|default:post.body|plaintext|striptags|truncatewords:25 }}</p>
             </div>
           </article>
         {% endfor %}

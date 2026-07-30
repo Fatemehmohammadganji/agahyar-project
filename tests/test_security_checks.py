@@ -174,15 +174,28 @@ class ProfilingMiddlewareStaffOnlyTest(TestCase):
             self.assertIn(b"profiler-report", result.content)
 
     def test_settings_gates_profiling_on_debug(self):
-        """ENABLE_PROFILING should only add middleware when DEBUG=True.
+        """ENABLE_PROFILING should only add middleware when DEBUG=True."""
+        import os
+        from importlib import reload
 
-        Django's ``setup_test_environment()`` forces DEBUG to False during
-        tests, and ``ENABLE_PROFILING`` defaults to False.  Verify the
-        middleware is absent under these conditions.
-        """
+        import agahyar_project.settings as s
+
+        middleware_str = "agahyar_project.middleware.ProfilingMiddleware"
+
+        # Default test environment: middleware absent (DEBUG=False,
+        # ENABLE_PROFILING defaults to False).
         from django.conf import settings
 
-        self.assertNotIn(
-            "agahyar_project.middleware.ProfilingMiddleware",
-            settings.MIDDLEWARE,
-        )
+        self.assertNotIn(middleware_str, settings.MIDDLEWARE)
+
+        # Set ENABLE_PROFILING and reload the module so the
+        # gating condition re-evaluates.  Module-level DEBUG is
+        # True (from env), so the middleware should be appended.
+        os.environ["ENABLE_PROFILING"] = "True"
+        try:
+            reload(s)
+            self.assertIn(middleware_str, s.MIDDLEWARE)
+        finally:
+            del os.environ["ENABLE_PROFILING"]
+            reload(s)
+            self.assertNotIn(middleware_str, s.MIDDLEWARE)
