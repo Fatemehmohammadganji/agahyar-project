@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import Client
 from django.urls import reverse
 
-from services.models import BlogPost, BlogPostRating, UserProfile
+from services.models import BlogPost, BlogPostRating, Comment, UserProfile
 
 
 @pytest.mark.django_db
@@ -511,6 +511,21 @@ class TestCustomBlogAdmin:
         staff = _staff_client()
         response = staff.post(f"/{ADMIN_PREFIX}blog/99999/delete/")
         assert response.status_code == 404
+
+    def test_delete_post_cascades_to_comments(self):
+        staff = _staff_client()
+        author = User.objects.create_user(username="a")
+        commenter = User.objects.create_user(username="commenter")
+        post = BlogPost.objects.create(title="to-delete", author=author)
+        comment = Comment.objects.create(
+            user=commenter, blog_post=post, text="نظر آزمایشی"
+        )
+        Comment.objects.create(user=commenter, blog_post=post, text="نظر دوم")
+        assert Comment.objects.filter(blog_post=post).count() == 2
+        staff.post(f"/{ADMIN_PREFIX}blog/{post.id}/delete/")
+        assert not BlogPost.objects.filter(id=post.id).exists()
+        assert not Comment.objects.filter(id=comment.id).exists()
+        assert Comment.objects.count() == 0
 
 
 @pytest.mark.django_db
