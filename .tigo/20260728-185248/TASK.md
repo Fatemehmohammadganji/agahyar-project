@@ -1,6 +1,6 @@
 # Blog post view counter
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 35
 - TAGS: feature, blog
 

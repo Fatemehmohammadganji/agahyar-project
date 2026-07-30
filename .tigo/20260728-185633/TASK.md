@@ -1,6 +1,6 @@
 # Improve blog frontend UI/UX
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: ux, blog, feature, frontend
 
