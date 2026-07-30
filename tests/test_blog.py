@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import Client
 from django.urls import reverse
 
-from services.models import BlogPost, BlogPostRating
+from services.models import BlogPost, BlogPostRating, UserProfile
 
 
 @pytest.mark.django_db
@@ -145,6 +145,46 @@ class TestBlogPostModel:
         response = client.get(reverse("blog_list"))
         html = response.content.decode()
         assert 'alt="توضیح تصویر"' in html
+
+    def test_userprofile_bio_field_exists(self, client):
+        user = User.objects.create_user(username="author1")
+        profile = UserProfile.objects.create(user=user, city="تهران")
+        assert profile.bio == ""
+        profile.bio = "نویسنده و محتواگذار"
+        profile.save()
+        db_profile = UserProfile.objects.get(pk=profile.pk)
+        assert db_profile.bio == "نویسنده و محتواگذار"
+
+    def test_blog_detail_shows_author_bio_when_set(self, client):
+        author = User.objects.create_user(
+            username="author1",
+            first_name="علی",
+            last_name="کریمی",
+        )
+        UserProfile.objects.create(
+            user=author, city="تهران", bio="نویسنده محتوای آموزشی"
+        )
+        post = BlogPost.objects.create(
+            title="test",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        html = response.content.decode()
+        assert "علی کریمی" in html
+        assert "نویسنده محتوای آموزشی" in html
+
+    def test_blog_detail_author_bio_omitted_when_empty(self, client):
+        author = User.objects.create_user(username="author1")
+        UserProfile.objects.create(user=author, city="تهران")
+        post = BlogPost.objects.create(
+            title="test",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        html = response.content.decode()
+        assert "author1" in html
 
 
 @pytest.mark.django_db

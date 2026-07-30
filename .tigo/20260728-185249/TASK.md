@@ -1,6 +1,6 @@
 # Author bio on blog detail
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 30
 - TAGS: feature, blog
 

@@ -78,6 +78,7 @@ class UserProfile(models.Model):
         blank=True,
         validators=[iranian_phone_number_validator],
     )
+    bio = models.TextField("بیوگرافی", blank=True)
 
     class Meta:
         verbose_name = "پروفایل کاربر"

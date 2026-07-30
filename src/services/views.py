@@ -1141,7 +1141,7 @@ def blog_list(request: HttpRequest) -> HttpResponse:
 
 def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     post = get_object_or_404(
-        BlogPost.objects.select_related("author"),
+        BlogPost.objects.select_related("author__profile"),
         slug=slug,
         is_published=True,
     )

@@ -10,8 +10,8 @@
     <header class="blog-detail-header">
       <div class="blog-detail-meta-top">
         <span>{{ post.published_at|jalali }}</span>
-        <span>{{ post.reading_time }} دقیقه مطالعه</span>
-        <span>{{ post.view_count }} بازدید</span>
+        <span>{{ post.reading_time|fa }} دقیقه مطالعه</span>
+        <span>{{ post.view_count|fa }} بازدید</span>
       </div>
       <h1>{{ post.title|fa }}</h1>
     </header>
@@ -126,7 +126,7 @@
       <div class="blog-author-avatar">{{ post.author.get_full_name|default:post.author.username|first }}</div>
       <div class="blog-author-info">
         <strong>{{ post.author.get_full_name|default:post.author.username }}</strong>
-        <p>نویسنده و محتواساز آگاه‌یار</p>
+        {% if post.author.profile.bio %}<p>{{ post.author.profile.bio }}</p>{% endif %}
       </div>
     </div>
     {% if related_posts %}

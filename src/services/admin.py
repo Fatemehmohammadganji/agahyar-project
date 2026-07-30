@@ -90,6 +90,10 @@ class UserProfileAdmin(ImportExportModelAdmin):
     list_display = ("user", "city", "phone")
     search_fields = ("user__username", "city")
     list_filter = ("city",)
+    fieldsets = (
+        (None, {"fields": ("user", "bio")}),
+        ("اطلاعات تماس", {"fields": ("city", "neighborhood", "phone")}),
+    )
 
 
 @admin.register(FAQ)
