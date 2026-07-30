@@ -2860,8 +2860,9 @@ def admin_media_manager(request: HttpRequest) -> HttpResponse:
         if not filename:
             messages.error(request, "نام فایل مشخص نشده است.")
         else:
-            filepath = os.path.join(blog_dir, filename)
-            if not os.path.normpath(filepath).startswith(os.path.normpath(blog_dir)):
+            filepath = os.path.realpath(os.path.join(blog_dir, filename))
+            blog_dir_resolved = os.path.realpath(blog_dir)
+            if not filepath.startswith(blog_dir_resolved + os.sep):
                 messages.error(request, "نام فایل نامعتبر است.")
             elif not os.path.isfile(filepath):
                 messages.error(request, f"فایل «{filename}» یافت نشد.")
