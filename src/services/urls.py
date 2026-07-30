@@ -48,6 +48,7 @@ urlpatterns: List[URLPattern] = [
     ),
     # ===== Blog =====
     path("blog/", views.blog_list, name="blog_list"),
+    path("blog/<str:slug>/preview/", views.blog_preview, name="blog_preview"),
     path("blog/<str:slug>/", views.blog_detail, name="blog_detail"),
     path("blog/feed/rss/", feeds.BlogRssFeed(), name="blog_rss_feed"),
     path("blog/feed/atom/", feeds.BlogAtomFeed(), name="blog_atom_feed"),

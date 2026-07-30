@@ -35,7 +35,7 @@
       <tbody>
         {% for post in posts %}
           <tr>
-            <td><a href="{% url 'blog_detail' slug=post.slug %}" target="_blank">{{ post.title }}</a></td>
+            <td><a href="{% url 'blog_preview' slug=post.slug %}" target="_blank">{{ post.title }}</a></td>
             <td>{{ post.author.get_full_name|default:post.author.username }}</td>
             <td>{% if post.is_published %}<span style="color:#2ecc71;">منتشر شده</span>{% else %}<span style="color:#e67e22;">پیش‌نویس</span>{% endif %}</td>
             <td>{{ post.published_at|date:"Y-m-d H:i"|default:"-" }}</td>

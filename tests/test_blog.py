@@ -370,6 +370,56 @@ class TestBlogViews:
         html = response.content.decode()
         assert "نتیجه‌ای یافت نشد" in html
 
+    def test_blog_preview_redirects_published_for_anonymous(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="published",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/preview/")
+        assert response.status_code == 302
+        assert response.url == f"/blog/{post.slug}/"
+
+    def test_blog_preview_returns_404_for_anonymous_draft(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="draft",
+            author=author,
+            is_published=False,
+        )
+        response = client.get(f"/blog/{post.slug}/preview/")
+        assert response.status_code == 404
+
+    def test_blog_preview_shows_draft_for_staff(self):
+        staff = _staff_client()
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="draft-preview",
+            author=author,
+            is_published=False,
+        )
+        response = staff.get(f"/blog/{post.slug}/preview/")
+        assert response.status_code == 200
+        assert "draft-preview" in response.content.decode()
+
+    def test_blog_preview_shows_published_post(self):
+        staff = _staff_client()
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="published-post",
+            author=author,
+            is_published=True,
+        )
+        response = staff.get(f"/blog/{post.slug}/preview/")
+        assert response.status_code == 200
+        assert "published-post" in response.content.decode()
+
+    def test_blog_preview_returns_404_for_nonexistent_slug(self):
+        staff = _staff_client()
+        response = staff.get("/blog/nonexistent-slug/preview/")
+        assert response.status_code == 404
+
 
 ADMIN_PREFIX = "admin/"
 

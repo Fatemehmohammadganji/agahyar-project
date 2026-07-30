@@ -1233,6 +1233,98 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     )
 
 
+def blog_preview(request: HttpRequest, slug: str) -> HttpResponse:
+    """Preview a blog post (published or draft) – staff only."""
+    if not request.user.is_staff:
+        post = get_object_or_404(
+            BlogPost.objects.select_related("author__profile"),
+            slug=slug,
+            is_published=True,
+        )
+        return redirect("blog_detail", slug=slug)
+    post = get_object_or_404(
+        BlogPost.objects.select_related("author__profile"),
+        slug=slug,
+    )
+    avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
+    rating_count = post.ratings.count()
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = post.ratings.filter(user=request.user).first()
+        user_rating = user_rating_obj.score if user_rating_obj else None
+
+    top_level_comments = (
+        Comment.objects.filter(blog_post=post, parent__isnull=True)
+        .select_related("user", "deleted_by")
+        .prefetch_related(
+            "replies__user", "replies__deleted_by", "reactions", "replies__reactions"
+        )
+    )
+    comment_page = int(request.GET.get("comment_page", 1))
+    comment_paginator = Paginator(top_level_comments, COMMENTS_PER_PAGE)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+    has_more_comments = comment_page_obj.has_next()
+
+    from .models import CommentReaction
+
+    comment_reaction_data = {}
+    all_comments = list(comment_page_obj) + [
+        r for c in comment_page_obj for r in c.replies.all()
+    ]
+    for c in all_comments:
+        likes = 0
+        dislikes = 0
+        user_rx = None
+        user_id = request.user.id if request.user.is_authenticated else None
+        for rx in c.reactions.all():
+            if rx.value == CommentReaction.LIKE:
+                likes += 1
+            elif rx.value == CommentReaction.DISLIKE:
+                dislikes += 1
+            if user_rx is None and user_id and rx.user_id == user_id:
+                user_rx = rx.value
+        comment_reaction_data[c.id] = (likes, dislikes, user_rx)
+
+    related_posts = BlogPost.objects.none()
+    kw_list = post.get_keywords_list()
+    if kw_list:
+        q_filter = Q()
+        for kw in kw_list:
+            q_filter |= Q(keywords__icontains=kw)
+        related_posts = (
+            BlogPost.objects.filter(q_filter, is_published=True)
+            .exclude(pk=post.pk)
+            .distinct()[:4]
+        )
+
+    comment_form = None
+    if request.user.is_authenticated:
+        comment_form = CommentForm()
+
+    return render(
+        request,
+        "services/blog_detail.html",
+        {
+            "post": post,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": rating_count,
+            "user_rating": user_rating,
+            "related_posts": related_posts,
+            "comments": comment_page_obj,
+            "has_more_comments": has_more_comments,
+            "comment_page": comment_page,
+            "comment_form": comment_form,
+            "comment_reaction_data": comment_reaction_data,
+            "breadcrumbs": [
+                {"label": "خانه", "url": "/"},
+                {"label": "وبلاگ", "url": "/blog/"},
+                {"label": post.title},
+            ],
+            "is_preview": True,
+        },
+    )
+
+
 @require_POST
 def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
     """API endpoint to rate a blog post (1-5).
