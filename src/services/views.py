@@ -1194,6 +1194,18 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
                 user_rx = rx.value
         comment_reaction_data[c.id] = (likes, dislikes, user_rx)
 
+    related_posts = BlogPost.objects.none()
+    kw_list = post.get_keywords_list()
+    if kw_list:
+        q_filter = Q()
+        for kw in kw_list:
+            q_filter |= Q(keywords__icontains=kw)
+        related_posts = (
+            BlogPost.objects.filter(q_filter, is_published=True)
+            .exclude(pk=post.pk)
+            .distinct()[:4]
+        )
+
     comment_form = None
     if request.user.is_authenticated:
         comment_form = CommentForm()
@@ -1206,6 +1218,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
             "avg_rating": round(avg_rating, 1) if avg_rating else None,
             "rating_count": rating_count,
             "user_rating": user_rating,
+            "related_posts": related_posts,
             "comments": comment_page_obj,
             "has_more_comments": has_more_comments,
             "comment_page": comment_page,

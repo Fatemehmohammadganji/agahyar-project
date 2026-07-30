@@ -51,7 +51,7 @@
           <div class="blog-card-body">
             <div class="blog-card-meta-top">
               <span class="blog-card-date">{{ post.published_at|jalali }}</span>
-              <span class="blog-card-reading-time">{{ post.reading_time }} دقیقه مطالعه</span>
+              <span class="blog-card-reading-time">{{ post.reading_time|fa }} دقیقه مطالعه</span>
             </div>
             <h2 class="blog-card-title">
               <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title|fa }}</a>

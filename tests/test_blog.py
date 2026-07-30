@@ -216,6 +216,66 @@ class TestBlogViews:
         response = client.get("/blog/nonexistent-slug/")
         assert response.status_code == 404
 
+    def test_related_posts_shown_when_keywords_match(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="main",
+            keywords="آموزش, سلامت",
+            author=author,
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="related one",
+            keywords="آموزش",
+            author=author,
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="related two",
+            keywords="سلامت",
+            author=author,
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="unrelated",
+            keywords="فناوری",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        html = response.content.decode()
+        assert "related one" in html
+        assert "related two" in html
+        assert "unrelated" not in html
+        assert "مطالب مرتبط" in html
+
+    def test_related_posts_hidden_when_no_keywords(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="main",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        assert "مطالب مرتبط" not in response.content.decode()
+
+    def test_related_posts_hidden_when_only_self_matches(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="main",
+            keywords="آموزش",
+            author=author,
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="other",
+            keywords="فناوری",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        assert "مطالب مرتبط" not in response.content.decode()
+
     def test_blog_list_search_by_title(self, client):
         author = User.objects.create_user(username="author1")
         BlogPost.objects.create(

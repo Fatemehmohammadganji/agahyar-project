@@ -1,6 +1,6 @@
 # Related posts for blog
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 45
 - TAGS: feature, blog
 

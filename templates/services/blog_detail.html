@@ -129,6 +129,27 @@
         <p>نویسنده و محتواساز آگاه‌یار</p>
       </div>
     </div>
+    {% if related_posts %}
+      <div class="blog-related-posts blog-detail-card">
+        <h3>مطالب مرتبط</h3>
+        <div class="blog-related-grid">
+          {% for rp in related_posts %}
+            <a href="{% url 'blog_detail' slug=rp.slug %}" class="blog-related-card">
+              {% if rp.display_image_url %}
+                <div class="blog-related-image">
+                  <img src="{{ rp.display_image_url }}"
+                       alt="{{ rp.alt_text|default:rp.title }}"
+                       loading="lazy">
+                </div>
+              {% endif %}
+              <div class="blog-related-body">
+                <h4>{{ rp.title|fa }}</h4>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
     <div class="comments-section blog-detail-card">
       <h3>نظرات</h3>
       {% if comments %}
