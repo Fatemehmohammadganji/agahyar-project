@@ -4,14 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.7.0] - 2026-07-30
+
+### Added
+
+- **Blog system with CKEditor 5**: Full-featured blog including post creation,
+  editing, publishing with WYSIWYG editor (Decoupled Document build v44.3.0),
+  Persian UI, inline image upload, and admin media manager.
+- **Blog admin CRUD**: Custom admin pages with card-based UI, drag-and-drop
+  image upload widget, toggle checkbox widget, Persian labels, tag input with
+  autocomplete, and slug auto-generation.
+- **Blog frontend UI/UX**: Card-based list with hover effects, reading time
+  badge, scroll progress bar, table of contents, image lightbox, author bio,
+  related posts, keyword pills, star ratings, and accessible login modal.
+- **RSS/Atom feeds**: Blog feeds at `/blog/feed/rss/` and `/blog/feed/atom/`
+  with autodiscovery link tags.
+- **Blog search**: Search by title, summary, and keywords with result header
+  and separate empty states.
+- **Blog preview URL**: Staff-only preview endpoint at `/blog/<slug>/preview/`.
+- **Rich-text normalization**: `plaintext` template filter that inserts spaces
+  around block-level HTML elements before stripping tags.
+- **Accessibility improvements**: Login form now has `id`/`for` attributes,
+  `aria-invalid`, and `aria-describedby` on username and password fields.
+- **Admin card-based pages with AJAX actions**: New admin dashboard and
+  management pages for data transfer (export/import), bookmarks, and user
+  management with inline AJAX delete and search.
+
+### Changed
+
+- OTP abandonment stats now correctly exclude verified phone numbers.
+
+### Fixed
+
+- Matomo duplicate `setTrackerUrl`/`setSiteId` calls removed.
+- Collapsed content overflow in the profile page was fixed.
+- h1 logo replaced with span elements for SEO.
+- Space variant of brand name added to meta keywords for SEO.
+
 ## [1.6.2] - 2026-07-24
 
 ### Added
+
 - Matomo user ID tracking for authenticated users.
 - Center names on nearby centers page link to the center detail page.
 - Map icon buttons with `fa-map-location-dot` replace text buttons.
 
 ### Changed
+
 - Nearby centers page redesigned with tighter card layout.
 - All user-visible numbers (center names, postal codes, phone numbers,
   OTP countdown timers, titles, and meta tags) now display in Persian

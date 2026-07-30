@@ -4,7 +4,7 @@ requires-python = ">=3.12"
 
 [[package]]
 name = "agahyar"
-version = "1.6.2"
+version = "1.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -54,7 +54,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jdatetime", specifier = ">=6" },
     { name = "log21", specifier = ">=3.3.2" },
-    { name = "pillow", specifier = ">=12.3.0" },
+    { name = "pillow", specifier = ">=12.3" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.2" },
     { name = "psutil", specifier = ">=7" },
