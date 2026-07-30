@@ -66,11 +66,14 @@
 
       if (previewRemove) {
         previewRemove.addEventListener("click", function () {
+          var hadFile = fileInput.files.length > 0;
           preview.style.display = "none";
           previewImg.src = "";
           dropzone.style.display = "";
           fileInput.value = "";
-          if (clearCheckbox) clearCheckbox.checked = false;
+          if (clearCheckbox) {
+            clearCheckbox.checked = !hadFile;
+          }
         });
       }
     });
