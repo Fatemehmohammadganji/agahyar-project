@@ -70,6 +70,46 @@
   <script src="{% static 'libs/ckeditor5/ckeditor.js' %}"></script>
   <script src="{% static 'libs/ckeditor5/fa.js' %}"></script>
   <script>
+      function CkeditorUploadAdapter(loader) {
+          this.loader = loader;
+      }
+      CkeditorUploadAdapter.prototype.upload = function() {
+          var self = this;
+          return self.loader.file.then(function(file) {
+              return new Promise(function(resolve, reject) {
+                  var data = new FormData();
+                  data.append("upload", file);
+                  fetch("{% url 'ckeditor_upload' %}", {
+                          method: "POST",
+                          headers: {
+                              "X-CSRFToken": "{{ csrf_token }}"
+                          },
+                          body: data,
+                      })
+                      .then(function(r) {
+                          return r.json();
+                      })
+                      .then(function(res) {
+                          if (res.error) {
+                              reject(res.error.message);
+                          } else {
+                              resolve({
+                                  default: res.url
+                              });
+                          }
+                      })
+                      .catch(reject);
+              });
+          });
+      };
+      CkeditorUploadAdapter.prototype.abort = function() {};
+
+      function CkeditorUploadAdapterPlugin(editor) {
+          editor.plugins.get("FileRepository").createUploadAdapter = function(loader) {
+              return new CkeditorUploadAdapter(loader);
+          };
+      }
+
       document.addEventListener("DOMContentLoaded", function() {
           var textarea = document.querySelector("textarea.ckeditor-textarea");
           textarea.removeAttribute("required");
@@ -83,6 +123,7 @@
                       ui: "fa",
                       content: "fa"
                   },
+                  extraPlugins: [CkeditorUploadAdapterPlugin],
                   toolbar: {
                       items: [
                           "undo", "redo",
@@ -115,12 +156,6 @@
                   },
                   image: {
                       toolbar: ["imageTextAlternative", "imageStyle:full", "imageStyle:side"]
-                  },
-                  simpleUpload: {
-                      uploadUrl: "{% url 'admin_blog_create' %}",
-                      headers: {
-                          "X-CSRFToken": "{{ csrf_token }}"
-                      }
                   }
               })
               .then(function(editor) {

@@ -614,6 +614,36 @@ class TestCustomBlogAdmin:
         )
         assert "مشخص نشده" in response.content.decode()
 
+    def test_ckeditor_upload_requires_staff(self, client):
+        response = client.post("/api/ckeditor-upload/")
+        assert response.status_code in (302, 403)
+
+    def test_ckeditor_upload_rejects_no_file(self):
+        staff = _staff_client()
+        response = staff.post("/api/ckeditor-upload/")
+        assert response.status_code == 400
+        assert "هیچ فایلی" in response.json()["error"]["message"]
+
+    def test_ckeditor_upload_rejects_invalid_type(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        staff = _staff_client()
+        f = SimpleUploadedFile("test.txt", b"not an image", content_type="text/plain")
+        response = staff.post("/api/ckeditor-upload/", {"upload": f})
+        assert response.status_code == 400
+        assert "فرمت" in response.json()["error"]["message"]
+
+    def test_ckeditor_upload_succeeds(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        staff = _staff_client()
+        f = SimpleUploadedFile("test.png", b"fake-png-data", content_type="image/png")
+        response = staff.post("/api/ckeditor-upload/", {"upload": f})
+        assert response.status_code == 200
+        data = response.json()
+        assert "url" in data
+        assert data["url"].startswith("/media/blog/")
+
 
 @pytest.mark.django_db
 class TestBlogRatingAPI:

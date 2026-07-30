@@ -62,6 +62,11 @@ urlpatterns: List[URLPattern] = [
         views.rate_blog_post,
         name="rate_blog_post",
     ),
+    path(
+        "api/ckeditor-upload/",
+        views.ckeditor_upload,
+        name="ckeditor_upload",
+    ),
     # ===== Center ratings =====
     path(
         "rate-center/<int:center_id>/",

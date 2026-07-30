@@ -1363,6 +1363,33 @@ def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
 
 
 @staff_member_required
+@require_POST
+def ckeditor_upload(request: HttpRequest) -> JsonResponse:
+    """CKEditor 5 image upload endpoint — staff only."""
+    import uuid
+
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    if "upload" not in request.FILES:
+        return JsonResponse(
+            {"error": {"message": "هیچ فایلی ارسال نشده است."}}, status=400
+        )
+    uploaded = request.FILES["upload"]
+    allowed = ("image/jpeg", "image/png", "image/gif", "image/webp")
+    if uploaded.content_type not in allowed:
+        return JsonResponse(
+            {"error": {"message": "فرمت فایل مجاز نیست. JPEG, PNG, GIF, WebP"}},
+            status=400,
+        )
+    ext = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    path = default_storage.save(f"blog/{filename}", ContentFile(uploaded.read()))
+    url = django_settings.MEDIA_URL + path
+    return JsonResponse({"url": url})
+
+
+@staff_member_required
 def admin_blog_list(request: HttpRequest) -> HttpResponse:
     posts = BlogPost.objects.select_related("author").all()
     return render(
