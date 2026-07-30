@@ -148,26 +148,73 @@
             e.preventDefault();
             pendingScore = score;
             input.checked = false;
-            loginModal.style.display = "flex";
+            openModal();
           }
           return;
         }
         submitRating(postId, score);
       });
 
-      /* --- Login modal --- */
+      /* --- Login modal: focus trap, Escape, backdrop click --- */
+      var lastFocusedEl = null;
+      var modalFocusable = null;
+      var modalFirst = null;
+      var modalLast = null;
+
+      function updateFocusable() {
+        modalFocusable = loginModal.querySelectorAll(
+          'a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
+        );
+        modalFirst = modalFocusable[0];
+        modalLast = modalFocusable[modalFocusable.length - 1];
+      }
+
+      function openModal() {
+        lastFocusedEl = document.activeElement;
+        loginModal.style.display = "flex";
+        loginError.style.display = "none";
+        updateFocusable();
+        if (modalFirst) modalFirst.focus();
+      }
+
+      function closeModal() {
+        loginModal.style.display = "none";
+        loginError.style.display = "none";
+        if (lastFocusedEl) lastFocusedEl.focus();
+      }
+
       if (loginModal && loginForm && loginError) {
         document
           .getElementById("login-modal-close")
-          .addEventListener("click", function () {
-            loginModal.style.display = "none";
-            loginError.style.display = "none";
-          });
+          .addEventListener("click", closeModal);
 
         loginModal.addEventListener("click", function (e) {
-          if (e.target === loginModal) {
-            loginModal.style.display = "none";
-            loginError.style.display = "none";
+          if (e.target === loginModal) closeModal();
+        });
+
+        document.addEventListener("keydown", function (e) {
+          if (
+            loginModal.style.display === "none" ||
+            loginModal.style.display === ""
+          )
+            return;
+          if (e.key === "Escape") {
+            e.preventDefault();
+            closeModal();
+          }
+          if (e.key === "Tab") {
+            updateFocusable();
+            if (e.shiftKey) {
+              if (document.activeElement === modalFirst) {
+                e.preventDefault();
+                modalLast.focus();
+              }
+            } else {
+              if (document.activeElement === modalLast) {
+                e.preventDefault();
+                modalFirst.focus();
+              }
+            }
           }
         });
 
@@ -200,8 +247,7 @@
             .then(function (result) {
               if (result.ok && result.data.success) {
                 isAuth = true;
-                loginModal.style.display = "none";
-                loginError.style.display = "none";
+                closeModal();
                 if (result.data.csrfToken) {
                   var el = document.querySelector(
                     '[name="csrfmiddlewaretoken"]',

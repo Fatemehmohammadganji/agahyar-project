@@ -71,10 +71,18 @@
         {% endif %}
       {% endwith %}
     </div>
-    <div class="modal-overlay" id="login-modal" style="display:none">
+    <div class="modal-overlay"
+         id="login-modal"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="login-modal-title"
+         style="display:none">
       <div class="modal-content">
-        <button type="button" class="modal-close" id="login-modal-close">&times;</button>
-        <h2>ورود به آگاه‌یار</h2>
+        <button type="button"
+                class="modal-close"
+                id="login-modal-close"
+                aria-label="بستن">&times;</button>
+        <h2 id="login-modal-title">ورود به آگاه‌یار</h2>
         <p style="margin-bottom:16px;
                   color:var(--text-muted,#666);
                   font-size:0.9rem">برای ثبت امتیاز وارد شوید</p>
@@ -84,42 +92,8 @@
                     margin-bottom:12px;
                     font-size:0.85rem"></div>
         <form id="login-modal-form">
-          {% csrf_token %}
-          <div class="form-group">
-            <label>نام کاربری، ایمیل یا شماره موبایل</label>
-            <input type="text"
-                   name="username"
-                   placeholder="نام کاربری خود را وارد کنید"
-                   class="ltr-input"
-                   dir="ltr"
-                   required>
-          </div>
-          <div class="form-group">
-            <label>رمز عبور</label>
-            <input type="password"
-                   name="password"
-                   placeholder="رمز عبور خود را وارد کنید"
-                   class="ltr-input"
-                   dir="ltr"
-                   required>
-          </div>
-          <div class="remember-me-group" style="margin-bottom:16px">
-            <label class="remember-me-label">
-              <input type="checkbox" name="remember_me" class="remember-me-checkbox">
-              مرا به خاطر بسپار
-            </label>
-          </div>
-          <button type="submit" class="btn-primary" style="width:100%">ورود</button>
+          {% include 'services/auth/login_form.html' %}
         </form>
-        <div class="register-link"
-             style="margin-top:12px;
-                    text-align:center;
-                    font-size:0.85rem">
-          حساب کاربری ندارید؟ <a href="{% url 'register' %}">ثبت‌نام کنید</a>
-        </div>
-        <div style="margin-top:8px;text-align:center">
-          <a href="{% url 'password_reset_phone' %}" class="muted-link">رمز عبور را فراموش کرده‌اید؟</a>
-        </div>
       </div>
     </div>
     <div class="blog-detail-card blog-detail-author-box">

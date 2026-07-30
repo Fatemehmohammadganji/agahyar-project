@@ -56,7 +56,7 @@
             <h2 class="blog-card-title">
               <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title|fa }}</a>
             </h2>
-            <p class="blog-card-summary">{{ post.summary|truncatewords:30|fa }}</p>
+            <p class="blog-card-summary">{{ post.summary|default:post.body|plaintext|striptags|truncatewords:30|fa }}</p>
             <div class="blog-card-footer">
               <span class="blog-card-author">{{ post.author.get_full_name|default:post.author.username }}</span>
             </div>
