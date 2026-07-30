@@ -1118,16 +1118,24 @@ def blog_list(request: HttpRequest) -> HttpResponse:
     """Display a paginated list of published blog posts.
 
     Shows 9 posts per page.  Only posts with ``is_published=True``
-    are included.
+    are included.  Supports searching by title, summary and keywords
+    via the ``q`` query parameter.
     """
     posts = BlogPost.objects.filter(is_published=True).select_related("author")
+    query = request.GET.get("q", "").strip()
+    if query:
+        posts = posts.filter(
+            Q(title__icontains=query)
+            | Q(summary__icontains=query)
+            | Q(keywords__icontains=query)
+        )
     paginator = Paginator(posts, 9)
     page_number = request.GET.get("page", 1)
     page_obj = paginator.get_page(page_number)
     return render(
         request,
         "services/blog_list.html",
-        {"page_obj": page_obj},
+        {"page_obj": page_obj, "query": query},
     )
 
 

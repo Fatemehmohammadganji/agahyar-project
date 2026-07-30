@@ -216,6 +216,60 @@ class TestBlogViews:
         response = client.get("/blog/nonexistent-slug/")
         assert response.status_code == 404
 
+    def test_blog_list_search_by_title(self, client):
+        author = User.objects.create_user(username="author1")
+        BlogPost.objects.create(
+            title="آموزش ری اکت",
+            author=author,
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="آموزش پایتون",
+            author=author,
+            is_published=True,
+        )
+        response = client.get("/blog/?q=ری اکت")
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert "آموزش ری اکت" in html
+        assert "آموزش پایتون" not in html
+
+    def test_blog_list_search_by_summary(self, client):
+        author = User.objects.create_user(username="author1")
+        BlogPost.objects.create(
+            title="post one",
+            summary="مربوط به سلامت",
+            author=author,
+            is_published=True,
+        )
+        BlogPost.objects.create(
+            title="post two",
+            summary="مربوط به آموزش",
+            author=author,
+            is_published=True,
+        )
+        response = client.get("/blog/?q=سلامت")
+        assert response.status_code == 200
+        assert "post one" in response.content.decode()
+        assert "post two" not in response.content.decode()
+
+    def test_blog_list_search_shows_result_header(self, client):
+        author = User.objects.create_user(username="author1")
+        BlogPost.objects.create(
+            title="test",
+            author=author,
+            is_published=True,
+        )
+        response = client.get("/blog/?q=test")
+        html = response.content.decode()
+        assert "نتیجه جستجو برای" in html
+        assert "test" in html
+
+    def test_blog_list_search_no_results_shows_empty_state(self, client):
+        response = client.get("/blog/?q=xyznotfound")
+        html = response.content.decode()
+        assert "نتیجه‌ای یافت نشد" in html
+
 
 ADMIN_PREFIX = "admin/"
 

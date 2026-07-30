@@ -3604,6 +3604,48 @@ button.muted-link:disabled {
 .blog-card-excerpt {
   text-align: justify;
 }
+.blog-search-form {
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  gap: 8px;
+}
+.blog-search-input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  transition: border-color 0.15s;
+}
+.blog-search-input:focus {
+  border-color: var(--color-accent);
+}
+.blog-search-btn {
+  padding: 10px 20px;
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--btn-transition);
+}
+.blog-search-btn:hover {
+  background: var(--color-accent-hover);
+}
+.blog-search-result-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
 .blog-section-footer {
   text-align: center;
   margin: 0.5rem 0 2rem;

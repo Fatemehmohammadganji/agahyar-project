@@ -1,6 +1,6 @@
 # Blog search
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: feature, blog, ux
 
