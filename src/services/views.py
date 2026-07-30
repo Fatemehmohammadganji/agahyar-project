@@ -1283,6 +1283,21 @@ def admin_blog_list(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _get_all_blog_keywords(max_tags: int = 512) -> list[str]:
+    """Return the most frequently used keywords (up to ``max_tags``)."""
+    from collections import Counter
+
+    counter: Counter[str] = Counter()
+    for kw_str in BlogPost.objects.exclude(keywords="").values_list(
+        "keywords", flat=True
+    ):
+        for kw in kw_str.split(","):
+            kw = kw.strip()
+            if kw:
+                counter[kw] += 1
+    return [kw for kw, _ in counter.most_common(max_tags)]
+
+
 @staff_member_required
 def admin_blog_create(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
@@ -1302,6 +1317,7 @@ def admin_blog_create(request: HttpRequest) -> HttpResponse:
             "form": form,
             "title": "ایجاد پست جدید",
             "is_create": True,
+            "existing_keywords": _get_all_blog_keywords(),
         },
     )
 
@@ -1325,6 +1341,7 @@ def admin_blog_edit(request: HttpRequest, post_id: int) -> HttpResponse:
             "title": "ویرایش پست",
             "is_create": False,
             "post": post,
+            "existing_keywords": _get_all_blog_keywords(),
         },
     )
 

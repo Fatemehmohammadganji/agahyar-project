@@ -66,6 +66,7 @@
 {% endblock %}
 {% block extrahead %}
   {{ block.super }}
+  {{ existing_keywords|json_script:"existing-keywords-data" }}
   <script src="{% static 'libs/ckeditor5/ckeditor.js' %}"></script>
   <script>
       document.addEventListener("DOMContentLoaded", function() {
@@ -164,4 +165,5 @@
           }
       });
   </script>
+  <script src="{% static 'services/js/admin-blog-tags.js' %}"></script>
 {% endblock %}
