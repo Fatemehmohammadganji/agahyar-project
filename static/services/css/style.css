@@ -3726,6 +3726,9 @@ button.muted-link:disabled {
   color: var(--color-accent);
 }
 /* Fade-in animation (progressive enhancement — cards visible without JS) */
+.fade-in {
+  opacity: 0;
+}
 .fade-in--visible {
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }

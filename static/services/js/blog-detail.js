@@ -77,6 +77,14 @@
       },
       { threshold: 0.1 },
     );
+    document
+      .querySelectorAll(
+        ".blog-detail-author-box, .blog-related-posts, .comments-section",
+      )
+      .forEach(function (el) {
+        el.classList.add("fade-in");
+        observer.observe(el);
+      });
 
     /* --- Star rating + login modal --- */
     var blogRating = document.getElementById("blog-star-rating");
