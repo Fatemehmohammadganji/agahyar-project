@@ -47,7 +47,7 @@
               <h3 class="blog-card-title">
                 <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title }}</a>
               </h3>
-              <p class="blog-card-excerpt">{{ post.summary|default:post.body|truncatewords:25 }}</p>
+              <p class="blog-card-excerpt">{{ post.summary|default:post.body|striptags|truncatewords:25 }}</p>
             </div>
           </article>
         {% endfor %}
