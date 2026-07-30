@@ -68,6 +68,7 @@
   {{ block.super }}
   {{ existing_keywords|json_script:"existing-keywords-data" }}
   <script src="{% static 'libs/ckeditor5/ckeditor.js' %}"></script>
+  <script src="{% static 'libs/ckeditor5/fa.js' %}"></script>
   <script>
       document.addEventListener("DOMContentLoaded", function() {
           var textarea = document.querySelector("textarea.ckeditor-textarea");
