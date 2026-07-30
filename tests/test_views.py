@@ -632,7 +632,7 @@ class TestLoginView:
         assert response.status_code == 200
         assert response.context["form"].errors
         content = response.content.decode()
-        assert "has-error" in content or "message-error" in content
+        assert "field-error" in content or "field-error-msg" in content
 
     def test_login_redirects_when_authenticated(self):
         User.objects.create_user("alreadyin", password="pass12345")
