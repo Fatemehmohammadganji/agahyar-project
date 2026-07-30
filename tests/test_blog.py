@@ -527,6 +527,43 @@ class TestCustomBlogAdmin:
         assert not Comment.objects.filter(id=comment.id).exists()
         assert Comment.objects.count() == 0
 
+    def test_media_deletion_rejects_path_traversal(self):
+        import os
+
+        from django.conf import settings
+
+        staff = _staff_client()
+        blog_dir = os.path.join(settings.MEDIA_ROOT, "blog")
+        os.makedirs(blog_dir, exist_ok=True)
+
+        safe_file = os.path.join(blog_dir, "test-safe.txt")
+        with open(safe_file, "w") as f:
+            f.write("safe")
+
+        response = staff.post(
+            f"/{ADMIN_PREFIX}media/",
+            {"filename": "../test-safe.txt"},
+            follow=True,
+        )
+        assert "نامعتبر" in response.content.decode()
+        assert os.path.isfile(safe_file)
+
+        response = staff.post(
+            f"/{ADMIN_PREFIX}media/",
+            {"filename": "test-safe.txt"},
+            follow=True,
+        )
+        assert not os.path.isfile(safe_file)
+
+    def test_media_deletion_rejects_empty_filename(self):
+        staff = _staff_client()
+        response = staff.post(
+            f"/{ADMIN_PREFIX}media/",
+            {"filename": ""},
+            follow=True,
+        )
+        assert "مشخص نشده" in response.content.decode()
+
 
 @pytest.mark.django_db
 class TestBlogRatingAPI:
