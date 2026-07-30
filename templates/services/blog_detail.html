@@ -65,7 +65,7 @@
         {% if kw_list %}
           <div class="blog-keywords">
             <ul class="keyword-list">
-              {% for kw in kw_list %}<li class="keyword-tag">{{ kw|fa }}</li>{% endfor %}
+              {% for kw in kw_list %}<li class="keyword-tag"><a href="{% url "blog_list" %}?q={{ kw|urlencode }}">{{ kw|fa }}</a></li>{% endfor %}
             </ul>
           </div>
         {% endif %}
