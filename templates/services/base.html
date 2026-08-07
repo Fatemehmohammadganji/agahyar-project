@@ -51,6 +51,7 @@
     <link rel="stylesheet" href="{% static 'services/css/style.css' %}" />
     <script defer src="{% static 'services/js/error-translate.js' %}"></script>
     <script defer src="{% static 'services/js/custom-select.js' %}"></script>
+    <script defer src="{% static 'services/js/login-modal.js' %}"></script>
     <script defer src="{% static 'services/js/main.js' %}"></script>
     {% block extra_css %}{% endblock %}
   </head>
@@ -126,6 +127,9 @@
         </a>
       </div>
     </footer>
+    {% block login_modal %}
+      {% include "services/partials/login_modal.html" %}
+    {% endblock %}
     <script src="{% static 'libs/toastify/toastify.js' %}"></script>
     <script>
         var toastLevels = {

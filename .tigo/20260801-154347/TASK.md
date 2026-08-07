@@ -1,6 +1,6 @@
 # Reuse login modal on service and center detail pages for rating and commenting
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: conversion, ui/ux, login
 

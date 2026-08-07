@@ -19,11 +19,41 @@ function closeMenu() {
   nav.classList.remove("show");
 }
 
+function closeModalOnBackdropClick(dialog) {
+  if (!dialog) return;
+  dialog.addEventListener("click", function (e) {
+    var rect = dialog.getBoundingClientRect();
+    var isInDialog =
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom;
+    if (!isInDialog) dialog.close();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   var navLinks = document.getElementById("navLinks");
   if (navLinks) {
     navLinks.querySelectorAll("a").forEach(function (link) {
       link.addEventListener("click", closeMenu);
+    });
+  }
+
+  var deleteModal = document.getElementById("delete-comment-modal");
+  if (deleteModal) {
+    closeModalOnBackdropClick(deleteModal);
+    deleteModal.addEventListener("close", function () {
+      _pendingDeleteId = null;
+    });
+  }
+
+  var reportDialog = document.getElementById("report-dialog");
+  if (reportDialog) {
+    closeModalOnBackdropClick(reportDialog);
+    reportDialog.addEventListener("close", function () {
+      _reportTargetType = null;
+      _reportTargetId = null;
     });
   }
 

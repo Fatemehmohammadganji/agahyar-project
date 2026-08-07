@@ -1009,10 +1009,6 @@ button.muted-link:disabled {
 }
 
 /* --- Rating Section --- */
-.center-rating-section {
-  margin-top: 10px;
-}
-
 .rating-summary {
   display: flex;
   align-items: center;
@@ -1780,6 +1776,10 @@ button.muted-link:disabled {
 .btn-report:focus-visible {
   outline: 2px solid var(--color-danger);
   outline-offset: 1px;
+}
+
+dialog {
+  color: var(--text-primary);
 }
 
 /* --- Report Dialog --- */
@@ -3990,34 +3990,33 @@ button.muted-link:disabled {
   text-decoration: underline;
 }
 /* Rating stars */
-.blog-rating-section {
+.rating-section {
   display: flex;
   align-items: center;
   gap: 1rem;
+  margin-bottom: 16px;
 }
 .star-rating-input .star-rating-display {
   font-size: 1.8rem;
   color: var(--border-color);
   user-select: none;
 }
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.login-modal {
+  border: none;
+  padding: 0;
+  margin: auto;
+  width: 90%;
+  max-width: 400px;
+  background: transparent;
   z-index: 9999;
+}
+.login-modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
 }
 .modal-content {
   background: var(--bg-card, #fff);
   border-radius: 16px;
   padding: 32px;
-  width: 90%;
-  max-width: 400px;
   position: relative;
 }
 .modal-close {
@@ -4030,16 +4029,16 @@ button.muted-link:disabled {
   cursor: pointer;
   color: var(--text-muted, #666);
 }
-.modal-overlay .form-group {
+.login-modal .form-group {
   margin-bottom: 16px;
 }
-.modal-overlay .form-group label {
+.login-modal .form-group label {
   display: block;
   margin-bottom: 6px;
   font-size: 0.9rem;
   color: var(--text-primary, #333);
 }
-.modal-overlay .ltr-input {
+.login-modal .ltr-input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border-color, #ddd);

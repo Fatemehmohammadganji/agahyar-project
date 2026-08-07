@@ -68,6 +68,7 @@ ERROR_CODES: dict[str, str] = {
     # ---- Center rating ----
     "center-rating/added": "امتیاز شما با موفقیت ثبت شد.",
     "center-rating/updated": "امتیاز شما با موفقیت به‌روزرسانی شد.",
+    "center-rating/login-required": "برای ثبت امتیاز باید وارد شوید.",
     # ---- Geolocation ----
     "geolocation/unavailable": "امکان دریافت موقعیت جغرافیایی وجود ندارد.",
     "geolocation/invalid-coordinates": "مختصات وارد شده معتبر نیست.",

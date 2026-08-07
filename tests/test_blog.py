@@ -242,6 +242,23 @@ class TestBlogViews:
         response = client.get(f"/blog/{post.slug}/")
         assert response.status_code == 200
 
+    def test_blog_detail_includes_shared_login_modal_once(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="test",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+        assert '<dialog class="login-modal"' in content
+        assert 'class="modal-overlay"' not in content
+        assert 'id="login-modal-form"' in content
+        assert 'id="login-modal-error"' in content
+        assert 'id="login-modal-prompt"' in content
+        assert 'class="login-prompt-link"' in content
+
     def test_blog_detail_returns_404_for_draft(self, client):
         author = User.objects.create_user(username="author1")
         post = BlogPost.objects.create(

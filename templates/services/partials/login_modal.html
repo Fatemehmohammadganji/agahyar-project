@@ -1,0 +1,18 @@
+<dialog class="login-modal"
+        id="login-modal"
+        aria-labelledby="login-modal-title">
+  <div class="modal-content">
+    <button type="button"
+            class="modal-close"
+            id="login-modal-close"
+            aria-label="بستن">&times;</button>
+    <h2 id="login-modal-title">ورود به آگاه‌یار</h2>
+    <p id="login-modal-prompt"
+       style="margin-bottom:16px;
+              color:var(--text-muted,#666);
+              font-size:0.9rem">برای ادامه وارد شوید</p>
+    <form id="login-modal-form">
+      {% include 'services/auth/login_form.html' with show_login_modal_error=True %}
+    </form>
+  </div>
+</dialog>

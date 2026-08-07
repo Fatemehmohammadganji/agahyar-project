@@ -1,6 +1,6 @@
 # Extract shared login modal into a reusable partial and global JS
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: ui/ux, login, refactor
 

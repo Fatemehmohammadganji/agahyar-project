@@ -46,6 +46,11 @@ Documentation
 - The same CSS class must not be used for elements that are fundamentally
   different. A nav button and a page prompt are different things; use
   separate class names even if they share some styles.
+- Prefer widely supported browser features over manually reimplementing them
+  (e.g. native `<dialog>` for modals, `input type="date"`, CSS `:focus-visible`
+  for focus indicators). Only reimplement manually when the browser does not
+  provide exactly what we need or the feature is not supported by all major
+  browsers.
 - Do not commit empty files or files that do not provide any value to the project.
 - Every new thing needs new tests to be added and run. If you add a new feature,
   add a test for it. If you fix a bug, add a test that reproduces the bug and

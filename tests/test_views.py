@@ -295,6 +295,13 @@ class TestHomeView:
         assert response.status_code == 200
         assert "test service" in str(response.content)
 
+    def test_home_includes_shared_login_modal(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+        assert 'id="login-modal-form"' in content
+
 
 @pytest.mark.django_db
 class TestDashboardView:
@@ -446,6 +453,24 @@ class TestServiceDetailView:
         client = Client()
         response = client.get(f"/service/{service.id}/")
         assert response.status_code == 200
+
+    def test_service_detail_anonymous_comment_prompt_uses_login_modal(self):
+        service = Service.objects.create(
+            name="modal-svc", organization="org", documents="doc1", steps="step1"
+        )
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert 'class="login-prompt-link"' in content
+
+    def test_service_detail_includes_shared_login_modal_once(self):
+        service = Service.objects.create(
+            name="modal-svc2", organization="org", documents="doc1", steps="step1"
+        )
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
 
     def test_404_for_nonexistent(self):
         client = Client()
@@ -611,6 +636,12 @@ class TestLoginView:
         response = client.get("/login/")
         assert response.status_code == 200
         assert "form" in response.context
+
+    def test_login_page_excludes_shared_login_modal(self):
+        client = Client()
+        response = client.get("/login/")
+        content = response.content.decode()
+        assert 'id="login-modal"' not in content
 
     def test_login_preserves_username_on_invalid_credentials(self):
         User.objects.create_user("loginuser", password="correctpass")
@@ -2028,6 +2059,61 @@ class TestCenterDetail:
         assert response.context["avg_rating"] == 4.0
         assert response.context["rating_count"] == 1
 
+    def test_center_detail_shows_star_widget_to_anonymous(self):
+        service = Service.objects.create(
+            name="cr-svc2", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center2", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'id="center-star-rating"' in content
+        assert 'data-user-auth="false"' in content
+
+    def test_center_detail_rating_summary_shows_empty_state(self):
+        service = Service.objects.create(
+            name="cr-svc3", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center3", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'id="center-rating-average"' in content
+        assert "&mdash;" in content
+        assert "هنوز امتیازی ثبت نشده است" not in content
+
+    def test_center_detail_anonymous_comment_prompt_uses_login_modal(self):
+        service = Service.objects.create(
+            name="cr-svc4", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center4", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'class="login-prompt-link"' in content
+
+    def test_center_detail_includes_shared_login_modal_once(self):
+        service = Service.objects.create(
+            name="cr-svc5", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center5", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+
 
 @pytest.mark.django_db
 class TestSubmitCenterRating:
@@ -2093,6 +2179,91 @@ class TestSubmitCenterRating:
         assert f"/center/{center.id}/" in response.url
 
 
+@pytest.mark.django_db
+class TestCenterRatingAPI:
+    def _make_center(self):
+        service = Service.objects.create(
+            name="cr-svc", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        return center
+
+    def test_rating_requires_login(self):
+        center = self._make_center()
+        client = Client()
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            {"score": 4},
+            content_type="application/json",
+        )
+        assert response.status_code == 401
+
+    def test_rate_and_get_average(self):
+        user = User.objects.create_user("api_crater", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater", password="pass12345")
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            {"score": 4},
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_score"] == 4
+        assert data["count"] == 1
+        assert data["average"] == 4.0
+        rating = CenterRating.objects.get(user=user, service_center=center)
+        assert rating.score == 4
+
+    def test_rate_updates_existing_rating(self):
+        user = User.objects.create_user("api_crater2", password="pass12345")
+        center = self._make_center()
+        CenterRating.objects.create(user=user, service_center=center, score=2)
+        client = Client()
+        client.login(username="api_crater2", password="pass12345")
+        response = client.post(f"/api/rate-center/{center.id}/", {"score": "5"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_score"] == 5
+        assert data["average"] == 5.0
+        assert data["count"] == 1
+
+    def test_score_out_of_range_rejected(self):
+        User.objects.create_user("api_crater3", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater3", password="pass12345")
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            {"score": 6},
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    def test_non_numeric_score_rejected(self):
+        User.objects.create_user("api_crater4", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater4", password="pass12345")
+        response = client.post(f"/api/rate-center/{center.id}/", {"score": "abc"})
+        assert response.status_code == 400
+
+    def test_404_for_nonexistent_center(self):
+        User.objects.create_user("api_crater5", password="pass12345")
+        client = Client()
+        client.login(username="api_crater5", password="pass12345")
+        response = client.post(
+            "/api/rate-center/99999/",
+            {"score": 4},
+            content_type="application/json",
+        )
+        assert response.status_code == 404
+
+
 class TestRateLimitPage:
     def test_429_template_exists(self):
         from django.conf import settings
@@ -2153,6 +2324,29 @@ class TestResponsiveHamburger:
             content = f.read()
         assert 'document.getElementById("navLinks")' in content
         assert "navLinks" in content
+
+    def test_dialogs_close_on_backdrop_click(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function closeModalOnBackdropClick" in content
+        assert 'getElementById("delete-comment-modal")' in content
+        assert 'getElementById("report-dialog")' in content
+        assert "getBoundingClientRect" in content
+        assert "dialog.close()" in content
+
+    def test_rating_js_reloads_page_on_401(self):
+        from django.conf import settings
+
+        base = settings.BASE_DIR / "static" / "services" / "js"
+        for name in ("blog-detail.js", "center-detail.js"):
+            with open(base / name, encoding="utf-8") as f:
+                content = f.read()
+            assert "xhr.status === 401" in content
+            assert "window.location.reload()" in content
+            assert "alert(" in content
 
 
 @pytest.mark.django_db

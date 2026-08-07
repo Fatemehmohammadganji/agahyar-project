@@ -1909,10 +1909,8 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
     center_locations = get_center_locations(ServiceCenter.objects.filter(id=center.id))
 
     comment_form = None
-    rating_form = None
     if request.user.is_authenticated:
         comment_form = CommentForm()
-        rating_form = CenterRatingForm()
 
     return render(
         request,
@@ -1928,7 +1926,6 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
             "has_more_comments": has_more_comments,
             "comment_page": comment_page,
             "comment_form": comment_form,
-            "rating_form": rating_form,
             "comment_reaction_data": comment_reaction_data,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
@@ -1971,6 +1968,45 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
             messages.success(request, get_error_message("center-rating/updated"))
 
     return redirect("center_detail", center_id=center_id)
+
+
+def rate_center(request: HttpRequest, center_id: int) -> JsonResponse:
+    """API endpoint to rate a service center (1-5).
+
+    POST with JSON ``{"score": N}`` or form-encoded ``score=N``.
+    Requires authentication.
+    Idempotent: updates the existing rating if the user has already
+    rated this center.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"error": get_error_message("center-rating/login-required")},
+            status=401,
+        )
+    center = get_object_or_404(ServiceCenter, id=center_id)
+    try:
+        if request.content_type == "application/json":
+            data = json.loads(request.body)
+            score = int(data.get("score", 0))
+        else:
+            score = int(request.POST.get("score", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid score"}, status=400)
+    if score < 1 or score > 5:
+        return JsonResponse({"error": "score must be between 1 and 5"}, status=400)
+    rating, _ = CenterRating.objects.update_or_create(
+        user=request.user,
+        service_center=center,
+        defaults={"score": score},
+    )
+    avg = center.ratings.aggregate(Avg("score"))["score__avg"]
+    return JsonResponse(
+        {
+            "average": round(avg, 1) if avg else None,
+            "count": center.ratings.count(),
+            "user_score": rating.score,
+        }
+    )
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)

@@ -71,62 +71,26 @@
   {% endif %}
   <div class="comments-section info-card">
     <h3>امتیاز و نظرات</h3>
-    {% if avg_rating %}
-      <div class="rating-summary">
-        <span class="avg-rating">{{ avg_rating|fa }}</span>
-        <span class="stars">
-          {% if avg_rating >= 1 %}★{% else %}☆{% endif %}
-          {% if avg_rating >= 2 %}★{% else %}☆{% endif %}
-          {% if avg_rating >= 3 %}★{% else %}☆{% endif %}
-          {% if avg_rating >= 4 %}★{% else %}☆{% endif %}
-          {% if avg_rating >= 5 %}★{% else %}☆{% endif %}
-        </span>
-        <span class="rating-count">({{ rating_count|fa }} نظر)</span>
+    <div class="rating-section">
+      <div class="star-rating-input"
+           id="center-star-rating"
+           data-center-id="{{ center.id }}"
+           data-user-auth="{{ user.is_authenticated|lower }}">
+        {% for i in "54321"|make_list %}
+          <input type="radio"
+                 id="cstar{{ center.id }}_{{ i }}"
+                 name="cstar_{{ center.id }}"
+                 value="{{ i }}"
+                 {% if user_center_rating and user_center_rating.score|stringformat:"s" == i %}checked{% endif %}>
+          <label for="cstar{{ center.id }}_{{ i }}"></label>
+        {% endfor %}
       </div>
-    {% else %}
-      <p class="empty-text">هنوز امتیازی ثبت نشده است.</p>
-    {% endif %}
+      <div class="rating-info">
+        <span class="rating-average" id="center-rating-average">{% if avg_rating is not None %}{{ avg_rating|fa }}{% else %}&mdash;{% endif %}</span>
+        <span class="rating-count" id="center-rating-count">({{ rating_count|fa }} نظر)</span>
+      </div>
+    </div>
     {% if user.is_authenticated %}
-      <form method="post"
-            action="{% url 'submit_center_rating' center.id %}"
-            id="center-rating-form">
-        {% csrf_token %}
-        <div class="rating-score-row">
-          <label>امتیاز شما:</label>
-          <div class="star-rating-input" id="star-rating-widget">
-            <input type="radio"
-                   id="cstar5"
-                   name="score"
-                   value="5"
-                   {% if user_center_rating and user_center_rating.score == 5 %}checked{% endif %}>
-            <label for="cstar5" title="۵ - عالی"></label>
-            <input type="radio"
-                   id="cstar4"
-                   name="score"
-                   value="4"
-                   {% if user_center_rating and user_center_rating.score == 4 %}checked{% endif %}>
-            <label for="cstar4" title="۴ - خوب"></label>
-            <input type="radio"
-                   id="cstar3"
-                   name="score"
-                   value="3"
-                   {% if user_center_rating and user_center_rating.score == 3 %}checked{% endif %}>
-            <label for="cstar3" title="۳ - متوسط"></label>
-            <input type="radio"
-                   id="cstar2"
-                   name="score"
-                   value="2"
-                   {% if user_center_rating and user_center_rating.score == 2 %}checked{% endif %}>
-            <label for="cstar2" title="۲ - بد"></label>
-            <input type="radio"
-                   id="cstar1"
-                   name="score"
-                   value="1"
-                   {% if user_center_rating and user_center_rating.score == 1 %}checked{% endif %}>
-            <label for="cstar1" title="۱ - خیلی بد"></label>
-          </div>
-        </div>
-      </form>
       <form method="post"
             action="{% url 'submit_comment_center' center.id %}"
             class="comment-form">
@@ -137,7 +101,9 @@
       </form>
     {% else %}
       <div class="login-prompt">
-        <p>برای ثبت امتیاز و ارسال نظر باید <a href="{% url 'login' %}">وارد شوید</a>.</p>
+        <p>برای ارسال نظر باید <a href="#"
+    class="login-prompt-link"
+    data-prompt="برای ارسال نظر وارد شوید">وارد شوید</a>.</p>
       </div>
     {% endif %}
     {% if comments %}
@@ -240,17 +206,5 @@
         });
     </script>
   {% endif %}
-  <script>
-      (function() {
-          var widget = document.getElementById("star-rating-widget");
-          if (!widget) return;
-          var form = document.getElementById("center-rating-form");
-          var inputs = widget.querySelectorAll("input[type=radio]");
-          inputs.forEach(function(input) {
-              input.addEventListener("change", function() {
-                  if (form) form.submit();
-              });
-          });
-      })();
-  </script>
+  <script src="{% static 'services/js/center-detail.js' %}"></script>
 {% endblock %}
