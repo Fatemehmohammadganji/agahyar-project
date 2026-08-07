@@ -2348,6 +2348,16 @@ class TestResponsiveHamburger:
             assert "window.location.reload()" in content
             assert "alert(" in content
 
+    def test_rating_js_formats_average_with_one_decimal(self):
+        from django.conf import settings
+
+        base = settings.BASE_DIR / "static" / "services" / "js"
+        for name in ("blog-detail.js", "center-detail.js"):
+            with open(base / name, encoding="utf-8") as f:
+                content = f.read()
+            assert "d.average.toFixed(1)" in content
+            assert "toFa(d.average.toFixed(1))" in content
+
 
 @pytest.mark.django_db
 class TestSeoEndpoints:

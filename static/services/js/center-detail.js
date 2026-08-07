@@ -51,7 +51,8 @@
             return resolve();
           }
           if (avgEl) {
-            avgEl.textContent = d.average != null ? toFa(d.average) : "\u2014";
+            avgEl.textContent =
+              d.average != null ? toFa(d.average.toFixed(1)) : "\u2014";
           }
           if (countEl) {
             countEl.textContent = "(" + toFa(d.count) + " نظر)";

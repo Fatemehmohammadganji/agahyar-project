@@ -125,7 +125,7 @@
               return resolve();
             }
             ratingAvg.textContent =
-              d.average != null ? toFa(d.average) : "\u2014";
+              d.average != null ? toFa(d.average.toFixed(1)) : "\u2014";
             ratingCnt.textContent = "(" + toFa(d.count) + " امتیاز)";
             resolve();
           };
