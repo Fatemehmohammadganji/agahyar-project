@@ -875,11 +875,9 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 def search(request: HttpRequest) -> HttpResponse:
     """Search services by name, keywords or organization.
 
-    Requires authentication. Results are paginated (12 per page).
+    Accessible by all visitors. Results are paginated (12 per page).
     Supports filtering by organization and city.
     """
-    if not request.user.is_authenticated:
-        return redirect("login")
     query: str = request.GET.get("q", "").strip()[:200]
     org_filter: str = request.GET.get("organization", "").strip()
     city_filter: str = request.GET.get("city", "").strip()

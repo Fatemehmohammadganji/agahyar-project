@@ -345,10 +345,23 @@ class TestDashboardView:
 
 @pytest.mark.django_db
 class TestSearchView:
-    def test_requires_login(self):
+    def test_accessible_anonymously(self):
         client = Client()
         response = client.get("/search/")
-        assert response.status_code == 302
+        assert response.status_code == 200
+
+    def test_anonymous_search_finds_service_by_name(self):
+        Service.objects.create(
+            name="smart card",
+            organization="org",
+            documents="doc1",
+            steps="step1",
+            keywords="ملی,کارت",
+        )
+        client = Client()
+        response = client.get("/search/", {"q": "smart"})
+        assert response.status_code == 200
+        assert "smart card" in str(response.content)
 
     def test_search_finds_service_by_name(self):
         User.objects.create_user("searchuser", password="pass12345")
@@ -438,6 +451,31 @@ class TestSearchView:
         assert 'name="city"' in content
         assert "سازمان الف" in content
         assert "سازمان ب" in content
+
+    def test_signup_nudge_shown_to_anonymous(self):
+        client = Client()
+        response = client.get("/search/")
+        content = response.content.decode()
+        assert 'id="signupNudge"' in content
+        assert "ثبت‌نام رایگان" in content
+        assert "نشانک" in content
+
+    def test_signup_nudge_hidden_for_authenticated(self):
+        User.objects.create_user("nudgeuser", password="pass12345")
+        client = Client()
+        client.login(username="nudgeuser", password="pass12345")
+        response = client.get("/search/")
+        content = response.content.decode()
+        assert 'id="signupNudge"' not in content
+
+    def test_signup_nudge_preserves_next_param(self):
+        client = Client()
+        response = client.get("/search/", {"q": "شناسنامه", "city": "تهران"})
+        content = response.content.decode()
+        assert "/register/?next=/search/" in content
+        assert "/login/?next=/search/" in content
+        assert "q" in content.split("next=/search/", 1)[1]
+        assert "city" in content.split("next=/search/", 1)[1]
 
 
 @pytest.mark.django_db
@@ -2751,6 +2789,16 @@ class TestResponsiveHamburger:
         assert '"/auth/login/"' not in content
         assert 'data-user-auth") === "false"' in content
         assert content.count("openLoginForPendingAction(") >= 3
+
+    def test_signup_nudge_js_supports_dismissal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert 'getElementById("signupNudge")' in content
+        assert "search-signup-nudge-dismissed" in content
+        assert 'querySelector(".signup-nudge-close")' in content
 
 
 @pytest.mark.django_db

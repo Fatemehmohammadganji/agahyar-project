@@ -57,6 +57,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  var nudge = document.getElementById("signupNudge");
+  if (nudge) {
+    if (localStorage.getItem("search-signup-nudge-dismissed")) {
+      nudge.hidden = true;
+    } else {
+      var closeBtn = nudge.querySelector(".signup-nudge-close");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+          nudge.hidden = true;
+          localStorage.setItem("search-signup-nudge-dismissed", "1");
+        });
+      }
+    }
+  }
+
   updateThemeButton();
 });
 

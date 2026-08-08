@@ -1,6 +1,6 @@
 # Make service search publicly accessible with a registration nudge
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: conversion, search
 
