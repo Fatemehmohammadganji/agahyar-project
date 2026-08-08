@@ -124,12 +124,31 @@ document.addEventListener("click", function (e) {
     return;
   }
   var serviceId = btn.getAttribute("data-service-id");
-  if (!serviceId) return;
+  var centerId = btn.getAttribute("data-center-id");
+  if (!serviceId && !centerId) return;
+
+  if (btn.getAttribute("data-user-auth") === "false") {
+    if (window.AgahyarLoginModal) {
+      window.AgahyarLoginModal.open({
+        prompt: "برای افزودن به نشانک‌ها وارد شوید",
+        onLogin: function () {
+          return toggleBookmark(btn, serviceId, centerId);
+        },
+      });
+    }
+    return;
+  }
+
+  toggleBookmark(btn, serviceId, centerId);
+});
+
+function toggleBookmark(btn, serviceId, centerId) {
+  var id = centerId || serviceId;
+  var url = centerId ? "/bookmark/center/" + id + "/" : "/bookmark/" + id + "/";
   var csrfToken = getCsrfToken();
   if (!csrfToken) return;
-
   btn.disabled = true;
-  fetch("/bookmark/" + serviceId + "/", {
+  return fetch(url, {
     method: "POST",
     headers: {
       "X-CSRFToken": csrfToken,
@@ -138,8 +157,8 @@ document.addEventListener("click", function (e) {
   })
     .then(function (response) {
       if (response.status === 401) {
-        window.location.href = "/auth/login/";
-        return;
+        window.location.reload();
+        return null;
       }
       return response.json();
     })
@@ -155,34 +174,48 @@ document.addEventListener("click", function (e) {
       btn.title = data.bookmarked ? "حذف از نشانک‌ها" : "افزودن به نشانک‌ها";
       if (
         !data.bookmarked &&
-        btn.closest(".service-card") &&
         window.location.pathname.indexOf("/bookmarks/") !== -1
       ) {
-        var card = btn.closest(".service-card");
-        if (card) {
-          card.style.transition = "opacity 0.3s";
-          card.style.opacity = "0";
-          setTimeout(function () {
-            card.remove();
-            var grid = document.querySelector(".services-grid");
-            if (grid && grid.children.length === 0) {
-              var empty =
-                '<div class="no-results">' +
-                "<h3>نشانکی وجود ندارد</h3>" +
-                "<p>شما هنوز هیچ خدمتی را نشانک نکرده‌اید.</p>" +
-                '<a href="/services/" class="btn-back">مشاهده خدمات</a>' +
-                "</div>";
-              grid.insertAdjacentHTML("afterend", empty);
-            }
-          }, 300);
-        }
+        removeBookmarkCard(btn);
       }
       btn.disabled = false;
+      return data;
     })
     .catch(function () {
       btn.disabled = false;
     });
-});
+}
+
+function removeBookmarkCard(btn) {
+  var card = btn.closest(".service-card, .center-card, .bookmark-center-card");
+  if (!card) return;
+  var section = card.closest(".bookmark-section");
+  card.style.transition = "opacity 0.3s";
+  card.style.opacity = "0";
+  setTimeout(function () {
+    card.remove();
+    if (
+      section &&
+      !section.querySelector(
+        ".service-card, .center-card, .bookmark-center-card",
+      )
+    ) {
+      section.remove();
+    }
+    if (!document.querySelector(".bookmark-section")) {
+      var empty =
+        '<div class="no-results">' +
+        "<h3>نشانکی وجود ندارد</h3>" +
+        "<p>شما هنوز هیچ خدمت یا مرکزی را نشانک نکرده‌اید.</p>" +
+        '<a href="/services/" class="btn-back">مشاهده خدمات</a>' +
+        "</div>";
+      var header = document.querySelector(".dashboard-header");
+      if (header && !document.querySelector(".no-results")) {
+        header.insertAdjacentHTML("afterend", empty);
+      }
+    }
+  }, 300);
+}
 
 function toggleTheme() {
   var current = document.documentElement.getAttribute("data-theme");

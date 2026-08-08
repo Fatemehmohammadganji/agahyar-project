@@ -1,6 +1,6 @@
 # Add bookmarking support for service centers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: ux, bookmark, feature
 

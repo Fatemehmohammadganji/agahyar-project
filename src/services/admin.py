@@ -201,8 +201,8 @@ class BookmarkAdmin(ImportExportModelAdmin):
     """Admin configuration for the Bookmark model."""
 
     resource_classes = [BookmarkResource]
-    list_display = ("user", "service", "created_at")
-    search_fields = ("user__username", "service__name")
+    list_display = ("user", "service", "service_center", "created_at")
+    search_fields = ("user__username", "service__name", "service_center__name")
     list_filter = ("created_at",)
 
 

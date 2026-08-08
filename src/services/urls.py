@@ -25,6 +25,11 @@ urlpatterns: List[URLPattern] = [
     # ===== Bookmarks =====
     path("bookmarks/", views.bookmarks_list, name="bookmarks_list"),
     path("bookmark/<int:service_id>/", views.toggle_bookmark, name="toggle_bookmark"),
+    path(
+        "bookmark/center/<int:center_id>/",
+        views.toggle_center_bookmark,
+        name="toggle_center_bookmark",
+    ),
     # ===== Comments =====
     path(
         "comment/service/<int:service_id>/",

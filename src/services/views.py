@@ -1719,19 +1719,56 @@ def toggle_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
 
 @login_required
 def bookmarks_list(request: HttpRequest) -> HttpResponse:
-    """List all bookmarked services for the current user."""
-    bookmarks = Bookmark.objects.filter(user=request.user).select_related("service")
+    """List all bookmarked services and service centers for the current user."""
+    bookmarks = Bookmark.objects.filter(user=request.user).select_related(
+        "service", "service_center"
+    )
+    service_bookmarks = [b for b in bookmarks if b.service is not None]
+    center_bookmarks = [b for b in bookmarks if b.service_center is not None]
     return render(
         request,
         "services/bookmarks.html",
         {
-            "bookmarks": bookmarks,
+            "bookmarks": service_bookmarks,
+            "center_bookmarks": center_bookmarks,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
                 {"label": "نشانک‌ها"},
             ],
         },
     )
+
+
+@login_required
+def toggle_center_bookmark(request: HttpRequest, center_id: int) -> HttpResponse:
+    """Toggle bookmark on a service center.
+
+    GET: redirects to center detail.
+    POST (AJAX): toggles bookmark and returns JSON.
+    POST (regular): toggles bookmark and redirects to center detail.
+    """
+
+    if request.method != "POST":
+        return redirect("center_detail", center_id=center_id)
+
+    center = get_object_or_404(ServiceCenter, id=center_id)
+    bookmark, created = Bookmark.objects.get_or_create(
+        user=request.user, service_center=center
+    )
+    if not created:
+        bookmark.delete()
+        bookmarked = False
+        msg = get_error_message("bookmark/center-removed")
+    else:
+        bookmarked = True
+        msg = get_error_message("bookmark/center-added")
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if is_ajax:
+        return JsonResponse({"bookmarked": bookmarked, "message": msg})
+
+    messages.success(request, msg)
+    return redirect("center_detail", center_id=center_id)
 
 
 @login_required
@@ -1868,10 +1905,14 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
     rating_count = rating_agg["cnt"]
 
     user_center_rating = None
+    is_center_bookmarked = False
     if request.user.is_authenticated:
         user_center_rating = CenterRating.objects.filter(
             user=request.user, service_center=center
         ).first()
+        is_center_bookmarked = Bookmark.objects.filter(
+            user=request.user, service_center=center
+        ).exists()
 
     top_level_comments = (
         Comment.objects.filter(service_center=center, parent__isnull=True)
@@ -1922,6 +1963,7 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
             "avg_rating": round(avg_rating, 1) if avg_rating else None,
             "rating_count": rating_count,
             "user_center_rating": user_center_rating,
+            "is_center_bookmarked": is_center_bookmarked,
             "comments": comment_page_obj,
             "has_more_comments": has_more_comments,
             "comment_page": comment_page,

@@ -1707,6 +1707,130 @@ class TestBookmarkView:
 
 
 @pytest.mark.django_db
+class TestCenterBookmarkView:
+    def _center(self, name="مرکز نشانک"):
+        return ServiceCenter.objects.create(name=name, address="آدرس", city="تهران")
+
+    def test_center_toggle_adds_bookmark(self):
+        user = User.objects.create_user("cbmuser", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmuser", password="pass12345")
+        response = client.post(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_center_toggle_removes_bookmark(self):
+        user = User.objects.create_user("cbmuser2", password="pass12345")
+        center = self._center("مرکز حذف")
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmuser2", password="pass12345")
+        response = client.post(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_center_toggle_requires_login(self):
+        center = self._center()
+        client = Client()
+        response = client.post(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert "/login/" in response.url
+
+    def test_center_toggle_get_redirects_to_detail(self):
+        User.objects.create_user("cbmuser4", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmuser4", password="pass12345")
+        response = client.get(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert f"/center/{center.id}/" in response.url
+
+    def test_ajax_center_toggle_adds_bookmark(self):
+        user = User.objects.create_user("cbmax", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmax", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is True
+        assert Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_toggle_removes_bookmark(self):
+        user = User.objects.create_user("cbmax2", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmax2", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is False
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_toggle_requires_login(self):
+        center = self._center()
+        client = Client()
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 302
+
+    def test_bookmarks_list_shows_bookmarked_centers(self):
+        user = User.objects.create_user("cbmlist", password="pass12345")
+        center = self._center("مرکز کتاب نشانک")
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmlist", password="pass12345")
+        response = client.get("/bookmarks/")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "مرکز کتاب نشانک" in content
+        assert 'data-center-id="' + str(center.id) + '"' in content
+        assert 'class="center-bookmarks-grid"' in content
+        assert 'class="bookmark-center-card"' in content
+
+    def test_center_detail_bookmark_context(self):
+        user = User.objects.create_user("cbmdetail", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmdetail", password="pass12345")
+        response = client.get(f"/center/{center.id}/")
+        assert response.status_code == 200
+        assert response.context["is_center_bookmarked"] is True
+
+    def test_center_detail_bookmark_button_visible_to_anonymous(self):
+        center = self._center()
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'data-center-id="' + str(center.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_center_detail_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("cbmbtn", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmbtn", password="pass12345")
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'data-center-id="' + str(center.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
+
+
+@pytest.mark.django_db
 class TestSubmitComment:
     def test_submit_creates_comment(self):
         user = User.objects.create_user("commenter", password="pass12345")
@@ -2357,6 +2481,20 @@ class TestResponsiveHamburger:
                 content = f.read()
             assert "d.average.toFixed(1)" in content
             assert "toFa(d.average.toFixed(1))" in content
+
+    def test_bookmark_js_supports_centers_and_login_modal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "data-center-id" in content
+        assert "data-user-auth" in content
+        assert "toggleBookmark" in content
+        assert "/bookmark/center/" in content
+        assert "AgahyarLoginModal.open" in content
+        assert "window.location.reload()" in content
+        assert ".bookmark-center-card" in content
 
 
 @pytest.mark.django_db

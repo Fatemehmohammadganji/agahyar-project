@@ -39,6 +39,9 @@ Documentation
 - Never revert/override changes made by the user without asking for confirmation.
 - Always ask for clarification if the user request is ambiguous.
 - Do not commit anything without running the tests first.
+- If any tests fail, abort the commit and do not commit until the failures
+  are resolved and the full suite is green again. Never commit with known
+  failing tests, regardless of the assumed cause.
 - Always run tests inside the Docker container: `docker compose -f docker-compose.dev.yml exec web uv run pytest ...`
 - Pre-commit hooks: ruff, ruff-format, isort, pyproject-fmt. Pytest is NOT in
   pre-commit (too slow); run pytest manually before committing.

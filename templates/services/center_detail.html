@@ -11,12 +11,22 @@
   <div class="detail-header">
     <div class="detail-header-row">
       <h1>{{ center.name|fa }}</h1>
-      <button type="button"
-              class="btn-report"
-              title="گزارش اطلاعات نادرست"
-              onclick="openReportDialog('center', '{{ center.id }}')">
-        <i class="fas fa-flag"></i>
-      </button>
+      <div class="detail-header-actions">
+        <button type="button"
+                class="btn-bookmark-icon"
+                data-center-id="{{ center.id }}"
+                data-user-auth="{{ user.is_authenticated|lower }}"
+                data-bookmarked="{% if is_center_bookmarked %}true{% else %}false{% endif %}"
+                title="{% if is_center_bookmarked %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
+          <i class="{% if is_center_bookmarked %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>
+        </button>
+        <button type="button"
+                class="btn-report"
+                title="گزارش اطلاعات نادرست"
+                onclick="openReportDialog('center', '{{ center.id }}')">
+          <i class="fas fa-flag"></i>
+        </button>
+      </div>
     </div>
     <div class="org-address-box">
       <strong>خدمات:</strong>

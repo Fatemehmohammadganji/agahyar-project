@@ -490,22 +490,45 @@ class CenterRating(models.Model):
 
 
 class Bookmark(models.Model):
-    """A user's bookmark for a favorite service."""
+    """A user's bookmark for a favorite service or service center."""
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookmarks")
     service = models.ForeignKey(
-        Service, on_delete=models.CASCADE, related_name="bookmarks"
+        Service,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+        null=True,
+        blank=True,
+    )
+    service_center = models.ForeignKey(
+        ServiceCenter,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField("تاریخ", auto_now_add=True)
 
     class Meta:
         verbose_name = "نشانک"
         verbose_name_plural = "نشانک‌ها"
-        unique_together = ("user", "service")
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "service"],
+                name="unique_bookmark_user_service",
+                condition=models.Q(service__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=["user", "service_center"],
+                name="unique_bookmark_user_service_center",
+                condition=models.Q(service_center__isnull=False),
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.user.username} - {self.service.name}"
+        target = self.service.name if self.service else self.service_center.name
+        return f"{self.user.username} - {target}"
 
 
 class InfoReport(models.Model):

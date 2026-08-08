@@ -338,6 +338,36 @@ class TestBookmarkModel:
         with pytest.raises(IntegrityError):
             Bookmark.objects.create(user=user, service=service)
 
+    def test_center_str(self):
+        user = User.objects.create_user("centermarkuser", password="pass12345")
+        center = ServiceCenter.objects.create(
+            name="مرکز نشانک", address="آدرس", city="تهران"
+        )
+        bookmark = Bookmark.objects.create(user=user, service_center=center)
+        assert "centermarkuser" in str(bookmark)
+        assert "مرکز نشانک" in str(bookmark)
+
+    def test_center_unique_constraint(self):
+        from django.db import IntegrityError
+
+        user = User.objects.create_user("cuser", password="pass12345")
+        center = ServiceCenter.objects.create(
+            name="مرکز یکتا", address="آدرس", city="تهران"
+        )
+        Bookmark.objects.create(user=user, service_center=center)
+        with pytest.raises(IntegrityError):
+            Bookmark.objects.create(user=user, service_center=center)
+
+    def test_service_and_center_bookmarks_do_not_conflict(self):
+        user = User.objects.create_user("bothuser", password="pass12345")
+        service = Service.objects.create(
+            name="خدمت", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(name="مرکز", address="آدرس", city="تهران")
+        Bookmark.objects.create(user=user, service=service)
+        Bookmark.objects.create(user=user, service_center=center)
+        assert Bookmark.objects.filter(user=user).count() == 2
+
 
 @pytest.mark.django_db
 class TestCommentEditDelete:
