@@ -19,6 +19,7 @@
                 <button type="button"
                         class="btn-bookmark-icon"
                         data-service-id="{{ bookmark.service.id }}"
+                        data-user-auth="{{ user.is_authenticated|lower }}"
                         data-bookmarked="true"
                         title="حذف از نشانک‌ها">
                   <i class="fas fa-bookmark fa-lg"></i>
@@ -56,6 +57,7 @@
                 <button type="button"
                         class="btn-bookmark-icon"
                         data-center-id="{{ bookmark.service_center.id }}"
+                        data-user-auth="{{ user.is_authenticated|lower }}"
                         data-bookmarked="true"
                         title="حذف از نشانک‌ها">
                   <i class="fas fa-bookmark fa-lg"></i>

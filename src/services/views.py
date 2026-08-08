@@ -1685,29 +1685,80 @@ def contact(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _parse_bookmark_state(request: HttpRequest) -> bool | None:
+    """Parse the desired bookmark state from the request.
+
+    Reads the ``bookmarked`` field from a JSON body (AJAX) or a form
+    field (regular POST). Returns ``None`` when the field is missing or
+    is not a valid boolean.
+    """
+    if request.headers.get("Content-Type", "").startswith("application/json"):
+        try:
+            data = json.loads(request.body or b"{}")
+        except (ValueError, TypeError):
+            return None
+        raw = data.get("bookmarked")
+    else:
+        raw = request.POST.get("bookmarked")
+    if isinstance(raw, str):
+        value = raw.strip().lower()
+        if value in ("true", "1", "yes", "on"):
+            return True
+        if value in ("false", "0", "no", "off"):
+            return False
+        return None
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, int) and raw in (0, 1):
+        return bool(raw)
+    return None
+
+
+def _apply_bookmark_state(
+    user: User,
+    desired: bool,
+    *,
+    service: Service | None = None,
+    service_center: ServiceCenter | None = None,
+) -> bool:
+    """Idempotently set the bookmark state for a service or service center."""
+    if desired:
+        Bookmark.objects.get_or_create(
+            user=user, service=service, service_center=service_center
+        )
+    else:
+        Bookmark.objects.filter(
+            user=user, service=service, service_center=service_center
+        ).delete()
+    return desired
+
+
 @login_required
-def toggle_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
-    """Toggle bookmark on a service.
+def set_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
+    """Set the bookmark state on a service.
 
     GET: redirects to service detail.
-    POST (AJAX): toggles bookmark and returns JSON.
-    POST (regular): toggles bookmark and redirects to service detail.
+    POST (AJAX): sets the bookmark state from the ``bookmarked`` field of
+    the JSON body and returns JSON.
+    POST (regular): sets the bookmark state and redirects to service detail.
     """
 
     if request.method != "POST":
         return redirect("service_detail", service_id=service_id)
 
+    desired = _parse_bookmark_state(request)
+    if desired is None:
+        msg = get_error_message("bookmark/state-required")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("service_detail", service_id=service_id)
+
     service = get_object_or_404(Service, id=service_id)
-    bookmark, created = Bookmark.objects.get_or_create(
-        user=request.user, service=service
+    bookmarked = _apply_bookmark_state(
+        request.user, desired, service=service, service_center=None
     )
-    if not created:
-        bookmark.delete()
-        bookmarked = False
-        msg = get_error_message("bookmark/removed")
-    else:
-        bookmarked = True
-        msg = get_error_message("bookmark/added")
+    msg = get_error_message("bookmark/added" if bookmarked else "bookmark/removed")
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_ajax:
@@ -1740,28 +1791,33 @@ def bookmarks_list(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
-def toggle_center_bookmark(request: HttpRequest, center_id: int) -> HttpResponse:
-    """Toggle bookmark on a service center.
+def set_center_bookmark(request: HttpRequest, center_id: int) -> HttpResponse:
+    """Set the bookmark state on a service center.
 
     GET: redirects to center detail.
-    POST (AJAX): toggles bookmark and returns JSON.
-    POST (regular): toggles bookmark and redirects to center detail.
+    POST (AJAX): sets the bookmark state from the ``bookmarked`` field of
+    the JSON body and returns JSON.
+    POST (regular): sets the bookmark state and redirects to center detail.
     """
 
     if request.method != "POST":
         return redirect("center_detail", center_id=center_id)
 
+    desired = _parse_bookmark_state(request)
+    if desired is None:
+        msg = get_error_message("bookmark/state-required")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("center_detail", center_id=center_id)
+
     center = get_object_or_404(ServiceCenter, id=center_id)
-    bookmark, created = Bookmark.objects.get_or_create(
-        user=request.user, service_center=center
+    bookmarked = _apply_bookmark_state(
+        request.user, desired, service=None, service_center=center
     )
-    if not created:
-        bookmark.delete()
-        bookmarked = False
-        msg = get_error_message("bookmark/center-removed")
-    else:
-        bookmarked = True
-        msg = get_error_message("bookmark/center-added")
+    msg = get_error_message(
+        "bookmark/center-added" if bookmarked else "bookmark/center-removed"
+    )
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_ajax:

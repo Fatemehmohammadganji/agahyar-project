@@ -302,6 +302,31 @@ class TestHomeView:
         assert content.count('id="login-modal"') == 1
         assert 'id="login-modal-form"' in content
 
+    def test_home_bookmark_button_visible_to_anonymous(self):
+        service = Service.objects.create(
+            name="home-bookmark-svc", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_home_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("homebk", password="pass12345")
+        service = Service.objects.create(
+            name="home-bookmark-svc2", organization="org", documents="d", steps="s"
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="homebk", password="pass12345")
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
+
 
 @pytest.mark.django_db
 class TestDashboardView:
@@ -443,6 +468,31 @@ class TestServiceListView:
         assert "page_obj" in response.context
         assert response.context["page_obj"].paginator.per_page == 12
 
+    def test_list_bookmark_button_visible_to_anonymous(self):
+        service = Service.objects.create(
+            name="list-bookmark-svc", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        response = client.get("/services/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_list_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("listbk", password="pass12345")
+        service = Service.objects.create(
+            name="list-bookmark-svc2", organization="org", documents="d", steps="s"
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="listbk", password="pass12345")
+        response = client.get("/services/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
+
 
 @pytest.mark.django_db
 class TestServiceDetailView:
@@ -471,6 +521,37 @@ class TestServiceDetailView:
         response = client.get(f"/service/{service.id}/")
         content = response.content.decode()
         assert content.count('id="login-modal"') == 1
+
+    def test_service_detail_bookmark_button_visible_to_anonymous(self):
+        service = Service.objects.create(
+            name="detail-bookmark-svc",
+            organization="org",
+            documents="doc1",
+            steps="step1",
+        )
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_service_detail_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("detailbk", password="pass12345")
+        service = Service.objects.create(
+            name="detail-bookmark-svc2",
+            organization="org",
+            documents="doc1",
+            steps="step1",
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="detailbk", password="pass12345")
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
 
     def test_404_for_nonexistent(self):
         client = Client()
@@ -1596,7 +1677,9 @@ class TestBookmarkView:
         )
         client = Client()
         client.login(username="bmuser", password="pass12345")
-        response = client.post(f"/bookmark/{service.id}/")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", {"bookmarked": "true"}
+        )
         assert response.status_code == 302
         assert Bookmark.objects.filter(user=user, service=service).exists()
 
@@ -1608,7 +1691,9 @@ class TestBookmarkView:
         Bookmark.objects.create(user=user, service=service)
         client = Client()
         client.login(username="bmuser2", password="pass12345")
-        response = client.post(f"/bookmark/{service.id}/")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", {"bookmarked": "false"}
+        )
         assert response.status_code == 302
         assert not Bookmark.objects.filter(user=user, service=service).exists()
 
@@ -1617,9 +1702,88 @@ class TestBookmarkView:
             name="bm-svc3", organization="org", documents="d", steps="s"
         )
         client = Client()
-        response = client.post(f"/bookmark/{service.id}/")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", {"bookmarked": "true"}, follow=False
+        )
         assert response.status_code == 302
         assert "/login/" in response.url
+
+    def test_toggle_missing_state_returns_error(self):
+        user = User.objects.create_user("bmnostate", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-nostate", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmnostate", password="pass12345")
+        response = client.post(f"/bookmark/service/{service.id}/")
+        assert response.status_code == 302
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    def test_ajax_toggle_missing_state_returns_400(self):
+        user = User.objects.create_user("bmaxnostate", password="pass12345")
+        service = Service.objects.create(
+            name="bmax-svc-nostate", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmaxnostate", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    def test_ajax_set_invalid_string_state_returns_400(self):
+        user = User.objects.create_user("bmaxbad", password="pass12345")
+        service = Service.objects.create(
+            name="bmax-svc-bad", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmaxbad", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": "banana"}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    def test_ajax_set_bookmark_true_is_idempotent(self):
+        user = User.objects.create_user("bmidep", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-idep", organization="org", documents="d", steps="s"
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="bmidep", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is True
+        assert Bookmark.objects.filter(user=user, service=service).count() == 1
+
+    def test_ajax_set_bookmark_false_is_idempotent(self):
+        user = User.objects.create_user("bmidep2", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-idep2", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmidep2", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is False
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
 
     def test_toggle_get_redirects_to_detail(self):
         User.objects.create_user("bmuser4", password="pass12345")
@@ -1628,7 +1792,7 @@ class TestBookmarkView:
         )
         client = Client()
         client.login(username="bmuser4", password="pass12345")
-        response = client.get(f"/bookmark/{service.id}/")
+        response = client.get(f"/bookmark/service/{service.id}/")
         assert response.status_code == 302
         assert f"/service/{service.id}/" in response.url
 
@@ -1669,7 +1833,9 @@ class TestBookmarkView:
         client = Client()
         client.login(username="bmax", password="pass12345")
         response = client.post(
-            f"/bookmark/{service.id}/",
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 200
@@ -1686,7 +1852,9 @@ class TestBookmarkView:
         client = Client()
         client.login(username="bmax2", password="pass12345")
         response = client.post(
-            f"/bookmark/{service.id}/",
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 200
@@ -1700,7 +1868,9 @@ class TestBookmarkView:
         )
         client = Client()
         response = client.post(
-            f"/bookmark/{service.id}/",
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 302
@@ -1716,7 +1886,7 @@ class TestCenterBookmarkView:
         center = self._center()
         client = Client()
         client.login(username="cbmuser", password="pass12345")
-        response = client.post(f"/bookmark/center/{center.id}/")
+        response = client.post(f"/bookmark/center/{center.id}/", {"bookmarked": "true"})
         assert response.status_code == 302
         assert Bookmark.objects.filter(user=user, service_center=center).exists()
 
@@ -1726,16 +1896,74 @@ class TestCenterBookmarkView:
         Bookmark.objects.create(user=user, service_center=center)
         client = Client()
         client.login(username="cbmuser2", password="pass12345")
-        response = client.post(f"/bookmark/center/{center.id}/")
+        response = client.post(
+            f"/bookmark/center/{center.id}/", {"bookmarked": "false"}
+        )
         assert response.status_code == 302
         assert not Bookmark.objects.filter(user=user, service_center=center).exists()
 
     def test_center_toggle_requires_login(self):
         center = self._center()
         client = Client()
-        response = client.post(f"/bookmark/center/{center.id}/")
+        response = client.post(
+            f"/bookmark/center/{center.id}/", {"bookmarked": "true"}, follow=False
+        )
         assert response.status_code == 302
         assert "/login/" in response.url
+
+    def test_center_toggle_missing_state_returns_error(self):
+        user = User.objects.create_user("cbmnostate", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmnostate", password="pass12345")
+        response = client.post(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_toggle_missing_state_returns_400(self):
+        user = User.objects.create_user("cbmaxnostate", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmaxnostate", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_set_bookmark_true_is_idempotent(self):
+        user = User.objects.create_user("cbmidep", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmidep", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is True
+        assert Bookmark.objects.filter(user=user, service_center=center).count() == 1
+
+    def test_ajax_center_set_bookmark_false_is_idempotent(self):
+        user = User.objects.create_user("cbmidep2", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmidep2", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is False
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
 
     def test_center_toggle_get_redirects_to_detail(self):
         User.objects.create_user("cbmuser4", password="pass12345")
@@ -1753,6 +1981,8 @@ class TestCenterBookmarkView:
         client.login(username="cbmax", password="pass12345")
         response = client.post(
             f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 200
@@ -1768,6 +1998,8 @@ class TestCenterBookmarkView:
         client.login(username="cbmax2", password="pass12345")
         response = client.post(
             f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 200
@@ -1780,6 +2012,8 @@ class TestCenterBookmarkView:
         client = Client()
         response = client.post(
             f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 302
@@ -2492,9 +2726,31 @@ class TestResponsiveHamburger:
         assert "data-user-auth" in content
         assert "toggleBookmark" in content
         assert "/bookmark/center/" in content
+        assert "/bookmark/service/" in content
         assert "AgahyarLoginModal.open" in content
         assert "window.location.reload()" in content
         assert ".bookmark-center-card" in content
+        assert "openLoginForPendingAction" in content
+
+    def test_bookmark_js_sends_desired_state(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert 'data-bookmarked") !== "true"' in content
+        assert "JSON.stringify({ bookmarked: desired })" in content
+        assert "function toggleBookmark(btn, serviceId, centerId, desired)" in content
+
+    def test_bookmark_and_reaction_401_open_login_modal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert '"/auth/login/"' not in content
+        assert 'data-user-auth") === "false"' in content
+        assert content.count("openLoginForPendingAction(") >= 3
 
 
 @pytest.mark.django_db

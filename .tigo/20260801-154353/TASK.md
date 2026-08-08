@@ -1,6 +1,6 @@
 # Show bookmark buttons to unauthenticated users and open the login modal on click
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 75
 - TAGS: conversion, bookmark, login
 

@@ -65,57 +65,7 @@ document.addEventListener("click", function (e) {
   if (reactionBtn) {
     var commentId = reactionBtn.getAttribute("data-comment-id");
     var value = parseInt(reactionBtn.getAttribute("data-value"), 10);
-    if (!commentId) return;
-    var csrfToken = getCsrfToken();
-    if (!csrfToken) return;
-
-    reactionBtn.disabled = true;
-    fetch("/api/v1/comments/" + commentId + "/react/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-        "X-Requested-With": "XMLHttpRequest",
-      },
-      body: JSON.stringify({ value: value }),
-    })
-      .then(function (response) {
-        if (response.status === 401) {
-          window.location.href = "/auth/login/";
-          return;
-        }
-        if (!response.ok) {
-          reactionBtn.disabled = false;
-          return response.json().then(function (err) {
-            if (err.detail) showToast(err.detail, "error");
-          });
-        }
-        return response.json();
-      })
-      .then(function (data) {
-        if (!data) return;
-        var likesEl = document.getElementById("likes-count-" + commentId);
-        var dislikesEl = document.getElementById("dislikes-count-" + commentId);
-        if (likesEl) likesEl.textContent = toPersianDigits(data.likes);
-        if (dislikesEl) dislikesEl.textContent = toPersianDigits(data.dislikes);
-
-        var parent = reactionBtn.closest(".comment-reactions");
-        if (parent) {
-          parent.querySelectorAll(".btn-reaction").forEach(function (btn) {
-            btn.classList.remove("active");
-          });
-        }
-        if (data.user_reaction) {
-          var activeBtn = parent
-            ? parent.querySelector('[data-value="' + data.user_reaction + '"]')
-            : null;
-          if (activeBtn) activeBtn.classList.add("active");
-        }
-        reactionBtn.disabled = false;
-      })
-      .catch(function () {
-        reactionBtn.disabled = false;
-      });
+    if (commentId) reactToComment(reactionBtn, commentId, value);
     return;
   }
 
@@ -127,37 +77,111 @@ document.addEventListener("click", function (e) {
   var centerId = btn.getAttribute("data-center-id");
   if (!serviceId && !centerId) return;
 
+  var desired = btn.getAttribute("data-bookmarked") !== "true";
+
   if (btn.getAttribute("data-user-auth") === "false") {
-    if (window.AgahyarLoginModal) {
-      window.AgahyarLoginModal.open({
-        prompt: "برای افزودن به نشانک‌ها وارد شوید",
-        onLogin: function () {
-          return toggleBookmark(btn, serviceId, centerId);
-        },
-      });
-    }
+    openLoginForPendingAction("برای افزودن به نشانک‌ها وارد شوید", function () {
+      return toggleBookmark(btn, serviceId, centerId, desired);
+    });
     return;
   }
 
-  toggleBookmark(btn, serviceId, centerId);
+  toggleBookmark(btn, serviceId, centerId, desired);
 });
 
-function toggleBookmark(btn, serviceId, centerId) {
+function reactToComment(reactionBtn, commentId, value) {
+  var csrfToken = getCsrfToken();
+  if (!csrfToken) return;
+
+  reactionBtn.disabled = true;
+  return fetch("/api/v1/comments/" + commentId + "/react/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrfToken,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: JSON.stringify({ value: value }),
+  })
+    .then(function (response) {
+      if (response.status === 401) {
+        reactionBtn.disabled = false;
+        openLoginForPendingAction("برای ثبت واکنش وارد شوید", function () {
+          return reactToComment(reactionBtn, commentId, value);
+        });
+        return null;
+      }
+      if (!response.ok) {
+        reactionBtn.disabled = false;
+        return response.json().then(function (err) {
+          if (err.detail) showToast(err.detail, "error");
+        });
+      }
+      return response.json();
+    })
+    .then(function (data) {
+      if (!data) return;
+      var likesEl = document.getElementById("likes-count-" + commentId);
+      var dislikesEl = document.getElementById("dislikes-count-" + commentId);
+      if (likesEl) likesEl.textContent = toPersianDigits(data.likes);
+      if (dislikesEl) dislikesEl.textContent = toPersianDigits(data.dislikes);
+
+      var parent = reactionBtn.closest(".comment-reactions");
+      if (parent) {
+        parent.querySelectorAll(".btn-reaction").forEach(function (btn) {
+          btn.classList.remove("active");
+        });
+      }
+      if (data.user_reaction) {
+        var activeBtn = parent
+          ? parent.querySelector('[data-value="' + data.user_reaction + '"]')
+          : null;
+        if (activeBtn) activeBtn.classList.add("active");
+      }
+      reactionBtn.disabled = false;
+    })
+    .catch(function () {
+      reactionBtn.disabled = false;
+    });
+}
+
+function openLoginForPendingAction(prompt, action) {
+  if (window.AgahyarLoginModal) {
+    window.AgahyarLoginModal.open({
+      prompt: prompt,
+      onLogin: function () {
+        return action();
+      },
+    });
+  }
+}
+
+function toggleBookmark(btn, serviceId, centerId, desired) {
   var id = centerId || serviceId;
-  var url = centerId ? "/bookmark/center/" + id + "/" : "/bookmark/" + id + "/";
+  var url = centerId
+    ? "/bookmark/center/" + id + "/"
+    : "/bookmark/service/" + id + "/";
   var csrfToken = getCsrfToken();
   if (!csrfToken) return;
   btn.disabled = true;
   return fetch(url, {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       "X-CSRFToken": csrfToken,
       "X-Requested-With": "XMLHttpRequest",
     },
+    body: JSON.stringify({ bookmarked: desired }),
   })
     .then(function (response) {
       if (response.status === 401) {
-        window.location.reload();
+        btn.disabled = false;
+        openLoginForPendingAction(
+          "برای افزودن به نشانک‌ها وارد شوید",
+          function () {
+            return toggleBookmark(btn, serviceId, centerId, desired);
+          },
+        );
         return null;
       }
       return response.json();

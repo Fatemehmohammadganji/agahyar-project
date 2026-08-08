@@ -12,15 +12,14 @@
     <div class="detail-header-row">
       <h1>{{ service.name }}</h1>
       <div class="detail-header-actions">
-        {% if user.is_authenticated %}
-          <button type="button"
-                  class="btn-bookmark-icon"
-                  data-service-id="{{ service.id }}"
-                  data-bookmarked="{% if is_bookmarked %}true{% else %}false{% endif %}"
-                  title="{% if is_bookmarked %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
-            <i class="{% if is_bookmarked %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>
-          </button>
-        {% endif %}
+        <button type="button"
+                class="btn-bookmark-icon"
+                data-service-id="{{ service.id }}"
+                data-user-auth="{{ user.is_authenticated|lower }}"
+                data-bookmarked="{% if is_bookmarked %}true{% else %}false{% endif %}"
+                title="{% if is_bookmarked %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
+          <i class="{% if is_bookmarked %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>
+        </button>
         <button type="button"
                 class="btn-report"
                 title="گزارش اطلاعات نادرست"

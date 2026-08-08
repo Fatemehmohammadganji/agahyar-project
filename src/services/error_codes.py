@@ -51,6 +51,7 @@ ERROR_CODES: dict[str, str] = {
     "bookmark/removed": "خدمت مورد نظر از نشانک‌ها حذف شد.",
     "bookmark/center-added": "مرکز مورد نظر به نشانک‌ها اضافه شد.",
     "bookmark/center-removed": "مرکز مورد نظر از نشانک‌ها حذف شد.",
+    "bookmark/state-required": "وضعیت نشانک مورد نظر ارسال نشده است.",
     # ---- Comment ----
     "comment/added": "نظر شما با موفقیت ثبت شد.",
     "comment/updated": "نظر شما با موفقیت به‌روزرسانی شد.",
