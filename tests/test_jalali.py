@@ -4,6 +4,7 @@ from datetime import datetime
 
 import jdatetime
 from django.test import TestCase
+from django.utils import timezone
 
 from services.templatetags.jalali_tags import jalali, persian_digits, to_persian_digits
 
@@ -12,14 +13,14 @@ class TestJalaliFilterUsesJdatetime(TestCase):
     """Verify our filter produces correct Jalali dates via jdatetime."""
 
     def test_today(self):
-        dt = datetime(2026, 7, 15, 12, 0)
+        dt = datetime(2026, 7, 15, 12, 0, tzinfo=timezone.get_current_timezone())
         jd = jdatetime.date.fromgregorian(year=dt.year, month=dt.month, day=dt.day)
         result = jalali(dt, "YYYY/MM/DD")
         expected = f"{to_persian_digits(str(jd.year))}/{to_persian_digits(f'{jd.month:02d}')}/{to_persian_digits(f'{jd.day:02d}')}"
         assert result == expected
 
     def test_nowruz(self):
-        dt = datetime(2026, 3, 20, 12, 0)
+        dt = datetime(2026, 3, 20, 12, 0, tzinfo=timezone.get_current_timezone())
         result = jalali(dt, "YYYY/MN/DD")
         assert "۱۴۰۵" in result or "۱۴۰۴" in result
 
@@ -31,7 +32,7 @@ class TestJalaliFilterUsesJdatetime(TestCase):
             (2024, 3, 20),
             (2025, 1, 1),
         ]:
-            dt = datetime(*dt_args, 12, 0)
+            dt = datetime(*dt_args, 12, 0, tzinfo=timezone.get_current_timezone())
             jd = jdatetime.date.fromgregorian(year=dt.year, month=dt.month, day=dt.day)
             result = jalali(dt, "YYYY")
             assert result == to_persian_digits(str(jd.year)), (
@@ -76,19 +77,19 @@ class TestJalaliFilter(TestCase):
     """Tests for the jalali template filter formatting."""
 
     def test_default_format(self):
-        dt = datetime(2025, 10, 1, 14, 30)
+        dt = datetime(2025, 10, 1, 14, 30, tzinfo=timezone.get_current_timezone())
         result = jalali(dt)
         assert "مهر" in result
         assert "۱۴:۳۰" in result
         assert "-" in result
 
     def test_date_only_format(self):
-        dt = datetime(2025, 4, 1, 10, 0)
+        dt = datetime(2025, 4, 1, 10, 0, tzinfo=timezone.get_current_timezone())
         result = jalali(dt, "DD MN YYYY")
         assert "فروردین" in result
 
     def test_time_only(self):
-        dt = datetime(2025, 6, 15, 8, 5)
+        dt = datetime(2025, 6, 15, 8, 5, tzinfo=timezone.get_current_timezone())
         result = jalali(dt, "HH:mm")
         assert result == "۰۸:۰۵"
 
@@ -96,7 +97,7 @@ class TestJalaliFilter(TestCase):
         assert jalali(None) == ""
 
     def test_persian_digits_not_english(self):
-        dt = datetime(2026, 7, 15, 0, 0)
+        dt = datetime(2026, 7, 15, 0, 0, tzinfo=timezone.get_current_timezone())
         result = jalali(dt, "YYYY")
         for ch in result:
             assert ord(ch) > 127

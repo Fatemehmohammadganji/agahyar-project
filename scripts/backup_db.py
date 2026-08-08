@@ -15,7 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from log21 import ColorizingArgumentParser
 
@@ -38,7 +38,7 @@ def _django_settings():
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
 
 def backup_pg_dump(db: dict, output_dir: str) -> str:
@@ -60,7 +60,9 @@ def backup_pg_dump(db: dict, output_dir: str) -> str:
     cmd = ["pg_dump", "--no-owner", "--no-privileges", db["NAME"]]
 
     with open(filepath, "wb") as f:
-        proc = subprocess.run(cmd, env=env, stdout=f, stderr=subprocess.PIPE)
+        proc = subprocess.run(
+            cmd, env=env, stdout=f, stderr=subprocess.PIPE, check=False
+        )
         if proc.returncode != 0:
             os.remove(filepath)
             raise RuntimeError(
@@ -88,7 +90,7 @@ def backup_dumpdata(db: dict, output_dir: str) -> str:
     ]
 
     with gzip.open(filepath, "wt", encoding="utf-8") as f:
-        proc = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE)
+        proc = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, check=False)
         if proc.returncode != 0:
             os.remove(filepath)
             raise RuntimeError(

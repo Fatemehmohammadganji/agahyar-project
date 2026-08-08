@@ -115,7 +115,7 @@ class Command(BaseCommand):
                     updated += 1
                 if m2m_fields:
                     m2m_pending.append((obj, m2m_fields, model_label))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - collect per-row import errors
                 self.stderr.write(f"  [ERROR] {model_label} pk={pk}: {exc}")
                 skipped += 1
 
@@ -130,7 +130,7 @@ class Command(BaseCommand):
                         pk__in=pk_list
                     ).values_list("pk", flat=True)
                     related_field.set(valid_pks)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - collect per-row M2M errors
                     self.stderr.write(
                         f"  [ERROR] M2M {model_label} pk={obj.pk} {attname}: {exc}"
                     )

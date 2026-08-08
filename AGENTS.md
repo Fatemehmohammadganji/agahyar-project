@@ -86,6 +86,9 @@ stored as `TASK.md` files under `.tigo/YYYYMMDD-HHmmss/`. Each task has:
 - STATUS, PRIORITY, TAGS, DUE metadata
 - A description with checkpoints
 
+References to other tasks in a description use the `Task(ID)` syntax,
+e.g. `Task(20260808-115556)`.
+
 Changes that are significant enough to warrant a new task should be added as
 a new `TASK.md` file.
 

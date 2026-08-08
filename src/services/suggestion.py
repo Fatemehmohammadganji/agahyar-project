@@ -7,8 +7,6 @@ full implementation.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from log21 import get_logger
 
 from .models import ServiceCenter
@@ -18,7 +16,7 @@ logger = get_logger()
 
 def get_nearest_center(
     service_name: str, city: str, neighborhood: str
-) -> Optional["ServiceCenter"]:
+) -> ServiceCenter | None:
     """TO BE IMPLEMENTED: Find the nearest service center based on location.
 
     Currently downgraded: always returns None (views fall back to a simple
@@ -77,7 +75,7 @@ def suggest_centers(service_name: str, user_city: str) -> list:
                 }
                 for c in centers
             ]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - fall back to generic suggestions
         logger.error(
             f"Error getting center suggestions for '{service_name}' in '{user_city}': {e}"
         )

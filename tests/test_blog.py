@@ -2,6 +2,7 @@
 
 import pytest
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.test import Client
 from django.urls import reverse
 
@@ -205,7 +206,7 @@ class TestBlogPostRatingModel:
             author=User.objects.create_user(username="author1"),
         )
         BlogPostRating.objects.create(user=user, blog_post=post, score=3)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             BlogPostRating.objects.create(user=user, blog_post=post, score=5)
 
 

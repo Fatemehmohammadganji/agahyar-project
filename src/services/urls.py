@@ -4,14 +4,12 @@ Maps all application routes: core pages, authentication
 endpoints, bookmarks, comments, ratings, and password reset flows.
 """
 
-from typing import List
-
 from django.contrib.auth import views as auth_views
 from django.urls import URLPattern, path
 
 from . import feeds, views
 
-urlpatterns: List[URLPattern] = [
+urlpatterns: list[URLPattern] = [
     # ===== SEO =====
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),

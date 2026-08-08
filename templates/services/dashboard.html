@@ -57,15 +57,15 @@
   </div>
   <h2 class="section-title">پرسش‌های متداول</h2>
   {% cache 900 dashboard_faq faq_count %}
-  <div class="faq-section">
-    {% for faq in faqs %}
-      <div class="faq-item">
-        <div class="faq-question">{{ faq.question }}</div>
-        <div class="faq-answer">{{ faq.answer }}</div>
-      </div>
-    {% empty %}
-      <p class="empty-faq">هنوز پرسشی ثبت نشده است.</p>
-    {% endfor %}
-  </div>
-{% endcache %}
+    <div class="faq-section">
+      {% for faq in faqs %}
+        <div class="faq-item">
+          <div class="faq-question">{{ faq.question }}</div>
+          <div class="faq-answer">{{ faq.answer }}</div>
+        </div>
+      {% empty %}
+        <p class="empty-faq">هنوز پرسشی ثبت نشده است.</p>
+      {% endfor %}
+    </div>
+  {% endcache %}
 {% endblock %}

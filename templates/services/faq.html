@@ -9,16 +9,16 @@
   </div>
   {% load cache %}
   {% cache 900 faq_list faq_count %}
-  {% for faq in faqs %}
-    <div class="faq-item">
-      <div class="faq-question">{{ faq.question }}</div>
-      <div class="faq-answer">{{ faq.answer|linebreaks }}</div>
-      {% if faq.category %}
-        <span class="faq-category">{{ faq.category }}</span>
-      {% endif %}
-    </div>
-  {% empty %}
-    <p class="empty-faq">هنوز سوالی اضافه نشده است.</p>
-  {% endfor %}
-{% endcache %}
+    {% for faq in faqs %}
+      <div class="faq-item">
+        <div class="faq-question">{{ faq.question }}</div>
+        <div class="faq-answer">{{ faq.answer|linebreaks }}</div>
+        {% if faq.category %}
+          <span class="faq-category">{{ faq.category }}</span>
+        {% endif %}
+      </div>
+    {% empty %}
+      <p class="empty-faq">هنوز سوالی اضافه نشده است.</p>
+    {% endfor %}
+  {% endcache %}
 {% endblock %}

@@ -3222,7 +3222,7 @@ class TestSubmitReport:
         return user, service, center
 
     def test_unauthenticated_returns_401(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         resp = c.post(
             "/api/report/",
@@ -3241,7 +3241,7 @@ class TestSubmitReport:
         assert "error" in data
 
     def test_submit_service_report(self):
-        user, service, center = self._create_data()
+        user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3269,7 +3269,7 @@ class TestSubmitReport:
         assert report.description == "test desc"
 
     def test_submit_center_report(self):
-        user, service, center = self._create_data()
+        user, _service, center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3293,7 +3293,7 @@ class TestSubmitReport:
         assert report.service_center_id == center.id
 
     def test_duplicate_returns_409(self):
-        user, service, center = self._create_data()
+        user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         payload = {
@@ -3320,7 +3320,7 @@ class TestSubmitReport:
         assert InfoReport.objects.filter(user=user).count() == 1
 
     def test_invalid_target_type_returns_400(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3338,7 +3338,7 @@ class TestSubmitReport:
         assert resp.status_code == 400
 
     def test_invalid_target_id_returns_400(self):
-        user, service, center = self._create_data()
+        _user, _service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3356,14 +3356,14 @@ class TestSubmitReport:
         assert resp.status_code == 404
 
     def test_get_method_returns_405(self):
-        user, service, center = self._create_data()
+        _user, _service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.get("/api/report/")
         assert resp.status_code == 405
 
     def test_different_reason_same_target_allows(self):
-        user, service, center = self._create_data()
+        user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp1 = c.post(
@@ -3397,7 +3397,7 @@ class TestSubmitReport:
         assert InfoReport.objects.filter(user=user).count() == 2
 
     def test_non_ajax_redirects(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3412,7 +3412,7 @@ class TestSubmitReport:
         assert f"/service/{service.id}/" in resp.url
 
     def test_report_button_visible_on_service_detail(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         resp = c.get(f"/service/{service.id}/")
         assert resp.status_code == 200
@@ -3421,7 +3421,7 @@ class TestSubmitReport:
         assert "openReportDialog" in content
 
     def test_report_button_visible_on_center_detail(self):
-        user, service, center = self._create_data()
+        _user, _service, center = self._create_data()
         c = Client()
         resp = c.get(f"/center/{center.id}/")
         assert resp.status_code == 200
@@ -3430,14 +3430,14 @@ class TestSubmitReport:
         assert "openReportDialog" in content
 
     def test_unauthenticated_shows_login_prompt(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         resp = c.get(f"/service/{service.id}/")
         content = resp.content.decode()
         assert "برای ثبت گزارش باید وارد شوید" in content
 
     def test_authenticated_shows_report_form(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.get(f"/service/{service.id}/")

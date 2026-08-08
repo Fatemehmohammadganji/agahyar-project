@@ -1999,7 +1999,7 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
     center = get_object_or_404(ServiceCenter, id=center_id)
     form = CenterRatingForm(request.POST)
     if form.is_valid():
-        rating, created = CenterRating.objects.update_or_create(
+        _rating, created = CenterRating.objects.update_or_create(
             user=request.user,
             service_center=center,
             defaults={"score": int(form.cleaned_data["score"])},
@@ -2854,7 +2854,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                         updated += 1
                     if m2m_fields:
                         m2m_pending.append((obj, m2m_fields, model_label))
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - collect per-row import errors
                     errors.append(f"{model_label} pk={pk}: {exc}")
                     skipped += 1
 
@@ -2870,7 +2870,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                                 pk__in=pk_list
                             ).values_list("pk", flat=True)
                             related_field.set(valid_pks)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 - collect M2M import errors
                             errors.append(
                                 f"M2M {model_label} pk={obj.pk} {attname}: {exc}"
                             )
@@ -3043,7 +3043,9 @@ def admin_media_manager(request: HttpRequest) -> HttpResponse:
                 {
                     "name": entry.name,
                     "size": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime),
+                    "modified": datetime.fromtimestamp(
+                        stat.st_mtime, tz=timezone.get_current_timezone()
+                    ),
                     "url": url,
                     "direct_usage": direct_count,
                     "body_usage": body_count,

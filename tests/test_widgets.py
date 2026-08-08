@@ -6,6 +6,16 @@ from django.test import Client
 from services.widgets import LocalOpenLayersWidget, TagListWidget
 
 
+def _asset_paths(assets):
+    """Return asset paths as plain strings.
+
+    Django 6.1 wraps CSS/JS assets in ``Stylesheet``/``Script`` objects
+    that expose the raw path via ``_path``; older versions store plain
+    strings directly.
+    """
+    return [getattr(a, "_path", a) for a in assets]
+
+
 class TestLocalOpenLayersWidget:
     """Verify the widget uses OSM tiles and local vendored files."""
 
@@ -16,22 +26,27 @@ class TestLocalOpenLayersWidget:
     def test_media_has_no_cdn_urls(self):
         w = LocalOpenLayersWidget()
         media = w.media
-        all_urls = " ".join(media._css.get("all", [])) + " " + " ".join(media._js)
+        all_urls = (
+            " ".join(_asset_paths(media._css.get("all", [])))
+            + " "
+            + " ".join(_asset_paths(media._js))
+        )
         assert "cdn.jsdelivr.net" not in all_urls
 
     def test_media_includes_local_ol_files(self):
         w = LocalOpenLayersWidget()
         media = w.media
-        css_all = media._css.get("all", [])
+        css_all = _asset_paths(media._css.get("all", []))
+        js = _asset_paths(media._js)
         assert "libs/ol/ol.css" in css_all
         assert "gis/css/ol3.css" in css_all
-        assert "libs/ol/ol.js" in media._js
-        assert "gis/js/OLMapWidget.js" in media._js
+        assert "libs/ol/ol.js" in js
+        assert "gis/js/OLMapWidget.js" in js
 
     def test_media_includes_admin_map_widget_js(self):
         w = LocalOpenLayersWidget()
         media = w.media
-        assert "services/js/admin-map-widget.js" in media._js
+        assert "services/js/admin-map-widget.js" in _asset_paths(media._js)
 
     def test_media_includes_no_duplicates(self):
         w = LocalOpenLayersWidget()
@@ -205,15 +220,19 @@ class TestTagListWidget:
 
     def test_media_includes_js(self):
         w = TagListWidget(separator="|")
-        assert "services/js/admin-taglist-widget.js" in w.media._js
+        assert "services/js/admin-taglist-widget.js" in _asset_paths(w.media._js)
 
     def test_media_includes_css(self):
         w = TagListWidget(separator="|")
-        assert "services/css/admin-rtl.css" in w.media._css.get("all", [])
+        assert "services/css/admin-rtl.css" in _asset_paths(w.media._css.get("all", []))
 
     def test_media_no_cdn(self):
         w = TagListWidget(separator="|")
-        all_urls = " ".join(w.media._css.get("all", [])) + " " + " ".join(w.media._js)
+        all_urls = (
+            " ".join(_asset_paths(w.media._css.get("all", [])))
+            + " "
+            + " ".join(_asset_paths(w.media._js))
+        )
         assert "cdn" not in all_urls.lower()
 
 
