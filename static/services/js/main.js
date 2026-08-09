@@ -677,7 +677,15 @@ function suggestClosestCenter(btn) {
 var _reportTargetType = null;
 var _reportTargetId = null;
 
-function openReportDialog(targetType, targetId) {
+function openReportDialog(targetType, targetId, btn) {
+  if (btn && btn.getAttribute("data-user-auth") === "false") {
+    if (window.AgahyarLoginModal) {
+      window.AgahyarLoginModal.open({
+        prompt: "برای گزارش اطلاعات وارد شوید",
+      });
+    }
+    return;
+  }
   _reportTargetType = targetType;
   _reportTargetId = targetId;
   var errorEl = document.getElementById("report-error");
@@ -744,6 +752,15 @@ function submitReport() {
 
       if (result.status === 403) {
         window.location.reload();
+        return;
+      }
+      if (result.status === 401) {
+        closeReportDialog();
+        if (window.AgahyarLoginModal) {
+          window.AgahyarLoginModal.open({
+            prompt: "برای گزارش اطلاعات وارد شوید",
+          });
+        }
         return;
       }
       if (result.status === 200) {

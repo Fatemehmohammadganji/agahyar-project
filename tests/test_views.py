@@ -2948,6 +2948,27 @@ class TestResponsiveHamburger:
         assert '[name="csrfmiddlewaretoken"]' in content
         assert "tokens.forEach" in content
 
+    def test_report_js_opens_login_modal_for_anonymous(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function openReportDialog(targetType, targetId, btn)" in content
+        assert 'getAttribute("data-user-auth") === "false"' in content
+        assert "برای گزارش اطلاعات وارد شوید" in content
+        assert "AgahyarLoginModal.open" in content
+
+    def test_report_js_handles_401_with_login_modal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "result.status === 401" in content
+        assert "برای گزارش اطلاعات وارد شوید" in content
+        assert "closeReportDialog()" in content
+
     def test_signup_nudge_js_supports_dismissal(self):
         from django.conf import settings
 
@@ -3880,7 +3901,8 @@ class TestSubmitReport:
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "گزارش" in content
-        assert "openReportDialog" in content
+        assert "openReportDialog('service'" in content
+        assert 'data-user-auth="false"' in content
 
     def test_report_button_visible_on_center_detail(self):
         _user, _service, center = self._create_data()
@@ -3889,14 +3911,16 @@ class TestSubmitReport:
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "گزارش" in content
-        assert "openReportDialog" in content
+        assert "openReportDialog('center'" in content
+        assert 'data-user-auth="false"' in content
 
-    def test_unauthenticated_shows_login_prompt(self):
+    def test_unauthenticated_report_dialog_has_no_login_prompt_branch(self):
         _user, service, _center = self._create_data()
         c = Client()
         resp = c.get(f"/service/{service.id}/")
         content = resp.content.decode()
-        assert "برای ثبت گزارش باید وارد شوید" in content
+        assert "برای ثبت گزارش باید وارد شوید" not in content
+        assert 'id="login-modal"' in content
 
     def test_authenticated_shows_report_form(self):
         _user, service, _center = self._create_data()
@@ -3904,8 +3928,10 @@ class TestSubmitReport:
         c.login(username="reportuser", password="pass12345")
         resp = c.get(f"/service/{service.id}/")
         content = resp.content.decode()
+        assert 'data-user-auth="true"' in content
         assert "report-reason" in content
         assert "report-description" in content
+        assert "برای ثبت گزارش باید وارد شوید" not in content
 
 
 @pytest.mark.django_db
