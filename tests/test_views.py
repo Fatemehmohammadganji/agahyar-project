@@ -2870,6 +2870,18 @@ class TestResponsiveHamburger:
         assert "if (ratingCnt) {" in content
         assert "resolve();" in content
 
+    def test_rating_js_handles_keyboard_selection(self):
+        from django.conf import settings
+
+        base = settings.BASE_DIR / "static" / "services" / "js"
+        for name in ("blog-detail.js", "center-detail.js"):
+            with open(base / name, encoding="utf-8") as f:
+                content = f.read()
+            assert 'addEventListener("change"' in content
+            assert "input.matches('input[type=\"radio\"]')" in content
+            assert "openLoginForRating" in content
+            assert "submitRating(" in content
+
     def test_bookmark_js_supports_centers_and_login_modal(self):
         from django.conf import settings
 

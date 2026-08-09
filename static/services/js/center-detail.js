@@ -72,24 +72,37 @@
       });
     }
 
+    function openLoginForRating() {
+      if (!window.AgahyarLoginModal) return;
+      window.AgahyarLoginModal.open({
+        prompt: "برای ثبت امتیاز وارد شوید",
+        onLogin: function () {
+          return submitRating(centerId, pendingScore);
+        },
+      });
+    }
+
     rating.addEventListener("click", function (e) {
       var label = e.target.closest("label");
       if (!label) return;
       var input = document.getElementById(label.getAttribute("for"));
       if (!input || !input.matches('input[type="radio"]')) return;
-      var score = parseInt(input.value);
       if (!isAuth) {
         e.preventDefault();
+        pendingScore = parseInt(input.value);
+        input.checked = false;
+        openLoginForRating();
+      }
+    });
+
+    rating.addEventListener("change", function (e) {
+      var input = e.target;
+      if (!input.matches('input[type="radio"]')) return;
+      var score = parseInt(input.value);
+      if (!isAuth) {
         pendingScore = score;
         input.checked = false;
-        if (window.AgahyarLoginModal) {
-          window.AgahyarLoginModal.open({
-            prompt: "برای ثبت امتیاز وارد شوید",
-            onLogin: function () {
-              return submitRating(centerId, pendingScore);
-            },
-          });
-        }
+        openLoginForRating();
         return;
       }
       submitRating(centerId, score);
