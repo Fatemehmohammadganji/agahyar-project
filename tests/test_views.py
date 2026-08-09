@@ -2860,6 +2860,16 @@ class TestResponsiveHamburger:
             assert "d.average.toFixed(1)" in content
             assert "toFa(d.average.toFixed(1))" in content
 
+    def test_blog_rating_js_guards_missing_elements(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "blog-detail.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "if (ratingAvg) {" in content
+        assert "if (ratingCnt) {" in content
+        assert "resolve();" in content
+
     def test_bookmark_js_supports_centers_and_login_modal(self):
         from django.conf import settings
 

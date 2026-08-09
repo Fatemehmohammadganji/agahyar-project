@@ -124,9 +124,13 @@
               alert(d.error);
               return resolve();
             }
-            ratingAvg.textContent =
-              d.average != null ? toFa(d.average.toFixed(1)) : "\u2014";
-            ratingCnt.textContent = "(" + toFa(d.count) + " امتیاز)";
+            if (ratingAvg) {
+              ratingAvg.textContent =
+                d.average != null ? toFa(d.average.toFixed(1)) : "\u2014";
+            }
+            if (ratingCnt) {
+              ratingCnt.textContent = "(" + toFa(d.count) + " امتیاز)";
+            }
             resolve();
           };
           xhr.onerror = function () {
