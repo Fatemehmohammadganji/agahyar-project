@@ -67,8 +67,12 @@
           if (submitBtn) submitBtn.disabled = false;
           if (result.ok && result.data.success) {
             if (result.data.csrfToken) {
-              var el = document.querySelector('[name="csrfmiddlewaretoken"]');
-              if (el) el.value = result.data.csrfToken;
+              var tokens = document.querySelectorAll(
+                '[name="csrfmiddlewaretoken"]',
+              );
+              tokens.forEach(function (el) {
+                el.value = result.data.csrfToken;
+              });
             }
             var cb = onLogin;
             modal.close();

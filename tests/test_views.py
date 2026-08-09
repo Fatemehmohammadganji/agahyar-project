@@ -2938,6 +2938,16 @@ class TestResponsiveHamburger:
         assert content.count("result.status === 403") == 1
         assert "window.location.reload()" in content
 
+    def test_login_modal_rotates_csrf_on_all_inputs(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "login-modal.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "document.querySelectorAll(" in content
+        assert '[name="csrfmiddlewaretoken"]' in content
+        assert "tokens.forEach" in content
+
     def test_signup_nudge_js_supports_dismissal(self):
         from django.conf import settings
 
