@@ -550,6 +550,7 @@ class TestServiceDetailView:
         response = client.get(f"/service/{service.id}/")
         content = response.content.decode()
         assert 'class="login-prompt-link"' in content
+        assert f'href="/login/?next=/service/{service.id}/"' in content
 
     def test_service_detail_includes_shared_login_modal_once(self):
         service = Service.objects.create(
@@ -2580,6 +2581,7 @@ class TestCenterDetail:
         response = client.get(f"/center/{center.id}/")
         content = response.content.decode()
         assert 'class="login-prompt-link"' in content
+        assert f'href="/login/?next=/center/{center.id}/"' in content
 
     def test_center_detail_includes_shared_login_modal_once(self):
         service = Service.objects.create(

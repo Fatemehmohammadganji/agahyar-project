@@ -259,6 +259,7 @@ class TestBlogViews:
         assert 'id="login-modal-error"' in content
         assert 'id="login-modal-prompt"' in content
         assert 'class="login-prompt-link"' in content
+        assert f'href="/login/?next=/blog/{post.slug}/"' in content
 
     def test_blog_detail_returns_404_for_draft(self, client):
         author = User.objects.create_user(username="author1")

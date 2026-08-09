@@ -131,7 +131,7 @@
         </form>
       {% else %}
         <div class="login-prompt">
-          <p>برای ارسال نظر باید <a href="#"
+          <p>برای ارسال نظر باید <a href="{% url 'login' %}?next={{ request.path|urlencode }}"
     class="login-prompt-link"
     data-prompt="برای ارسال نظر وارد شوید">وارد شوید</a>.</p>
         </div>
