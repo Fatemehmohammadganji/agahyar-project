@@ -368,6 +368,26 @@ class TestBookmarkModel:
         Bookmark.objects.create(user=user, service_center=center)
         assert Bookmark.objects.filter(user=user).count() == 2
 
+    def test_targetless_bookmark_rejected(self):
+        from django.db import IntegrityError
+
+        user = User.objects.create_user("targetless", password="pass12345")
+        with pytest.raises(IntegrityError):
+            Bookmark.objects.create(user=user)
+
+    def test_both_targets_bookmark_rejected(self):
+        from django.db import IntegrityError
+
+        user = User.objects.create_user("bothtargets", password="pass12345")
+        service = Service.objects.create(
+            name="خدمت هر دو", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="مرکز هر دو", address="آدرس", city="تهران"
+        )
+        with pytest.raises(IntegrityError):
+            Bookmark.objects.create(user=user, service=service, service_center=center)
+
 
 @pytest.mark.django_db
 class TestCommentEditDelete:

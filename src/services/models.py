@@ -524,6 +524,11 @@ class Bookmark(models.Model):
                 name="unique_bookmark_user_service_center",
                 condition=models.Q(service_center__isnull=False),
             ),
+            models.CheckConstraint(
+                condition=models.Q(service__isnull=False, service_center__isnull=True)
+                | models.Q(service__isnull=True, service_center__isnull=False),
+                name="bookmark_exactly_one_target",
+            ),
         ]
 
     def __str__(self) -> str:
