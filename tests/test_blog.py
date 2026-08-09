@@ -712,6 +712,22 @@ class TestBlogRatingAPI:
         )
         assert response.status_code == 400
 
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_non_object_json_body_rejected(self, client, raw_body):
+        User.objects.create_user(username="testuser", password="pass")
+        post = BlogPost.objects.create(
+            title="test",
+            author=User.objects.create_user(username="author1"),
+            is_published=True,
+        )
+        client.login(username="testuser", password="pass")
+        response = client.post(
+            f"/api/rate-blog-post/{post.id}/",
+            data=raw_body,
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
 
 @pytest.mark.django_db
 class TestBlogFeeds:

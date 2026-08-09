@@ -1338,6 +1338,8 @@ def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
     try:
         if request.content_type == "application/json":
             data = json.loads(request.body)
+            if not isinstance(data, dict):
+                return JsonResponse({"error": "invalid score"}, status=400)
             score = int(data.get("score", 0))
         else:
             score = int(request.POST.get("score", 0))
@@ -1694,6 +1696,8 @@ def _parse_bookmark_state(request: HttpRequest) -> bool | None:
         try:
             data = json.loads(request.body or b"{}")
         except (ValueError, TypeError):
+            return None
+        if not isinstance(data, dict):
             return None
         raw = data.get("bookmarked")
     else:
@@ -2083,6 +2087,8 @@ def rate_center(request: HttpRequest, center_id: int) -> JsonResponse:
     try:
         if request.content_type == "application/json":
             data = json.loads(request.body)
+            if not isinstance(data, dict):
+                return JsonResponse({"error": "invalid score"}, status=400)
             score = int(data.get("score", 0))
         else:
             score = int(request.POST.get("score", 0))

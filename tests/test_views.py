@@ -1786,6 +1786,23 @@ class TestBookmarkView:
         assert response.status_code == 400
         assert not Bookmark.objects.filter(user=user, service=service).exists()
 
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_ajax_non_object_json_body_returns_400(self, raw_body):
+        user = User.objects.create_user("bmjson", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-json", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmjson", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=raw_body,
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
     def test_ajax_set_bookmark_true_is_idempotent(self):
         user = User.objects.create_user("bmidep", password="pass12345")
         service = Service.objects.create(
@@ -1965,6 +1982,21 @@ class TestCenterBookmarkView:
         client.login(username="cbmaxnostate", password="pass12345")
         response = client.post(
             f"/bookmark/center/{center.id}/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_ajax_center_non_object_json_body_returns_400(self, raw_body):
+        user = User.objects.create_user("cbmjson", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmjson", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=raw_body,
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 400
@@ -2646,6 +2678,19 @@ class TestCenterRatingAPI:
         client = Client()
         client.login(username="api_crater4", password="pass12345")
         response = client.post(f"/api/rate-center/{center.id}/", {"score": "abc"})
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_non_object_json_body_rejected(self, raw_body):
+        User.objects.create_user("api_crater6", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater6", password="pass12345")
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            data=raw_body,
+            content_type="application/json",
+        )
         assert response.status_code == 400
 
     def test_404_for_nonexistent_center(self):
