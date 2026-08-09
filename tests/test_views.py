@@ -2693,6 +2693,14 @@ class TestCenterRatingAPI:
         )
         assert response.status_code == 400
 
+    def test_get_method_rejected(self):
+        User.objects.create_user("api_crater7", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater7", password="pass12345")
+        response = client.get(f"/api/rate-center/{center.id}/")
+        assert response.status_code == 405
+
     def test_404_for_nonexistent_center(self):
         User.objects.create_user("api_crater5", password="pass12345")
         client = Client()

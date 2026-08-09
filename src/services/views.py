@@ -2070,6 +2070,7 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
     return redirect("center_detail", center_id=center_id)
 
 
+@require_POST
 def rate_center(request: HttpRequest, center_id: int) -> JsonResponse:
     """API endpoint to rate a service center (1-5).
 
