@@ -2835,7 +2835,7 @@ class TestResponsiveHamburger:
         assert "function closeModalOnBackdropClick" in content
         assert 'getElementById("delete-comment-modal")' in content
         assert 'getElementById("report-dialog")' in content
-        assert "getBoundingClientRect" in content
+        assert "e.target === dialog" in content
         assert "dialog.close()" in content
 
     def test_rating_js_reloads_page_on_401(self):

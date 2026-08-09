@@ -22,13 +22,7 @@ function closeMenu() {
 function closeModalOnBackdropClick(dialog) {
   if (!dialog) return;
   dialog.addEventListener("click", function (e) {
-    var rect = dialog.getBoundingClientRect();
-    var isInDialog =
-      e.clientX >= rect.left &&
-      e.clientX <= rect.right &&
-      e.clientY >= rect.top &&
-      e.clientY <= rect.bottom;
-    if (!isInDialog) dialog.close();
+    if (e.target === dialog) dialog.close();
   });
 }
 
