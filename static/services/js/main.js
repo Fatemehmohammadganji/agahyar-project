@@ -80,7 +80,14 @@ document.addEventListener("click", function (e) {
   if (reactionBtn) {
     var commentId = reactionBtn.getAttribute("data-comment-id");
     var value = parseInt(reactionBtn.getAttribute("data-value"), 10);
-    if (commentId) reactToComment(reactionBtn, commentId, value);
+    if (!commentId) return;
+    if (reactionBtn.getAttribute("data-user-auth") === "false") {
+      openLoginForPendingAction("برای ثبت واکنش وارد شوید", function () {
+        return reactToComment(reactionBtn, commentId, value);
+      });
+      return;
+    }
+    reactToComment(reactionBtn, commentId, value);
     return;
   }
 
@@ -124,6 +131,10 @@ function reactToComment(reactionBtn, commentId, value) {
         openLoginForPendingAction("برای ثبت واکنش وارد شوید", function () {
           return reactToComment(reactionBtn, commentId, value);
         });
+        return null;
+      }
+      if (response.status === 403) {
+        window.location.reload();
         return null;
       }
       if (!response.ok) {
@@ -197,6 +208,10 @@ function toggleBookmark(btn, serviceId, centerId, desired) {
             return toggleBookmark(btn, serviceId, centerId, desired);
           },
         );
+        return null;
+      }
+      if (response.status === 403) {
+        window.location.reload();
         return null;
       }
       return response.json();
@@ -733,6 +748,10 @@ function submitReport() {
     .then(function (result) {
       if (submitBtn) submitBtn.disabled = false;
 
+      if (result.status === 403) {
+        window.location.reload();
+        return;
+      }
       if (result.status === 200) {
         closeReportDialog();
         showReportSuccess(result.data.message);

@@ -31,7 +31,7 @@
           "application/x-www-form-urlencoded",
         );
         xhr.onload = function () {
-          if (xhr.status === 401) {
+          if (xhr.status === 401 || xhr.status === 403) {
             window.location.reload();
             return;
           }

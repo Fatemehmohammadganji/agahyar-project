@@ -2233,6 +2233,58 @@ class TestSubmitComment:
 
 
 @pytest.mark.django_db
+class TestAnonymousCommentReactions:
+    def _comment(self, service=None, center=None, blog_post=None):
+        author = User.objects.create_user("reaction-author", password="pass12345")
+        return Comment.objects.create(
+            user=author,
+            service=service,
+            service_center=center,
+            blog_post=blog_post,
+            text="reaction text",
+        )
+
+    def _assert_clickable_reactions(self, content, comment_id):
+        assert f'data-comment-id="{comment_id}"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-value="1"' in content
+        assert 'data-value="-1"' in content
+        assert "btn-reaction btn-like disabled" not in content
+        assert "btn-reaction btn-dislike disabled" not in content
+
+    def test_service_detail_anonymous_reaction_buttons_clickable(self):
+        service = Service.objects.create(
+            name="reaction-svc", organization="org", documents="d", steps="s"
+        )
+        comment = self._comment(service=service)
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        self._assert_clickable_reactions(response.content.decode(), comment.id)
+
+    def test_center_detail_anonymous_reaction_buttons_clickable(self):
+        center = ServiceCenter.objects.create(
+            name="reaction-center", address="addr", city="Tehran"
+        )
+        comment = self._comment(center=center)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        self._assert_clickable_reactions(response.content.decode(), comment.id)
+
+    def test_blog_detail_anonymous_reaction_buttons_clickable(self):
+        from services.models import BlogPost
+
+        post = BlogPost.objects.create(
+            title="reaction post",
+            author=User.objects.create_user("reaction-blog-author"),
+            is_published=True,
+        )
+        comment = self._comment(blog_post=post)
+        client = Client()
+        response = client.get(f"/blog/{post.slug}/")
+        self._assert_clickable_reactions(response.content.decode(), comment.id)
+
+
+@pytest.mark.django_db
 class TestEditComment:
     def _setup(self):
         self.user = User.objects.create_user("editor", password="pass12345")
@@ -2794,6 +2846,7 @@ class TestResponsiveHamburger:
             with open(base / name, encoding="utf-8") as f:
                 content = f.read()
             assert "xhr.status === 401" in content
+            assert "xhr.status === 403" in content
             assert "window.location.reload()" in content
             assert "alert(" in content
 
@@ -2842,6 +2895,26 @@ class TestResponsiveHamburger:
         assert '"/auth/login/"' not in content
         assert 'data-user-auth") === "false"' in content
         assert content.count("openLoginForPendingAction(") >= 3
+
+    def test_reaction_js_opens_login_modal_for_anonymous(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function reactToComment" in content
+        assert 'data-user-auth") === "false"' in content
+        assert 'openLoginForPendingAction("برای ثبت واکنش وارد شوید"' in content
+
+    def test_main_js_reloads_page_on_403(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert content.count("response.status === 403") == 2
+        assert content.count("result.status === 403") == 1
+        assert "window.location.reload()" in content
 
     def test_signup_nudge_js_supports_dismissal(self):
         from django.conf import settings
