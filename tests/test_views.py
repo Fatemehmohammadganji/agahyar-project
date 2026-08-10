@@ -862,6 +862,50 @@ class TestLoginView:
         assert response.status_code == 200
         assert not response.context["user"].is_authenticated
 
+    def test_login_redirects_to_next_after_success(self):
+        User.objects.create_user("nextuser", password="pass12345")
+        client = Client()
+        response = client.post(
+            "/login/?next=/service/42/",
+            {"username": "nextuser", "password": "pass12345"},
+        )
+        assert response.status_code == 302
+        assert response.url == "/service/42/"
+
+    def test_login_redirects_to_next_from_hidden_input(self):
+        User.objects.create_user("hiddenuser", password="pass12345")
+        client = Client()
+        response = client.post(
+            "/login/",
+            {"username": "hiddenuser", "password": "pass12345", "next": "/service/7/"},
+        )
+        assert response.status_code == 302
+        assert response.url == "/service/7/"
+
+    def test_login_rejects_external_next(self):
+        User.objects.create_user("extuser", password="pass12345")
+        client = Client()
+        response = client.post(
+            "/login/?next=https://evil.example.com/phish",
+            {"username": "extuser", "password": "pass12345"},
+        )
+        assert response.status_code == 302
+        assert response.url == "/"
+
+    def test_login_redirects_to_next_when_already_authenticated(self):
+        User.objects.create_user("alreadynext", password="pass12345")
+        client = Client()
+        client.login(username="alreadynext", password="pass12345")
+        response = client.get("/login/?next=/service/9/")
+        assert response.status_code == 302
+        assert response.url == "/service/9/"
+
+    def test_login_form_preserves_next_hidden_input(self):
+        client = Client()
+        response = client.get("/login/?next=/service/11/")
+        content = response.content.decode()
+        assert '<input type="hidden" name="next" value="/service/11/">' in content
+
 
 @pytest.mark.django_db
 class TestAboutAndContactViews:

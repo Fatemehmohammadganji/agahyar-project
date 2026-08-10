@@ -29,6 +29,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
@@ -508,19 +509,36 @@ def resend_profile_otp_api(request: HttpRequest) -> JsonResponse:
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
+def _get_safe_login_next(request: HttpRequest) -> str:
+    """Return a safe internal destination from the ``next`` parameter.
+
+    Only same-host URLs are allowed (prevents open redirects); falls back
+    to the home page when ``next`` is missing or untrusted.
+    """
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return "home"
+
+
 def login_view(request: HttpRequest) -> HttpResponse:
     """Handle user login.
 
-    Authenticates with :class:`LoginForm`; redirects to home on success.
-    For AJAX requests (``X-Requested-With: XMLHttpRequest``) returns JSON
-    responses with ``{\"success\": true/false}``.
+    Authenticates with :class:`LoginForm`; redirects to the ``next``
+    destination on success (or home when none is given).  For AJAX requests
+    (``X-Requested-With: XMLHttpRequest``) returns JSON responses
+    with ``{\"success\": true/false}``.
     """
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if request.user.is_authenticated:
         if is_ajax:
             return JsonResponse({"success": True, "csrfToken": get_token(request)})
-        return redirect("home")
+        return redirect(_get_safe_login_next(request))
 
     if request.method == "POST":
         form = LoginForm(request.POST)
@@ -545,7 +563,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
                         first_name=user.first_name or user.username,
                     ),
                 )
-                return redirect("home")
+                return redirect(_get_safe_login_next(request))
             if is_ajax:
                 return JsonResponse(
                     {
