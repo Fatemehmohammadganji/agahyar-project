@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.http import HttpRequest
 
-from services.models import ThemePreference
+from services.models import ThemePreference, get_site_contact_info
 
 
 def matomo_context(request: HttpRequest) -> dict:
@@ -37,3 +37,20 @@ def user_theme_context(request: HttpRequest) -> dict:
         if theme_pref is not None:
             theme = theme_pref.theme
     return {"user_theme": theme}
+
+
+def contact_info_context(request: HttpRequest) -> dict:
+    """Add the admin-editable contact details to the template context.
+
+    Returns ``contact_email``, ``contact_phone`` and ``contact_working_hours``
+    from the singleton :class:`SiteContactInfo` row (seeded from environment
+    variables on first run) so the footer and contact page can render them on
+    every page. Any value may be an empty string, in which case the templates
+    hide it.
+    """
+    info = get_site_contact_info()
+    return {
+        "contact_email": info.email,
+        "contact_phone": info.phone,
+        "contact_working_hours": info.working_hours,
+    }

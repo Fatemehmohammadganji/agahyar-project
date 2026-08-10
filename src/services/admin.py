@@ -26,8 +26,10 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    SiteContactInfo,
     ThemePreference,
     UserProfile,
+    get_site_contact_info,
 )
 from .resources import (
     BookmarkResource,
@@ -168,6 +170,29 @@ class ContactMessageAdmin(ImportExportModelAdmin):
     list_display = ("name", "email", "created_at")
     search_fields = ("name", "email", "message")
     readonly_fields = ("name", "email", "message", "created_at")
+
+
+@admin.register(SiteContactInfo)
+class SiteContactInfoAdmin(admin.ModelAdmin):
+    """Admin configuration for the singleton SiteContactInfo row.
+
+    Only the seeded row (pk=1) can be edited; adding or deleting rows is
+    disabled so the frontend always has exactly one contact configuration.
+    Opening the change list seeds the row first (from environment variables on
+    first run) so there is always something to edit.
+    """
+
+    list_display = ("email", "phone", "working_hours")
+
+    def changelist_view(self, request, extra_context=None):
+        get_site_contact_info()
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        return False
 
 
 @admin.register(Comment)

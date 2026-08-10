@@ -26,6 +26,7 @@ from services.models import (
     ServiceCenter,
     ThemePreference,
     UserProfile,
+    get_site_contact_info,
 )
 from services.otp import generate_otp, hash_otp
 from services.views import save_user_profile
@@ -1137,6 +1138,162 @@ class TestThemeTemplateAndJs:
         assert "data-user-auth" in content
         assert "X-CSRFToken" in content
         assert "themeToggle" in content
+
+
+@pytest.mark.django_db
+class TestSiteContactInfo:
+    def test_get_site_contact_info_seeds_from_settings(self):
+
+        with override_settings(
+            CONTACT_EMAIL="support@example.com",
+            CONTACT_PHONE="02112345678",
+            CONTACT_WORKING_HOURS="شنبه تا چهارشنبه ۹ تا ۱۷",
+        ):
+            info = get_site_contact_info()
+        assert info.pk == 1
+        assert info.email == "support@example.com"
+        assert info.phone == "02112345678"
+        assert info.working_hours == "شنبه تا چهارشنبه ۹ تا ۱۷"
+
+    def test_get_site_contact_info_does_not_overwrite_existing_row(self):
+        from services.models import SiteContactInfo
+
+        info = SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "db@example.com", "phone": "09120000000"}
+        )[0]
+        with override_settings(
+            CONTACT_EMAIL="env@example.com", CONTACT_PHONE="02111111111"
+        ):
+            returned = get_site_contact_info()
+        assert returned.pk == info.pk
+        assert returned.email == "db@example.com"
+        assert returned.phone == "09120000000"
+
+    def test_get_site_contact_info_empty_env_seeds_empty_values(self):
+        with override_settings(CONTACT_EMAIL="", CONTACT_PHONE=""):
+            info = get_site_contact_info()
+        assert info.email == ""
+        assert info.phone == ""
+
+    def test_footer_hides_section_when_both_empty(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "", "phone": ""}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert "<h4>تماس با ما</h4>" not in content
+
+    def test_footer_shows_email_and_phone_when_set(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "info@example.com", "phone": "02112345678"}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert "<h4>تماس با ما</h4>" in content
+        assert 'href="mailto:info@example.com"' in content
+        assert 'href="tel:02112345678"' in content
+        assert "info@example.com" in content
+        assert "02112345678" in content
+
+    def test_footer_hides_only_empty_field(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "info@example.com", "phone": ""}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert "<h4>تماس با ما</h4>" in content
+        assert 'href="mailto:info@example.com"' in content
+        assert 'href="tel:' not in content
+
+    def test_tel_link_converts_persian_digits(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "", "phone": "۰۲۱-۱۲۳۴۵۶۷۸"}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert 'href="tel:021-12345678"' in content
+        assert "۰۲۱-۱۲۳۴۵۶۷۸" in content
+
+    def test_contact_page_hides_empty_fields(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "", "phone": ""}
+        )
+        client = Client()
+        content = client.get("/contact/").content.decode()
+        assert "mailto:" not in content
+        assert "tel:" not in content
+
+    def test_contact_page_shows_fields_when_set(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1,
+            defaults={
+                "email": "info@example.com",
+                "phone": "02112345678",
+                "working_hours": "شنبه تا چهارشنبه ۹ تا ۱۷",
+            },
+        )
+        client = Client()
+        content = client.get("/contact/").content.decode()
+        assert 'href="mailto:info@example.com"' in content
+        assert 'href="tel:02112345678"' in content
+        assert "شنبه تا چهارشنبه ۹ تا ۱۷" in content
+        assert "contact-info-item" in content
+
+    def test_contact_page_hides_working_hours_when_empty(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "info@example.com", "phone": "02112345678"}
+        )
+        client = Client()
+        content = client.get("/contact/").content.decode()
+        assert "fa-clock" not in content
+        assert "شنبه تا چهارشنبه" not in content
+
+
+@pytest.mark.django_db
+class TestSiteContactInfoAdmin:
+    def test_registered_in_admin(self):
+        from django.contrib import admin
+
+        from services.models import SiteContactInfo
+
+        assert admin.site.is_registered(SiteContactInfo)
+
+    def test_singleton_cannot_add_or_delete(self):
+        from django.contrib import admin
+
+        from services.admin import SiteContactInfoAdmin
+        from services.models import SiteContactInfo
+
+        model_admin = SiteContactInfoAdmin(model=SiteContactInfo, admin_site=admin.site)
+        assert model_admin.has_add_permission(request=None) is False
+        assert model_admin.has_delete_permission(request=None) is False
+
+    def test_admin_changelist_seeds_row_when_missing(self):
+        from services.models import SiteContactInfo
+
+        User.objects.create_user(
+            "adminsci", password="pass12345", is_staff=True, is_superuser=True
+        )
+        client = Client()
+        client.login(username="adminsci", password="pass12345")
+        SiteContactInfo.objects.all().delete()
+        response = client.get("/admin/services/sitecontactinfo/")
+        assert response.status_code == 200
+        assert SiteContactInfo.objects.filter(pk=1).exists()
 
 
 @pytest.mark.django_db

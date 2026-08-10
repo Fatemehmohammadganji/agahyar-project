@@ -10,6 +10,8 @@ register = template.Library()
 
 PERSIAN_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 
+ENGLISH_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+
 PERSIAN_MONTHS = {
     1: "فروردین",
     2: "اردیبهشت",
@@ -29,6 +31,11 @@ PERSIAN_MONTHS = {
 def to_persian_digits(value: str) -> str:
     """Convert English digits in a string to Persian digits."""
     return value.translate(PERSIAN_DIGITS)
+
+
+def to_english_digits(value: str) -> str:
+    """Convert Persian digits in a string to English digits."""
+    return value.translate(ENGLISH_DIGITS)
 
 
 @register.filter(name="jalali")
@@ -110,3 +117,19 @@ def persian_digits(value):
     if value is None:
         return ""
     return to_persian_digits(str(value))
+
+
+@register.filter(name="en")
+def english_digits(value):
+    """Convert Persian digits in a string to English digits.
+
+    Useful for machine-readable values such as ``tel:`` links where the
+    stored value may use Persian digits.
+
+    Example usage::
+
+        {{ contact_phone|en }}
+    """
+    if value is None:
+        return ""
+    return to_english_digits(str(value))

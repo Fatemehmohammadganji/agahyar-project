@@ -48,6 +48,8 @@ place.
 
 - 🛡️ **Security Hardening** – Includes rate limiting, Content Security Policy (CSP), configurable admin URL, and secure session settings to improve application security.
 
+- ✉️ **Configurable Contact Info** – The contact email, phone, and working hours shown in the footer and on the contact page are stored in the database (`SiteContactInfo`), seeded from the `CONTACT_EMAIL` / `CONTACT_PHONE` / `CONTACT_WORKING_HOURS` environment variables on first run, and editable by admins in the admin panel. Empty values are hidden from visitors.
+
 - 📱 **Fully Responsive** – Optimized for mobile phones, tablets, laptops, and desktop devices with a consistent user experience.
 
 - ⚙️ **Admin Panel** – Manage services, FAQs, and service centers efficiently through the Django administration panel.

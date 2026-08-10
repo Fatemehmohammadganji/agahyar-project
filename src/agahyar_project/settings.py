@@ -111,6 +111,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "agahyar_project.context_processors.matomo_context",
                 "agahyar_project.context_processors.user_theme_context",
+                "agahyar_project.context_processors.contact_info_context",
             ],
         },
     },
@@ -279,6 +280,13 @@ MAILERS = {
 }
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@agahyar4iran.ir")
 SERVER_EMAIL = config("SERVER_EMAIL", default="server@agahyar4iran.ir")
+
+# Contact details shown on the frontend (footer and contact page). These seed
+# the SiteContactInfo database row on first run; afterwards admins edit the
+# values in the admin panel and the database is the source of truth.
+CONTACT_EMAIL = config("CONTACT_EMAIL", default="")
+CONTACT_PHONE = config("CONTACT_PHONE", default="")
+CONTACT_WORKING_HOURS = config("CONTACT_WORKING_HOURS", default="")
 
 # Logging
 LOGGING = {

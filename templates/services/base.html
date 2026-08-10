@@ -1,4 +1,4 @@
-{% load static %}
+{% load static jalali_tags %}
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" data-theme="{{ user_theme }}">
   <head>
@@ -116,11 +116,17 @@
           <a href="{% url 'contact' %}">تماس با ما</a>
           <a href="{% url 'about' %}">درباره تیم</a>
         </div>
-        <div class="footer-section">
-          <h4>تماس با ما</h4>
-          <a href="#">info@agahyar4iran.ir</a>
-          <a href="#">۰۲۱-۱۲۳۴۵۶۷۸</a>
-        </div>
+        {% if contact_email or contact_phone %}
+          <div class="footer-section">
+            <h4>تماس با ما</h4>
+            {% if contact_email %}
+              <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
+            {% endif %}
+            {% if contact_phone %}
+              <a href="tel:{{ contact_phone|en }}">{{ contact_phone }}</a>
+            {% endif %}
+          </div>
+        {% endif %}
       </div>
       <div class="footer-bottom">
         <p>© ۱۴۰۴-۱۴۰۵ - تیم آگاه‌ران | پروژه درس مدیریت پروژه فناوری اطلاعات</p>

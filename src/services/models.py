@@ -7,6 +7,7 @@ and ``Bookmark`` with Persian verbose names and helper methods.
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.utils import timezone
@@ -266,6 +267,45 @@ class ContactMessage(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} - {self.email}"
+
+
+class SiteContactInfo(models.Model):
+    """Admin-editable contact details shown on the frontend.
+
+    A singleton row (pk=1) seeded from ``CONTACT_EMAIL`` / ``CONTACT_PHONE``
+    environment variables on first run. Both fields may be blank; the
+    frontend hides a field whose value is empty.
+    """
+
+    email = models.EmailField("ایمیل", max_length=254, blank=True)
+    phone = models.CharField("تلفن", max_length=30, blank=True)
+    working_hours = models.CharField("ساعت کاری", max_length=100, blank=True)
+
+    class Meta:
+        verbose_name = "اطلاعات تماس سایت"
+        verbose_name_plural = "اطلاعات تماس سایت"
+
+    def __str__(self) -> str:
+        return self.email or self.phone or "اطلاعات تماس"
+
+
+def get_site_contact_info() -> SiteContactInfo:
+    """Return the singleton contact info row, seeding it on first access.
+
+    The first call creates the row from the ``CONTACT_EMAIL``,
+    ``CONTACT_PHONE`` and ``CONTACT_WORKING_HOURS`` settings (which read from
+    environment variables). Afterwards the database row is the source of truth
+    and admins edit it from the admin panel.
+    """
+    info, _ = SiteContactInfo.objects.get_or_create(
+        pk=1,
+        defaults={
+            "email": getattr(settings, "CONTACT_EMAIL", ""),
+            "phone": getattr(settings, "CONTACT_PHONE", ""),
+            "working_hours": getattr(settings, "CONTACT_WORKING_HOURS", ""),
+        },
+    )
+    return info
 
 
 class BlogPost(models.Model):
