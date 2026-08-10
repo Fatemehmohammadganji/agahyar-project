@@ -4,6 +4,60 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.8.0] - 2026-08-11
+
+### Added
+
+- **Email-based password reset flow**: Custom views that 404 and hide all
+  frontend links until a real sending mail backend is configured
+  (`is_email_setup()`), a per-IP rate limit (`5/m`) on the reset form, a
+  branded RTL HTML email with a reset button plus Persian subject and
+  plain-text fallback, and a configurable `PASSWORD_RESET_TIMEOUT`.
+  The confirm page renders a friendly invalid-link state for expired/invalid
+  tokens instead of crashing.
+- **Theme preference persistence**: The no-JS theme toggle now stores the
+  user's light/dark choice in the backend and restores it on every page.
+- **Admin-editable contact info**: A singleton `SiteContactInfo` model lets
+  admins edit the site's email, phone, and working hours from the admin panel;
+  each field is hidden on the frontend when empty.
+- **Service center bookmarks**: Centers can be bookmarked, listed on the
+  bookmarks page, and enforce exactly-one-target with a DB check constraint.
+  Bookmark buttons are shown to anonymous users and open the shared login
+  modal, then set the bookmark state after login.
+- **Public service search with signup nudge**: Search is accessible to
+  anonymous visitors, with a registration prompt for full results.
+- **Shared native-dialog login modal**: A single accessible login modal
+  (native `<dialog>`) reused across service, center, and blog pages; the
+  `next` destination is honored after login.
+- **Anonymous comment reactions**: Visitors can like/dislike comments via the
+  login modal, with 403 session-expiry handling.
+- **FAQ cache invalidation**: The FAQ cache is invalidated when FAQs are
+  edited (keyed on `max updated_at`).
+
+### Changed
+
+- **Django 6.1 required**: `django>=6.1.0`; email configuration now uses the
+  `MAILERS` setting (the deprecated `EMAIL_BACKEND` family is removed as the
+  source of truth).
+- **Bookmark toggle replaced by set-state**: The bookmark buttons set an
+  explicit state instead of toggling, so the UI and server stay in sync.
+- Dependency upgrades, vendored library refreshes, and lint fixes.
+
+### Fixed
+
+- **Theme toggle hardening**: Unsupported HTTP methods are rejected with 405
+  (previously they fell through to the toggle logic and changed the theme);
+  valid JSON that is not an object (`[]`, `null`) now returns 400 instead of
+  crashing with a 500.
+- **Email reset gating**: A missing/empty mail backend is treated as not set
+  up, and the per-IP rate limit no longer fires (403) when the feature is
+  disabled, so disabled email consistently returns 404.
+- **Bookmark/rating request validation**: Bookmark and rating handlers require
+  a JSON object body; `rate_center` is restricted to POST.
+- **Login/rating UI**: Login redirects honor the requested `next` destination;
+  native dialogs close only on backdrop click; the CSRF token is rotated on
+  all matching inputs after login; star ratings support keyboard selection.
+
 ## [1.7.0] - 2026-07-30
 
 ### Added
