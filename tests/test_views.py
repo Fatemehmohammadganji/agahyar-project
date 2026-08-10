@@ -343,6 +343,22 @@ class TestDashboardView:
         response = client.get("/dashboard/")
         assert response.status_code == 200
 
+    def test_faq_cache_invalidates_when_faq_edited(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        faq = FAQ.objects.create(question="original", answer="old answer")
+        User.objects.create_user("dashuser", password="pass12345")
+        client = Client()
+        client.login(username="dashuser", password="pass12345")
+        first = client.get("/dashboard/").content.decode()
+        assert "original" in first
+        faq.question = "updated"
+        faq.save()
+        second = client.get("/dashboard/").content.decode()
+        assert "updated" in second
+        assert "original" not in second
+
 
 @pytest.mark.django_db
 class TestSearchView:
@@ -748,6 +764,20 @@ class TestFAQView:
         response = client.get("/faq/")
         assert response.status_code == 200
         assert "q1" in str(response.content)
+
+    def test_cache_invalidates_when_faq_edited(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        faq = FAQ.objects.create(question="original", answer="old answer")
+        client = Client()
+        first = client.get("/faq/").content.decode()
+        assert "original" in first
+        faq.question = "updated"
+        faq.save()
+        second = client.get("/faq/").content.decode()
+        assert "updated" in second
+        assert "original" not in second
 
 
 @pytest.mark.django_db

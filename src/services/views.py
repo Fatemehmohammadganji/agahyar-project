@@ -23,7 +23,7 @@ from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet
+from django.db.models import Avg, Count, F, Max, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
@@ -947,6 +947,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Render the authenticated user dashboard."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
+    faq_updated_at = FAQ.objects.aggregate(Max("updated_at"))["updated_at__max"]
     bookmarked_ids: set[int] = set(
         Bookmark.objects.filter(user=request.user).values_list("service_id", flat=True)
     )
@@ -957,6 +958,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             "popular_services": popular_services,
             "faqs": faqs,
             "faq_count": FAQ.objects.count(),
+            "faq_updated_at": faq_updated_at,
             "bookmarked_ids": bookmarked_ids,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
@@ -1198,6 +1200,9 @@ def faq_view(request: HttpRequest) -> HttpResponse:
         {
             "faqs": faqs,
             "faq_count": faqs.count(),
+            "faq_updated_at": FAQ.objects.aggregate(Max("updated_at"))[
+                "updated_at__max"
+            ],
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
                 {"label": "سوالات متداول"},

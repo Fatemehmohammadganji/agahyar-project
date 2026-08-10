@@ -152,6 +152,7 @@ class FAQ(models.Model):
     answer = models.TextField("پاسخ")
     category = models.CharField("دسته‌بندی", max_length=100, blank=True)
     order = models.IntegerField("ترتیب نمایش", default=0, db_index=True)
+    updated_at = models.DateTimeField("آخرین ویرایش", auto_now=True)
 
     class Meta:
         verbose_name = "سوال متداول"

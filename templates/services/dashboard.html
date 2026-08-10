@@ -57,7 +57,7 @@
     {% endfor %}
   </div>
   <h2 class="section-title">پرسش‌های متداول</h2>
-  {% cache 900 dashboard_faq faq_count %}
+  {% cache 900 dashboard_faq faq_count faq_updated_at %}
     <div class="faq-section">
       {% for faq in faqs %}
         <div class="faq-item">

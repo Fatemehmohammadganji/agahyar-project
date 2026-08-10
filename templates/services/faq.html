@@ -8,7 +8,7 @@
     <p>پاسخ به سوالات رایج درباره خدمات دولتی</p>
   </div>
   {% load cache %}
-  {% cache 900 faq_list faq_count %}
+  {% cache 900 faq_list faq_count faq_updated_at %}
     {% for faq in faqs %}
       <div class="faq-item">
         <div class="faq-question">{{ faq.question }}</div>
