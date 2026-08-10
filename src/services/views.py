@@ -944,9 +944,6 @@ class _EmailResetRequiredMixin:
         return super().dispatch(request, *args, **kwargs)
 
 
-@method_decorator(
-    ratelimit(key="ip", rate="5/m", method="POST", block=True), name="dispatch"
-)
 class EmailResetView(_EmailResetRequiredMixin, auth_views.PasswordResetView):
     """Send a password reset email (hidden unless email is set up)."""
 
@@ -954,6 +951,11 @@ class EmailResetView(_EmailResetRequiredMixin, auth_views.PasswordResetView):
     email_template_name = "services/auth/password_reset_email.txt"
     html_email_template_name = "services/auth/password_reset_email.html"
     subject_template_name = "services/auth/password_reset_subject.txt"
+
+    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """Handle the POST form submission, rate limited per IP."""
+        return super().post(request, *args, **kwargs)
 
 
 class EmailResetDoneView(_EmailResetRequiredMixin, auth_views.PasswordResetDoneView):

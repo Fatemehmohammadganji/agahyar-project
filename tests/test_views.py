@@ -1582,6 +1582,20 @@ class TestPasswordReset:
         assert statuses[:5] == [302, 302, 302, 302, 302]
         assert statuses[5] == 403
 
+    @override_settings(MAILERS=CONSOLE_MAILERS, RATELIMIT_ENABLE=True)
+    def test_email_reset_all_posts_404_when_not_setup(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        client = Client()
+        statuses = [
+            client.post(
+                reverse("password_reset"), {"email": "nobody@example.com"}
+            ).status_code
+            for _ in range(6)
+        ]
+        assert statuses == [404, 404, 404, 404, 404, 404]
+
     @override_settings(MAILERS=LOCMEM_MAILERS, PASSWORD_RESET_TIMEOUT=-1)
     def test_email_reset_token_rejected_when_expired(self):
         from django.contrib.auth.tokens import default_token_generator
