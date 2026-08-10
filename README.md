@@ -73,7 +73,7 @@ find everything they need in one place.
 
 ## 🛠️ Technologies Used
 
-- 🐍 **Python 3.12 / Django 6.0** – Backend
+- 🐍 **Python 3.12 / Django 6.1** – Backend
 - ⚡ **uv** – Python package manager
 - 🗄️ **PostgreSQL / PostGIS** – Database
 - 🚀 **Redis** – Cache & sessions (production)
