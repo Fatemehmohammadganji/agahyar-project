@@ -487,13 +487,14 @@ class TestSearchView:
         assert 'id="signupNudge"' not in content
 
     def test_signup_nudge_preserves_next_param(self):
+        from django.template.defaultfilters import urlencode
+
         client = Client()
         response = client.get("/search/", {"q": "شناسنامه", "city": "تهران"})
         content = response.content.decode()
-        assert "/register/?next=/search/" in content
-        assert "/login/?next=/search/" in content
-        assert "q" in content.split("next=/search/", 1)[1]
-        assert "city" in content.split("next=/search/", 1)[1]
+        expected_next = urlencode(response.wsgi_request.get_full_path())
+        assert f"/register/?next={expected_next}" in content
+        assert f"/login/?next={expected_next}" in content
 
 
 @pytest.mark.django_db
