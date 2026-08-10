@@ -16,6 +16,7 @@ from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from services.emailing import is_email_setup
 from services.forms import RegisterForm
 from services.models import (
     FAQ,
@@ -1406,6 +1407,41 @@ class TestContactView:
         )
         content = response.content.decode()
         assert 'class="field-error"' in content
+
+
+@pytest.mark.django_db
+class TestIsEmailSetup:
+    """Unit tests for :func:`services.emailing.is_email_setup`."""
+
+    def test_mailers_without_default_backend_is_not_setup(self):
+        with override_settings(MAILERS={"default": {}}):
+            assert not is_email_setup()
+
+    def test_mailers_without_default_entry_is_not_setup(self):
+        with override_settings(MAILERS={"other": {"BACKEND": "x"}}):
+            assert not is_email_setup()
+
+    def test_console_backend_is_not_setup(self):
+        with override_settings(
+            MAILERS={
+                "default": {
+                    "BACKEND": "django.core.mail.backends.console.EmailBackend",
+                    "OPTIONS": {},
+                }
+            }
+        ):
+            assert not is_email_setup()
+
+    def test_sending_backend_is_setup(self):
+        with override_settings(
+            MAILERS={
+                "default": {
+                    "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+                    "OPTIONS": {},
+                }
+            }
+        ):
+            assert is_email_setup()
 
 
 @pytest.mark.django_db

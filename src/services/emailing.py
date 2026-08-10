@@ -16,10 +16,11 @@ def is_email_setup() -> bool:
     Django 6.1 routes sending through the ``MAILERS`` setting, so the backend
     must be read from ``MAILERS["default"]["BACKEND"]``; the deprecated
     ``EMAIL_BACKEND`` setting is only a fallback when ``MAILERS`` is absent.
+    A missing or empty backend value counts as not set up.
     """
     mailers = getattr(settings, "MAILERS", None)
     if mailers:
         backend = mailers.get("default", {}).get("BACKEND", "")
     else:
         backend = getattr(settings, "EMAIL_BACKEND", "")
-    return backend != "django.core.mail.backends.console.EmailBackend"
+    return bool(backend) and backend != "django.core.mail.backends.console.EmailBackend"
