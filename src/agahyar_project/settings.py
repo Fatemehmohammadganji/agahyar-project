@@ -112,6 +112,7 @@ TEMPLATES = [
                 "agahyar_project.context_processors.matomo_context",
                 "agahyar_project.context_processors.user_theme_context",
                 "agahyar_project.context_processors.contact_info_context",
+                "agahyar_project.context_processors.email_features_context",
             ],
         },
     },
@@ -240,6 +241,7 @@ RATELIMIT_FAIL_OPEN = False
 AUTHENTICATION_BACKENDS = ["services.backends.PhoneEmailBackend"]
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
+PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT", default=259200, cast=int)
 
 # SMS.ir configuration
 SMS_IR_API_KEY = config("SMS_IR_API_KEY", default="")

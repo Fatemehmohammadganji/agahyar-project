@@ -4,7 +4,6 @@ Maps all application routes: core pages, authentication
 endpoints, bookmarks, comments, ratings, and password reset flows.
 """
 
-from django.contrib.auth import views as auth_views
 from django.urls import URLPattern, path
 
 from . import feeds, views
@@ -150,34 +149,23 @@ urlpatterns: list[URLPattern] = [
         views.password_reset_phone_done_view,
         name="password_reset_phone_done",
     ),
-    # ===== Password reset =====
-    path(
-        "password-reset/",
-        auth_views.PasswordResetView.as_view(
-            template_name="services/auth/password_reset_form.html",
-            email_template_name="services/auth/password_reset_email.html",
-        ),
-        name="password_reset",
-    ),
+    # ===== Password reset (email) =====
+    # The email flow returns 404 and its links are hidden until the admin
+    # configures a real sending mail backend (see is_email_setup()).
+    path("password-reset/", views.EmailResetView.as_view(), name="password_reset"),
     path(
         "password-reset/done/",
-        auth_views.PasswordResetDoneView.as_view(
-            template_name="services/auth/password_reset_done.html",
-        ),
+        views.EmailResetDoneView.as_view(),
         name="password_reset_done",
     ),
     path(
         "reset/<uidb64>/<token>/",
-        auth_views.PasswordResetConfirmView.as_view(
-            template_name="services/auth/password_reset_confirm.html",
-        ),
+        views.EmailResetConfirmView.as_view(),
         name="password_reset_confirm",
     ),
     path(
         "reset/done/",
-        auth_views.PasswordResetCompleteView.as_view(
-            template_name="services/auth/password_reset_complete.html",
-        ),
+        views.EmailResetCompleteView.as_view(),
         name="password_reset_complete",
     ),
 ]

@@ -18,6 +18,7 @@ from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
@@ -25,15 +26,17 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, F, Max, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 
+from .emailing import is_email_setup
 from .error_codes import get_error_message
 from .forms import (
     BlogPostAdminForm,
@@ -916,6 +919,54 @@ def set_new_password_view(request: HttpRequest) -> HttpResponse:
 def password_reset_phone_done_view(request: HttpRequest) -> HttpResponse:
     """Display success message after password reset via phone."""
     return render(request, "services/auth/password_reset_phone_done.html")
+
+
+class _EmailResetRequiredMixin:
+    """Raise 404 for email-reset pages when no sending mail backend is set up.
+
+    The email password reset flow is only meaningful once the admin has
+    configured a real mail backend (SMTP). Until then the pages must not be
+    reachable and all frontend links to them are hidden.
+    """
+
+    def dispatch(self, request: HttpRequest, *args, **kwargs):
+        if not is_email_setup():
+            raise Http404("Email password reset is not configured.")
+        return super().dispatch(request, *args, **kwargs)
+
+
+@method_decorator(
+    ratelimit(key="ip", rate="5/m", method="POST", block=True), name="dispatch"
+)
+class EmailResetView(_EmailResetRequiredMixin, auth_views.PasswordResetView):
+    """Send a password reset email (hidden unless email is set up)."""
+
+    template_name = "services/auth/password_reset_form.html"
+    email_template_name = "services/auth/password_reset_email.txt"
+    html_email_template_name = "services/auth/password_reset_email.html"
+    subject_template_name = "services/auth/password_reset_subject.txt"
+
+
+class EmailResetDoneView(_EmailResetRequiredMixin, auth_views.PasswordResetDoneView):
+    """Confirmation page after a reset email is sent (gated like the form)."""
+
+    template_name = "services/auth/password_reset_done.html"
+
+
+class EmailResetConfirmView(
+    _EmailResetRequiredMixin, auth_views.PasswordResetConfirmView
+):
+    """Set a new password from the emailed link (gated like the form)."""
+
+    template_name = "services/auth/password_reset_confirm.html"
+
+
+class EmailResetCompleteView(
+    _EmailResetRequiredMixin, auth_views.PasswordResetCompleteView
+):
+    """Success page after a successful email password reset."""
+
+    template_name = "services/auth/password_reset_complete.html"
 
 
 def home(request: HttpRequest) -> HttpResponse:

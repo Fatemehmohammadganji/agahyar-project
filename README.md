@@ -48,6 +48,8 @@ place.
 
 - 🛡️ **Security Hardening** – Includes rate limiting, Content Security Policy (CSP), configurable admin URL, and secure session settings to improve application security.
 
+- 📧 **Email Password Reset** – Reset passwords via a branded HTML email with a Persian subject and a plain-text fallback. The reset POST is rate limited and the link lifetime is configurable via `PASSWORD_RESET_TIMEOUT`. The flow is only visible when a real sending mail backend (SMTP) is configured: with the development console backend the page and its links are hidden and its URLs return 404.
+
 - ✉️ **Configurable Contact Info** – The contact email, phone, and working hours shown in the footer and on the contact page are stored in the database (`SiteContactInfo`), seeded from the `CONTACT_EMAIL` / `CONTACT_PHONE` / `CONTACT_WORKING_HOURS` environment variables on first run, and editable by admins in the admin panel. Empty values are hidden from visitors.
 
 - 📱 **Fully Responsive** – Optimized for mobile phones, tablets, laptops, and desktop devices with a consistent user experience.

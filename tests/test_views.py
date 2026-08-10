@@ -6,10 +6,12 @@ and error-code rendering across all views.
 """
 
 import json
+import re
 from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.models import User
+from django.core import mail
 from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -1385,17 +1387,69 @@ class TestContactView:
 
 @pytest.mark.django_db
 class TestPasswordReset:
-    def test_password_reset_page_loads(self):
-        client = Client()
-        response = client.get(reverse("password_reset"))
-        assert response.status_code == 200
+    """Tests for the email-based password reset flow.
 
-    def test_password_reset_done_page_loads(self):
-        client = Client()
-        response = client.get(reverse("password_reset_done"))
-        assert response.status_code == 200
+    The flow is gated behind a configured sending mail backend: with the
+    default console backend the URLs 404 and frontend links are hidden.
+    """
 
-    def test_password_reset_submit_sends_email(self):
+    LOCMEM_MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+            "OPTIONS": {},
+        }
+    }
+    CONSOLE_MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.console.EmailBackend",
+            "OPTIONS": {},
+        }
+    }
+
+    @override_settings(MAILERS=CONSOLE_MAILERS)
+    def test_email_reset_urls_404_when_email_not_setup(self):
+        client = Client()
+        for name in (
+            "password_reset",
+            "password_reset_done",
+            "password_reset_complete",
+        ):
+            assert client.get(reverse(name)).status_code == 404
+        assert (
+            client.get(
+                reverse("password_reset_confirm", args=["dummy", "dummy"])
+            ).status_code
+            == 404
+        )
+
+    @override_settings(
+        MAILERS={
+            "default": {
+                "BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+                "OPTIONS": {},
+            }
+        }
+    )
+    def test_email_reset_pages_load_when_email_setup(self):
+        client = Client()
+        assert client.get(reverse("password_reset")).status_code == 200
+        assert client.get(reverse("password_reset_done")).status_code == 200
+        assert client.get(reverse("password_reset_complete")).status_code == 200
+
+    @override_settings(MAILERS=CONSOLE_MAILERS)
+    def test_phone_reset_page_hides_email_link_when_not_setup(self):
+        client = Client()
+        content = client.get(reverse("password_reset_phone")).content.decode()
+        assert "بازیابی با ایمیل" not in content
+
+    @override_settings(MAILERS=LOCMEM_MAILERS)
+    def test_phone_reset_page_shows_email_link_when_setup(self):
+        client = Client()
+        content = client.get(reverse("password_reset_phone")).content.decode()
+        assert "بازیابی با ایمیل" in content
+
+    @override_settings(MAILERS=LOCMEM_MAILERS)
+    def test_reset_submit_sends_html_email_with_persian_subject(self):
         User.objects.create_user(
             username="resetuser", email="reset@example.com", password="oldpass"
         )
@@ -1405,6 +1459,86 @@ class TestPasswordReset:
         )
         assert response.status_code == 302
         assert response.url == reverse("password_reset_done")
+        assert len(mail.outbox) == 1
+        message = mail.outbox[0]
+        assert message.to == ["reset@example.com"]
+        assert "بازیابی رمز عبور" in message.subject
+        assert "/reset/" in message.body
+        html = [
+            alternative[0]
+            for alternative in message.alternatives
+            if alternative[1] == "text/html"
+        ]
+        assert html
+        assert "بازیابی رمز عبور" in html[0]
+        assert "/reset/" in html[0]
+
+    @override_settings(MAILERS=LOCMEM_MAILERS)
+    def test_email_reset_full_flow(self):
+        User.objects.create_user(
+            username="flowuser", email="flow@example.com", password="oldpass"
+        )
+        client = Client()
+        client.post(reverse("password_reset"), {"email": "flow@example.com"})
+        assert len(mail.outbox) == 1
+        reset_url = re.search(
+            r"http://testserver/reset/\S+", mail.outbox[0].body
+        ).group(0)
+
+        response = client.get(reset_url)
+        assert response.status_code == 302
+        set_password_url = response.url
+
+        response = client.get(set_password_url)
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "تنظیم رمز عبور جدید" in content
+
+        response = client.post(
+            set_password_url,
+            {"new_password1": "NewComplex1!", "new_password2": "NewComplex1!"},
+        )
+        assert response.status_code == 302
+        assert response.url == reverse("password_reset_complete")
+
+        assert client.get(response.url).status_code == 200
+
+        response = client.post(
+            reverse("login"), {"username": "flowuser", "password": "NewComplex1!"}
+        )
+        assert response.status_code == 302
+
+    @override_settings(MAILERS=LOCMEM_MAILERS, RATELIMIT_ENABLE=True)
+    def test_email_reset_post_rate_limited(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        client = Client()
+        statuses = [
+            client.post(
+                reverse("password_reset"), {"email": "nobody@example.com"}
+            ).status_code
+            for _ in range(6)
+        ]
+        assert statuses[:5] == [302, 302, 302, 302, 302]
+        assert statuses[5] == 403
+
+    @override_settings(MAILERS=LOCMEM_MAILERS, PASSWORD_RESET_TIMEOUT=-1)
+    def test_email_reset_token_rejected_when_expired(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        user = User.objects.create_user(
+            username="expiryuser", email="expiry@example.com", password="oldpass"
+        )
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        client = Client()
+        response = client.get(reverse("password_reset_confirm", args=[uidb64, token]))
+        content = response.content.decode()
+        assert "لینک نامعتبر است" in content
+        assert 'name="new_password1"' not in content
 
 
 @pytest.mark.django_db

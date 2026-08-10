@@ -3,6 +3,7 @@
 from django.conf import settings
 from django.http import HttpRequest
 
+from services.emailing import is_email_setup
 from services.models import ThemePreference, get_site_contact_info
 
 
@@ -54,3 +55,12 @@ def contact_info_context(request: HttpRequest) -> dict:
         "contact_phone": info.phone,
         "contact_working_hours": info.working_hours,
     }
+
+
+def email_features_context(request: HttpRequest) -> dict:
+    """Add email-based feature flags to the template context.
+
+    Returns ``email_reset_enabled`` so templates can hide the email password
+    reset flow when the admin has not configured a sending mail backend.
+    """
+    return {"email_reset_enabled": is_email_setup()}
