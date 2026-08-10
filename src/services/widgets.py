@@ -167,11 +167,13 @@ class TagListWidget(forms.Widget):
         items = value.split(self.separator) if value else []
 
         html_parts = [
-            f'<div class="tag-list-widget" id="{widget_id}_taglist"'
-            f' data-separator="{self.separator}">'
-            f'<input type="hidden" name="{name}" id="{widget_id}"'
-            f' value="{html_module.escape(value)}">'
-            f'<div class="tag-list-items">'
+            (
+                f'<div class="tag-list-widget" id="{widget_id}_taglist"'
+                f' data-separator="{self.separator}">'
+                f'<input type="hidden" name="{name}" id="{widget_id}"'
+                f' value="{html_module.escape(value)}">'
+                f'<div class="tag-list-items">'
+            )
         ]
 
         for item in items:

@@ -43,6 +43,7 @@
           <button type="button"
                   class="btn-bookmark-icon"
                   data-service-id="{{ service.id }}"
+                  data-user-auth="{{ user.is_authenticated|lower }}"
                   data-bookmarked="{% if service.id in bookmarked_ids %}true{% else %}false{% endif %}"
                   title="{% if service.id in bookmarked_ids %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
             <i class="{% if service.id in bookmarked_ids %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>
@@ -56,16 +57,16 @@
     {% endfor %}
   </div>
   <h2 class="section-title">پرسش‌های متداول</h2>
-  {% cache 900 dashboard_faq faq_count %}
-  <div class="faq-section">
-    {% for faq in faqs %}
-      <div class="faq-item">
-        <div class="faq-question">{{ faq.question }}</div>
-        <div class="faq-answer">{{ faq.answer }}</div>
-      </div>
-    {% empty %}
-      <p class="empty-faq">هنوز پرسشی ثبت نشده است.</p>
-    {% endfor %}
-  </div>
-{% endcache %}
+  {% cache 900 dashboard_faq faq_count faq_updated_at %}
+    <div class="faq-section">
+      {% for faq in faqs %}
+        <div class="faq-item">
+          <div class="faq-question">{{ faq.question }}</div>
+          <div class="faq-answer">{{ faq.answer }}</div>
+        </div>
+      {% empty %}
+        <p class="empty-faq">هنوز پرسشی ثبت نشده است.</p>
+      {% endfor %}
+    </div>
+  {% endcache %}
 {% endblock %}

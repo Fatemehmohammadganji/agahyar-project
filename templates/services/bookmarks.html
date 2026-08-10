@@ -1,44 +1,84 @@
 {% extends 'services/base.html' %}
+{% load jalali_tags %}
 {% block title %}نشانک‌ها | آگاه‌یار{% endblock %}
-{% block meta_description %}خدمات نشانک‌شده من در آگاه‌یار{% endblock %}
-{% block meta_keywords %}نشانک, نشانک‌ها, خدمات مورد علاقه, آگاه‌یار, آگاه یار{% endblock %}
+{% block meta_description %}خدمات و مراکز نشانک‌شده من در آگاه‌یار{% endblock %}
+{% block meta_keywords %}نشانک, نشانک‌ها, خدمات مورد علاقه, مراکز مورد علاقه, آگاه‌یار, آگاه یار{% endblock %}
 {% block content %}
   <div class="dashboard-header">
     <h2>نشانک‌های من</h2>
   </div>
-  {% if bookmarks %}
-    <div class="services-grid">
-      {% for bookmark in bookmarks %}
-        <div class="service-card">
-          <div class="service-card-header">
-            <h3>{{ bookmark.service.name }}</h3>
-            <button type="button"
-                    class="btn-bookmark-icon"
-                    data-service-id="{{ bookmark.service.id }}"
-                    data-bookmarked="true"
-                    title="حذف از نشانک‌ها">
-              <i class="fas fa-bookmark fa-lg"></i>
-            </button>
-          </div>
-          <span class="org-badge">{{ bookmark.service.organization }}</span>
-          <div class="docs-preview">
-            <strong>مدارک مورد نیاز:</strong>
-            <ul class="docs-list">
-              {% for doc in bookmark.service.get_documents_list|slice:":2" %}
-                <li>{{ doc }}</li>
-              {% endfor %}
-              {% if bookmark.service.get_documents_list|length > 2 %}...{% endif %}
-            </ul>
-          </div>
-          <a href="{% url 'service_detail' bookmark.service.id %}"
-             class="btn-detail">مشاهده جزئیات</a>
+  {% if bookmarks or center_bookmarks %}
+    {% if bookmarks %}
+      <section class="bookmark-section" data-bookmark-section="services">
+        <h3 class="section-title">خدمات</h3>
+        <div class="services-grid">
+          {% for bookmark in bookmarks %}
+            <div class="service-card">
+              <div class="service-card-header">
+                <h3>{{ bookmark.service.name }}</h3>
+                <button type="button"
+                        class="btn-bookmark-icon"
+                        data-service-id="{{ bookmark.service.id }}"
+                        data-user-auth="{{ user.is_authenticated|lower }}"
+                        data-bookmarked="true"
+                        title="حذف از نشانک‌ها">
+                  <i class="fas fa-bookmark fa-lg"></i>
+                </button>
+              </div>
+              <span class="org-badge">{{ bookmark.service.organization }}</span>
+              <div class="docs-preview">
+                <strong>مدارک مورد نیاز:</strong>
+                <ul class="docs-list">
+                  {% for doc in bookmark.service.get_documents_list|slice:":2" %}
+                    <li>{{ doc }}</li>
+                  {% endfor %}
+                  {% if bookmark.service.get_documents_list|length > 2 %}...{% endif %}
+                </ul>
+              </div>
+              <a href="{% url 'service_detail' bookmark.service.id %}"
+                 class="btn-detail">مشاهده جزئیات</a>
+            </div>
+          {% endfor %}
         </div>
-      {% endfor %}
-    </div>
+      </section>
+    {% endif %}
+    {% if center_bookmarks %}
+      <section class="bookmark-section" data-bookmark-section="centers">
+        <h3 class="section-title section-title-spaced">مراکز</h3>
+        <div class="center-bookmarks-grid">
+          {% for bookmark in center_bookmarks %}
+            <div class="bookmark-center-card">
+              <div class="bookmark-center-card-header">
+                <div class="bookmark-center-card-title">
+                  <i class="fas fa-building" aria-hidden="true"></i>
+                  <a href="{% url 'center_detail' bookmark.service_center.id %}"
+                     class="bookmark-center-card-name">{{ bookmark.service_center.name|fa }}</a>
+                </div>
+                <button type="button"
+                        class="btn-bookmark-icon"
+                        data-center-id="{{ bookmark.service_center.id }}"
+                        data-user-auth="{{ user.is_authenticated|lower }}"
+                        data-bookmarked="true"
+                        title="حذف از نشانک‌ها">
+                  <i class="fas fa-bookmark fa-lg"></i>
+                </button>
+              </div>
+              <div class="bookmark-center-card-address">
+                <i class="fas fa-location-dot" aria-hidden="true"></i>
+                <span>{{ bookmark.service_center.address }}</span>
+              </div>
+              {% if bookmark.service_center.description %}
+                <div class="bookmark-center-card-description">{{ bookmark.service_center.description|linebreaksbr }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
   {% else %}
     <div class="no-results">
       <h3>نشانکی وجود ندارد</h3>
-      <p>شما هنوز هیچ خدمتی را نشانک نکرده‌اید. با مراجعه به صفحه خدمات می‌توانید خدمت مورد نظر خود را نشانک کنید.</p>
+      <p>شما هنوز هیچ خدمت یا مرکزی را نشانک نکرده‌اید. با مراجعه به صفحه خدمات یا مراکز می‌توانید خدمت یا مرکز مورد نظر خود را نشانک کنید.</p>
       <a href="{% url 'services_list' %}" class="btn-back">مشاهده خدمات</a>
     </div>
   {% endif %}

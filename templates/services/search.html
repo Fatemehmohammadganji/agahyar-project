@@ -33,6 +33,21 @@
       </div>
     </form>
   </div>
+  {% if not user.is_authenticated %}
+    <aside class="signup-nudge" id="signupNudge" aria-label="پیشنهاد ثبت‌نام">
+      <div class="signup-nudge-text">
+        <strong>حساب کاربری بسازید</strong>
+        <span>خدمات پرکاربرد را نشانک کنید و به‌روزرسانی‌ها را دنبال کنید.</span>
+      </div>
+      <div class="signup-nudge-actions">
+        <a href="{% url 'register' %}?next={{ request.get_full_path|urlencode }}"
+           class="btn-nudge">ثبت‌نام رایگان</a>
+        <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}"
+           class="btn-nudge btn-nudge-secondary">ورود</a>
+      </div>
+      <button type="button" class="signup-nudge-close" aria-label="بستن">×</button>
+    </aside>
+  {% endif %}
   {% if query or org_filter or city_filter %}
     {% if count == 0 %}
       <div class="no-results">
@@ -48,6 +63,7 @@
             <button type="button"
                     class="btn-bookmark-icon"
                     data-service-id="{{ service.id }}"
+                    data-user-auth="{{ user.is_authenticated|lower }}"
                     data-bookmarked="{% if service.id in bookmarked_ids %}true{% else %}false{% endif %}"
                     title="{% if service.id in bookmarked_ids %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
               <i class="{% if service.id in bookmarked_ids %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>

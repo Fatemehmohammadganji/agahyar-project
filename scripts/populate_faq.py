@@ -18,11 +18,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "src"))
 os.environ["DJANGO_SETTINGS_MODULE"] = "agahyar_project.settings"
 
-import django  # noqa: E402
+import django
 
 django.setup()
 
-from services.models import FAQ  # noqa: E402
+from services.models import FAQ
 
 FAQS = [
     # -----------------------------------------------------------------

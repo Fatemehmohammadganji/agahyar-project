@@ -39,6 +39,9 @@ Documentation
 - Never revert/override changes made by the user without asking for confirmation.
 - Always ask for clarification if the user request is ambiguous.
 - Do not commit anything without running the tests first.
+- If any tests fail, abort the commit and do not commit until the failures
+  are resolved and the full suite is green again. Never commit with known
+  failing tests, regardless of the assumed cause.
 - Always run tests inside the Docker container: `docker compose -f docker-compose.dev.yml exec web uv run pytest ...`
 - Pre-commit hooks: ruff, ruff-format, isort, pyproject-fmt. Pytest is NOT in
   pre-commit (too slow); run pytest manually before committing.
@@ -46,6 +49,11 @@ Documentation
 - The same CSS class must not be used for elements that are fundamentally
   different. A nav button and a page prompt are different things; use
   separate class names even if they share some styles.
+- Prefer widely supported browser features over manually reimplementing them
+  (e.g. native `<dialog>` for modals, `input type="date"`, CSS `:focus-visible`
+  for focus indicators). Only reimplement manually when the browser does not
+  provide exactly what we need or the feature is not supported by all major
+  browsers.
 - Do not commit empty files or files that do not provide any value to the project.
 - Every new thing needs new tests to be added and run. If you add a new feature,
   add a test for it. If you fix a bug, add a test that reproduces the bug and
@@ -77,6 +85,9 @@ stored as `TASK.md` files under `.tigo/YYYYMMDD-HHmmss/`. Each task has:
 - A title (`# title`)
 - STATUS, PRIORITY, TAGS, DUE metadata
 - A description with checkpoints
+
+References to other tasks in a description use the `Task(ID)` syntax,
+e.g. `Task(20260808-115556)`.
 
 Changes that are significant enough to warrant a new task should be added as
 a new `TASK.md` file.

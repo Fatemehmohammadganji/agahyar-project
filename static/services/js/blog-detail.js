@@ -86,55 +86,74 @@
         observer.observe(el);
       });
 
-    /* --- Star rating + login modal --- */
+    /* --- Star rating --- */
     var blogRating = document.getElementById("blog-star-rating");
     if (blogRating) {
       var postId = blogRating.getAttribute("data-post-id");
       var isAuth = blogRating.getAttribute("data-user-auth") === "true";
       var ratingAvg = document.getElementById("rating-average");
       var ratingCnt = document.getElementById("rating-count");
-      var loginModal = document.getElementById("login-modal");
-      var loginForm = document.getElementById("login-modal-form");
-      var loginError = document.getElementById("login-modal-error");
       var pendingScore = null;
 
       function submitRating(id, score) {
-        var token = getCSRF();
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/rate-blog-post/" + id + "/");
-        xhr.setRequestHeader(
-          "Content-Type",
-          "application/x-www-form-urlencoded",
-        );
-        xhr.onload = function () {
-          if (xhr.status !== 200) {
-            alert("ثبت امتیاز با خطا مواجه شد: کد " + xhr.status);
-            var radios = blogRating.querySelectorAll('input[type="radio"]');
-            for (var i = 0; i < radios.length; i++) radios[i].checked = false;
-            return;
-          }
-          try {
-            var d = JSON.parse(xhr.responseText);
-          } catch (e) {
-            return;
-          }
-          if (d.error) {
-            alert(d.error);
-            return;
-          }
-          ratingAvg.textContent =
-            d.average != null ? toFa(d.average) : "\u2014";
-          ratingCnt.textContent = "(" + toFa(d.count) + " امتیاز)";
-        };
-        xhr.onerror = function () {
-          alert("ثبت امتیاز با خطا مواجه شد: خطای شبکه");
-        };
-        xhr.send(
-          "score=" +
-            score +
-            "&csrfmiddlewaretoken=" +
-            encodeURIComponent(token),
-        );
+        return new Promise(function (resolve) {
+          var token = getCSRF();
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/rate-blog-post/" + id + "/");
+          xhr.setRequestHeader(
+            "Content-Type",
+            "application/x-www-form-urlencoded",
+          );
+          xhr.onload = function () {
+            if (xhr.status === 401 || xhr.status === 403) {
+              window.location.reload();
+              return;
+            }
+            if (xhr.status !== 200) {
+              alert("ثبت امتیاز با خطا مواجه شد: کد " + xhr.status);
+              var radios = blogRating.querySelectorAll('input[type="radio"]');
+              for (var i = 0; i < radios.length; i++) radios[i].checked = false;
+              return resolve();
+            }
+            try {
+              var d = JSON.parse(xhr.responseText);
+            } catch (e) {
+              return resolve();
+            }
+            if (d.error) {
+              alert(d.error);
+              return resolve();
+            }
+            if (ratingAvg) {
+              ratingAvg.textContent =
+                d.average != null ? toFa(d.average.toFixed(1)) : "\u2014";
+            }
+            if (ratingCnt) {
+              ratingCnt.textContent = "(" + toFa(d.count) + " امتیاز)";
+            }
+            resolve();
+          };
+          xhr.onerror = function () {
+            alert("ثبت امتیاز با خطا مواجه شد: خطای شبکه");
+            resolve();
+          };
+          xhr.send(
+            "score=" +
+              score +
+              "&csrfmiddlewaretoken=" +
+              encodeURIComponent(token),
+          );
+        });
+      }
+
+      function openLoginForRating() {
+        if (!window.AgahyarLoginModal) return;
+        window.AgahyarLoginModal.open({
+          prompt: "برای ثبت امتیاز وارد شوید",
+          onLogin: function () {
+            return submitRating(postId, pendingScore);
+          },
+        });
       }
 
       blogRating.addEventListener("click", function (e) {
@@ -142,139 +161,26 @@
         if (!label) return;
         var input = document.getElementById(label.getAttribute("for"));
         if (!input || !input.matches('input[type="radio"]')) return;
+        if (!isAuth) {
+          e.preventDefault();
+          pendingScore = parseInt(input.value);
+          input.checked = false;
+          openLoginForRating();
+        }
+      });
+
+      blogRating.addEventListener("change", function (e) {
+        var input = e.target;
+        if (!input.matches('input[type="radio"]')) return;
         var score = parseInt(input.value);
         if (!isAuth) {
-          if (loginModal) {
-            e.preventDefault();
-            pendingScore = score;
-            input.checked = false;
-            openModal();
-          }
+          pendingScore = score;
+          input.checked = false;
+          openLoginForRating();
           return;
         }
         submitRating(postId, score);
       });
-
-      /* --- Login modal: focus trap, Escape, backdrop click --- */
-      var lastFocusedEl = null;
-      var modalFocusable = null;
-      var modalFirst = null;
-      var modalLast = null;
-
-      function updateFocusable() {
-        modalFocusable = loginModal.querySelectorAll(
-          'a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
-        );
-        modalFirst = modalFocusable[0];
-        modalLast = modalFocusable[modalFocusable.length - 1];
-      }
-
-      function openModal() {
-        lastFocusedEl = document.activeElement;
-        loginModal.style.display = "flex";
-        loginError.style.display = "none";
-        updateFocusable();
-        if (modalFirst) modalFirst.focus();
-      }
-
-      function closeModal() {
-        loginModal.style.display = "none";
-        loginError.style.display = "none";
-        if (lastFocusedEl) lastFocusedEl.focus();
-      }
-
-      if (loginModal && loginForm && loginError) {
-        document
-          .getElementById("login-modal-close")
-          .addEventListener("click", closeModal);
-
-        loginModal.addEventListener("click", function (e) {
-          if (e.target === loginModal) closeModal();
-        });
-
-        document.addEventListener("keydown", function (e) {
-          if (
-            loginModal.style.display === "none" ||
-            loginModal.style.display === ""
-          )
-            return;
-          if (e.key === "Escape") {
-            e.preventDefault();
-            closeModal();
-          }
-          if (e.key === "Tab") {
-            updateFocusable();
-            if (e.shiftKey) {
-              if (document.activeElement === modalFirst) {
-                e.preventDefault();
-                modalLast.focus();
-              }
-            } else {
-              if (document.activeElement === modalLast) {
-                e.preventDefault();
-                modalFirst.focus();
-              }
-            }
-          }
-        });
-
-        loginForm.addEventListener("submit", function (e) {
-          e.preventDefault();
-          var fd = new FormData(loginForm);
-          var params = "";
-          fd.forEach(function (value, key) {
-            if (params) params += "&";
-            params += encodeURIComponent(key) + "=" + encodeURIComponent(value);
-          });
-          loginError.style.display = "none";
-          fetch("/login/", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              "X-Requested-With": "XMLHttpRequest",
-            },
-            body: params,
-          })
-            .then(async function (r) {
-              var ct = r.headers.get("Content-Type") || "";
-              if (ct.indexOf("application/json") === 0) {
-                const d = await r.json();
-                return { ok: r.ok, data: d };
-              }
-              await r.text();
-              throw new Error("خطا در ارتباط با سرور");
-            })
-            .then(function (result) {
-              if (result.ok && result.data.success) {
-                isAuth = true;
-                closeModal();
-                if (result.data.csrfToken) {
-                  var el = document.querySelector(
-                    '[name="csrfmiddlewaretoken"]',
-                  );
-                  if (el) el.value = result.data.csrfToken;
-                }
-                if (pendingScore) {
-                  submitRating(postId, pendingScore);
-                }
-                setTimeout(function () {
-                  window.location.reload();
-                }, 500);
-              } else {
-                loginError.textContent =
-                  result.data && result.data.error
-                    ? result.data.error
-                    : "نام کاربری یا رمز عبور اشتباه است.";
-                loginError.style.display = "block";
-              }
-            })
-            .catch(function (err) {
-              loginError.textContent =
-                err.message || "خطا در ارتباط با سرور. لطفاً دوباره تلاش کنید.";
-              loginError.style.display = "block";
-            });
-        });
-      }
     }
   });
 })();

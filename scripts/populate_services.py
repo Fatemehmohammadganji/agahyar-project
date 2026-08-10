@@ -18,13 +18,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "src"))
 os.environ["DJANGO_SETTINGS_MODULE"] = "agahyar_project.settings"
 
-import django  # noqa: E402
+import django
 
 django.setup()
 
-from django.contrib.gis.geos import Point  # noqa: E402
+from django.contrib.gis.geos import Point
 
-from services.models import Service, ServiceCenter, ServiceCenterPhone  # noqa: E402
+from services.models import Service, ServiceCenter, ServiceCenterPhone
 
 SERVICES = [
     {
@@ -575,7 +575,7 @@ def populate_centers() -> int:
 
             phone_number = center_data.get("phone", "")
             if phone_number:
-                phone_obj, phone_created = ServiceCenterPhone.objects.update_or_create(
+                _phone_obj, phone_created = ServiceCenterPhone.objects.update_or_create(
                     center=obj,
                     label="main",
                     defaults={

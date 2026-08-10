@@ -1,5 +1,6 @@
 {% extends 'services/base.html' %}
 {% block title %}ورود | آگاه‌یار{% endblock %}
+{% block login_modal %}{% endblock %}
 {% block content %}
   <div class="login-container">
     <h2>ورود به آگاه‌یار</h2>
@@ -23,6 +24,9 @@
       </script>
     {% endif %}
     <form method="post" action="{% url 'login' %}">
+      {% if request.GET.next %}
+        <input type="hidden" name="next" value="{{ request.GET.next }}">
+      {% endif %}
       {% include 'services/auth/login_form.html' %}
     </form>
   </div>

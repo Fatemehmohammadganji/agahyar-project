@@ -317,7 +317,7 @@ class CenterRatingViewSet(viewsets.ViewSet):
         serializer = MyRatingSerializer(rating)
         return Response(serializer.data)
 
-    def destroy(self, request: Request, pk: int = None) -> Response:
+    def destroy(self, request: Request, pk: int | None = None) -> Response:
         """Delete only the caller's own rating."""
         try:
             rating = CenterRating.objects.get(pk=pk, user=request.user)

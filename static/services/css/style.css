@@ -967,6 +967,104 @@ button.muted-link:disabled {
   outline-offset: 2px;
 }
 
+.signup-nudge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.signup-nudge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.signup-nudge-text strong {
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.signup-nudge-text span {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.signup-nudge-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-nudge {
+  display: inline-block;
+  padding: var(--btn-padding-md);
+  border-radius: var(--btn-radius);
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+  text-decoration: none;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: var(--btn-transition);
+}
+
+.btn-nudge:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 95, 122, 0.25);
+}
+
+.btn-nudge:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btn-nudge-secondary {
+  background: transparent;
+  color: var(--color-accent);
+  border: 2px solid var(--color-accent);
+}
+
+.btn-nudge-secondary:hover {
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+}
+
+.signup-nudge-close {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  font-family: inherit;
+}
+
+.signup-nudge-close:hover {
+  color: var(--text-primary);
+}
+
+.signup-nudge-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.signup-nudge[hidden] {
+  display: none;
+}
+
 .org-badge {
   background: var(--bg-light);
   padding: 8px 16px;
@@ -1009,10 +1107,6 @@ button.muted-link:disabled {
 }
 
 /* --- Rating Section --- */
-.center-rating-section {
-  margin-top: 10px;
-}
-
 .rating-summary {
   display: flex;
   align-items: center;
@@ -1782,14 +1876,17 @@ button.muted-link:disabled {
   outline-offset: 1px;
 }
 
+dialog {
+  color: var(--text-primary);
+}
+
 /* --- Report Dialog --- */
 .report-dialog {
   border: none;
   border-radius: 16px;
   padding: 0;
-  max-width: 520px;
+  max-width: 480px;
   width: 90%;
-  min-height: 400px;
   margin: auto;
   background: var(--bg-card);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -1803,22 +1900,42 @@ button.muted-link:disabled {
   padding: 28px;
 }
 
-.report-dialog-content h3 {
-  margin: 0 0 8px;
+.report-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.report-dialog-header h3 {
+  margin: 0;
   font-size: 1.15rem;
   color: var(--text-primary);
+}
+
+.report-dialog-close {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-muted);
+  transition: var(--btn-transition);
+}
+
+.report-dialog-close:hover {
+  color: var(--text-primary);
+  background: var(--border-light);
 }
 
 .report-dialog-target {
   margin: 0 0 20px;
   font-size: 0.9rem;
   color: var(--text-secondary);
-}
-
-.report-dialog-content p {
-  margin: 0 0 12px;
-  font-size: 0.95rem;
-  color: var(--text-primary);
 }
 
 .report-form-group {
@@ -2343,6 +2460,90 @@ button.muted-link:disabled {
   border-top: 1px solid var(--border-light);
 }
 
+/* --- Center Bookmark Cards (Bookmarks page) --- */
+.center-bookmarks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 28px;
+  margin-top: 20px;
+}
+
+.bookmark-center-card {
+  background: var(--bg-card);
+  border-radius: 24px;
+  padding: 28px 24px;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  transition: 0.3s;
+  display: flex;
+  flex-direction: column;
+  border-top: 4px solid var(--color-accent);
+  position: relative;
+}
+
+.bookmark-center-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--shadow-card);
+}
+
+.bookmark-center-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.bookmark-center-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bookmark-center-card-title > i {
+  color: var(--color-accent);
+  font-size: 1.15rem;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.bookmark-center-card-name {
+  color: var(--color-accent);
+  font-size: 1.2rem;
+  font-weight: bold;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.bookmark-center-card-name:hover {
+  text-decoration: underline;
+}
+
+.bookmark-center-card-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.bookmark-center-card-address > i {
+  color: var(--color-accent);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.bookmark-center-card-description {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .description-card {
   background: var(--bg-light);
   padding: 12px 18px;
@@ -2459,6 +2660,50 @@ button.muted-link:disabled {
   margin: 20px 0;
   border: none;
   border-top: 1px solid var(--border-light);
+}
+
+.contact-info-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contact-info-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-light);
+  border-radius: 12px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  transition: var(--btn-transition);
+  direction: ltr;
+}
+
+.contact-info-item:hover {
+  box-shadow: 0 2px 8px var(--shadow-light);
+  transform: translateY(-1px);
+}
+
+.contact-info-item i {
+  color: var(--color-accent);
+  font-size: 1.1rem;
+  min-width: 20px;
+  text-align: center;
+}
+
+.contact-info-item a {
+  color: var(--color-accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.contact-info-item a:hover {
+  text-decoration: underline;
 }
 
 .btn-send {
@@ -2916,6 +3161,13 @@ button.muted-link:disabled {
     gap: 16px;
   }
   .service-card {
+    padding: 18px;
+  }
+  .center-bookmarks-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .bookmark-center-card {
     padding: 18px;
   }
   .section-title {
@@ -3990,34 +4242,33 @@ button.muted-link:disabled {
   text-decoration: underline;
 }
 /* Rating stars */
-.blog-rating-section {
+.rating-section {
   display: flex;
   align-items: center;
   gap: 1rem;
+  margin-bottom: 16px;
 }
 .star-rating-input .star-rating-display {
   font-size: 1.8rem;
   color: var(--border-color);
   user-select: none;
 }
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.login-modal {
+  border: none;
+  padding: 0;
+  margin: auto;
+  width: 90%;
+  max-width: 400px;
+  background: transparent;
   z-index: 9999;
+}
+.login-modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
 }
 .modal-content {
   background: var(--bg-card, #fff);
   border-radius: 16px;
   padding: 32px;
-  width: 90%;
-  max-width: 400px;
   position: relative;
 }
 .modal-close {
@@ -4030,16 +4281,16 @@ button.muted-link:disabled {
   cursor: pointer;
   color: var(--text-muted, #666);
 }
-.modal-overlay .form-group {
+.login-modal .form-group {
   margin-bottom: 16px;
 }
-.modal-overlay .form-group label {
+.login-modal .form-group label {
   display: block;
   margin-bottom: 6px;
   font-size: 0.9rem;
   color: var(--text-primary, #333);
 }
-.modal-overlay .ltr-input {
+.login-modal .ltr-input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border-color, #ddd);

@@ -17,9 +17,10 @@ def convert_coordinates(apps, schema_editor):
             coord is None
             and hasattr(center, "latitude")
             and hasattr(center, "longitude")
+            and center.latitude is not None
+            and center.longitude is not None
         ):
-            if center.latitude is not None and center.longitude is not None:
-                coord = Point(center.longitude, center.latitude, srid=4326)
+            coord = Point(center.longitude, center.latitude, srid=4326)
         center.coordinate_new = coord
         center.save(update_fields=["coordinate_new"])
 

@@ -2113,7 +2113,7 @@ class RegisterAPITest(TestCase):
     # --- Step 2: verify OTP + create account ---
 
     def test_verify_otp_creates_user(self):
-        reg_resp, verify_resp = self._full_register()
+        _reg_resp, verify_resp = self._full_register()
         self.assertEqual(verify_resp.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username="newuser").exists())
 
@@ -2123,14 +2123,14 @@ class RegisterAPITest(TestCase):
         self.assertTrue(Token.objects.filter(key=verify_resp.data["token"]).exists())
 
     def test_verify_otp_creates_profile(self):
-        _, verify_resp = self._full_register()
+        _, _verify_resp = self._full_register()
         user = User.objects.get(username="newuser")
         self.assertEqual(user.profile.city, "تهران")
         self.assertEqual(user.profile.neighborhood, "ونک")
         self.assertEqual(user.profile.phone, "09123456789")
 
     def test_verify_otp_sets_names(self):
-        _, verify_resp = self._full_register()
+        _, _verify_resp = self._full_register()
         user = User.objects.get(username="newuser")
         self.assertEqual(user.first_name, "علی")
         self.assertEqual(user.last_name, "احمدی")

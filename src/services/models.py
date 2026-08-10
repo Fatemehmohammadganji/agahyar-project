@@ -7,6 +7,7 @@ and ``Bookmark`` with Persian verbose names and helper methods.
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.utils import timezone
@@ -89,6 +90,35 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.city} - {self.neighborhood}"
 
 
+class ThemePreference(models.Model):
+    """Stores the user's preferred site theme (light or dark).
+
+    Kept separate from UserProfile because creating a UserProfile requires a
+    city, which we must not do implicitly just to persist a theme choice.
+    """
+
+    THEME_LIGHT = "light"
+    THEME_DARK = "dark"
+    THEME_CHOICES = [
+        (THEME_LIGHT, "روشن"),
+        (THEME_DARK, "تیره"),
+    ]
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="theme_preference"
+    )
+    theme = models.CharField(
+        "تم", max_length=10, choices=THEME_CHOICES, default=THEME_LIGHT
+    )
+
+    class Meta:
+        verbose_name = "تنظیم تم"
+        verbose_name_plural = "تنظیمات تم کاربران"
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.theme}"
+
+
 class PhoneVerification(models.Model):
     """Stores OTP codes for phone number verification during registration."""
 
@@ -123,6 +153,7 @@ class FAQ(models.Model):
     answer = models.TextField("پاسخ")
     category = models.CharField("دسته‌بندی", max_length=100, blank=True)
     order = models.IntegerField("ترتیب نمایش", default=0, db_index=True)
+    updated_at = models.DateTimeField("آخرین ویرایش", auto_now=True)
 
     class Meta:
         verbose_name = "سوال متداول"
@@ -236,6 +267,46 @@ class ContactMessage(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} - {self.email}"
+
+
+class SiteContactInfo(models.Model):
+    """Admin-editable contact details shown on the frontend.
+
+    A singleton row (pk=1) seeded from the ``CONTACT_EMAIL``,
+    ``CONTACT_PHONE`` and ``CONTACT_WORKING_HOURS`` environment variables on
+    first run. ``email``, ``phone`` and ``working_hours`` are optional blank
+    fields; the templates hide each field when its value is empty.
+    """
+
+    email = models.EmailField("ایمیل", max_length=254, blank=True)
+    phone = models.CharField("تلفن", max_length=30, blank=True)
+    working_hours = models.CharField("ساعت کاری", max_length=100, blank=True)
+
+    class Meta:
+        verbose_name = "اطلاعات تماس سایت"
+        verbose_name_plural = "اطلاعات تماس سایت"
+
+    def __str__(self) -> str:
+        return self.email or self.phone or "اطلاعات تماس"
+
+
+def get_site_contact_info() -> SiteContactInfo:
+    """Return the singleton contact info row, seeding it on first access.
+
+    The first call creates the row from the ``CONTACT_EMAIL``,
+    ``CONTACT_PHONE`` and ``CONTACT_WORKING_HOURS`` settings (which read from
+    environment variables). Afterwards the database row is the source of truth
+    and admins edit it from the admin panel.
+    """
+    info, _ = SiteContactInfo.objects.get_or_create(
+        pk=1,
+        defaults={
+            "email": getattr(settings, "CONTACT_EMAIL", ""),
+            "phone": getattr(settings, "CONTACT_PHONE", ""),
+            "working_hours": getattr(settings, "CONTACT_WORKING_HOURS", ""),
+        },
+    )
+    return info
 
 
 class BlogPost(models.Model):
@@ -490,22 +561,50 @@ class CenterRating(models.Model):
 
 
 class Bookmark(models.Model):
-    """A user's bookmark for a favorite service."""
+    """A user's bookmark for a favorite service or service center."""
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookmarks")
     service = models.ForeignKey(
-        Service, on_delete=models.CASCADE, related_name="bookmarks"
+        Service,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+        null=True,
+        blank=True,
+    )
+    service_center = models.ForeignKey(
+        ServiceCenter,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField("تاریخ", auto_now_add=True)
 
     class Meta:
         verbose_name = "نشانک"
         verbose_name_plural = "نشانک‌ها"
-        unique_together = ("user", "service")
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "service"],
+                name="unique_bookmark_user_service",
+                condition=models.Q(service__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=["user", "service_center"],
+                name="unique_bookmark_user_service_center",
+                condition=models.Q(service_center__isnull=False),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(service__isnull=False, service_center__isnull=True)
+                | models.Q(service__isnull=True, service_center__isnull=False),
+                name="bookmark_exactly_one_target",
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.user.username} - {self.service.name}"
+        target = self.service.name if self.service else self.service_center.name
+        return f"{self.user.username} - {target}"
 
 
 class InfoReport(models.Model):

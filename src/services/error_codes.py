@@ -49,6 +49,9 @@ ERROR_CODES: dict[str, str] = {
     # ---- Bookmark ----
     "bookmark/added": "خدمت مورد نظر به نشانک‌ها اضافه شد.",
     "bookmark/removed": "خدمت مورد نظر از نشانک‌ها حذف شد.",
+    "bookmark/center-added": "مرکز مورد نظر به نشانک‌ها اضافه شد.",
+    "bookmark/center-removed": "مرکز مورد نظر از نشانک‌ها حذف شد.",
+    "bookmark/state-required": "وضعیت نشانک مورد نظر ارسال نشده است.",
     # ---- Comment ----
     "comment/added": "نظر شما با موفقیت ثبت شد.",
     "comment/updated": "نظر شما با موفقیت به‌روزرسانی شد.",
@@ -68,6 +71,7 @@ ERROR_CODES: dict[str, str] = {
     # ---- Center rating ----
     "center-rating/added": "امتیاز شما با موفقیت ثبت شد.",
     "center-rating/updated": "امتیاز شما با موفقیت به‌روزرسانی شد.",
+    "center-rating/login-required": "برای ثبت امتیاز باید وارد شوید.",
     # ---- Geolocation ----
     "geolocation/unavailable": "امکان دریافت موقعیت جغرافیایی وجود ندارد.",
     "geolocation/invalid-coordinates": "مختصات وارد شده معتبر نیست.",
@@ -86,6 +90,9 @@ ERROR_CODES: dict[str, str] = {
     "auth/no-user-with-phone": "کاربری با این شماره موبایل یافت نشد.",
     "password/reset-done": "رمز عبور شما با موفقیت تغییر کرد. اکنون می‌توانید وارد شوید.",
     "otp/no-pending-password-reset": "فرآیند بازیابی رمز عبور منقضی شده است. لطفاً دوباره اقدام کنید.",
+    # ---- Theme ----
+    "theme/invalid-value": "مقدار تم نامعتبر است.",
+    "theme/login-required": "برای ذخیره تم باید وارد شوید.",
 }
 
 

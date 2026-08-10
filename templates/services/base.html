@@ -1,6 +1,6 @@
-{% load static %}
+{% load static jalali_tags %}
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-theme="{{ user_theme }}">
   <head>
     <script>
         (function() {
@@ -51,10 +51,11 @@
     <link rel="stylesheet" href="{% static 'services/css/style.css' %}" />
     <script defer src="{% static 'services/js/error-translate.js' %}"></script>
     <script defer src="{% static 'services/js/custom-select.js' %}"></script>
+    <script defer src="{% static 'services/js/login-modal.js' %}"></script>
     <script defer src="{% static 'services/js/main.js' %}"></script>
     {% block extra_css %}{% endblock %}
   </head>
-  <body>
+  <body data-user-auth="{{ user.is_authenticated|lower }}">
     <div style="display:none">{% csrf_token %}</div>
     <header class="header">
       <div class="header-container">
@@ -77,12 +78,18 @@
             <a href="{% url 'contact' %}">تماس با ما</a>
             <a href="{% url 'login' %}" class="login-link">ورود</a>
           {% endif %}
-          <button class="theme-toggle-btn"
-                  id="themeToggle"
-                  onclick="toggleTheme()"
-                  aria-label="تغییر تم">
-            <i class="fas fa-moon"></i>
-          </button>
+          <a class="theme-toggle-btn"
+             id="themeToggle"
+             href="{% url 'theme_toggle' %}"
+             onclick="toggleTheme(); return false;"
+             role="button"
+             aria-label="{% if user_theme == 'dark' %}تم روز{% else %}تم شب{% endif %}">
+            {% if user_theme == 'dark' %}
+              <i class="fas fa-sun"></i>
+            {% else %}
+              <i class="fas fa-moon"></i>
+            {% endif %}
+          </a>
         </nav>
         <button class="mobile-menu-btn" onclick="toggleMenu()" aria-label="منو">☰</button>
       </div>
@@ -109,11 +116,17 @@
           <a href="{% url 'contact' %}">تماس با ما</a>
           <a href="{% url 'about' %}">درباره تیم</a>
         </div>
-        <div class="footer-section">
-          <h4>تماس با ما</h4>
-          <a href="#">info@agahyar4iran.ir</a>
-          <a href="#">۰۲۱-۱۲۳۴۵۶۷۸</a>
-        </div>
+        {% if contact_email or contact_phone %}
+          <div class="footer-section">
+            <h4>تماس با ما</h4>
+            {% if contact_email %}
+              <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
+            {% endif %}
+            {% if contact_phone %}
+              <a href="tel:{{ contact_phone|en }}">{{ contact_phone }}</a>
+            {% endif %}
+          </div>
+        {% endif %}
       </div>
       <div class="footer-bottom">
         <p>© ۱۴۰۴-۱۴۰۵ - تیم آگاه‌ران | پروژه درس مدیریت پروژه فناوری اطلاعات</p>
@@ -126,6 +139,9 @@
         </a>
       </div>
     </footer>
+    {% block login_modal %}
+      {% include "services/partials/login_modal.html" %}
+    {% endblock %}
     <script src="{% static 'libs/toastify/toastify.js' %}"></script>
     <script>
         var toastLevels = {
@@ -168,8 +184,7 @@
             {% endif %}
         });
     </script>
-    {% block extra_js %}
-    {% endblock %}
+    {% block extra_js %}{% endblock %}
     {% if MATOMO_URL and MATOMO_SITE_ID %}
       <script>
           var _paq = window._paq = window._paq || [];

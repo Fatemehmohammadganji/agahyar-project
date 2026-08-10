@@ -2,6 +2,7 @@
 
 import pytest
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.test import Client
 from django.urls import reverse
 
@@ -205,7 +206,7 @@ class TestBlogPostRatingModel:
             author=User.objects.create_user(username="author1"),
         )
         BlogPostRating.objects.create(user=user, blog_post=post, score=3)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             BlogPostRating.objects.create(user=user, blog_post=post, score=5)
 
 
@@ -241,6 +242,24 @@ class TestBlogViews:
         )
         response = client.get(f"/blog/{post.slug}/")
         assert response.status_code == 200
+
+    def test_blog_detail_includes_shared_login_modal_once(self, client):
+        author = User.objects.create_user(username="author1")
+        post = BlogPost.objects.create(
+            title="test",
+            author=author,
+            is_published=True,
+        )
+        response = client.get(f"/blog/{post.slug}/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+        assert '<dialog class="login-modal"' in content
+        assert 'class="modal-overlay"' not in content
+        assert 'id="login-modal-form"' in content
+        assert 'id="login-modal-error"' in content
+        assert 'id="login-modal-prompt"' in content
+        assert 'class="login-prompt-link"' in content
+        assert f'href="/login/?next=/blog/{post.slug}/"' in content
 
     def test_blog_detail_returns_404_for_draft(self, client):
         author = User.objects.create_user(username="author1")
@@ -690,6 +709,22 @@ class TestBlogRatingAPI:
         response = client.post(
             f"/api/rate-blog-post/{post.id}/",
             {"score": 6},
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_non_object_json_body_rejected(self, client, raw_body):
+        User.objects.create_user(username="testuser", password="pass")
+        post = BlogPost.objects.create(
+            title="test",
+            author=User.objects.create_user(username="author1"),
+            is_published=True,
+        )
+        client.login(username="testuser", password="pass")
+        response = client.post(
+            f"/api/rate-blog-post/{post.id}/",
+            data=raw_body,
             content_type="application/json",
         )
         assert response.status_code == 400

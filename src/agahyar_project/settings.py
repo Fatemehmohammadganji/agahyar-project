@@ -110,6 +110,9 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "agahyar_project.context_processors.matomo_context",
+                "agahyar_project.context_processors.user_theme_context",
+                "agahyar_project.context_processors.contact_info_context",
+                "agahyar_project.context_processors.email_features_context",
             ],
         },
     },
@@ -238,6 +241,7 @@ RATELIMIT_FAIL_OPEN = False
 AUTHENTICATION_BACKENDS = ["services.backends.PhoneEmailBackend"]
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
+PASSWORD_RESET_TIMEOUT = config("PASSWORD_RESET_TIMEOUT", default=259200, cast=int)
 
 # SMS.ir configuration
 SMS_IR_API_KEY = config("SMS_IR_API_KEY", default="")
@@ -251,21 +255,40 @@ OTP_RESEND_COOLDOWN_SECONDS = config(
 # Neshan Maps search API (used by admin map widget)
 NESHAN_API_KEY = config("NESHAN_API_KEY", default="")
 
-# Email configuration
+# Email configuration via the MAILERS setting (Django 6.1+).
 # Default: console backend (prints to terminal in development).
 # For production, set EMAIL_BACKEND to the SMTP backend and configure
 # the remaining variables to point at your Mailcow (or other) SMTP server.
-EMAIL_BACKEND = config(
+# The EMAIL_* environment variables feed into MAILERS["default"]["OPTIONS"]
+# when the SMTP backend is selected (the console backend accepts none of them).
+_EMAIL_BACKEND = config(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.console.EmailBackend",
 )
-EMAIL_HOST = config("EMAIL_HOST", default="localhost")
-EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
-EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
-EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+_MAILER_OPTIONS: dict[str, object] = {}
+if _EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+    _MAILER_OPTIONS = {
+        "host": config("EMAIL_HOST", default="localhost"),
+        "port": config("EMAIL_PORT", default=587, cast=int),
+        "use_tls": config("EMAIL_USE_TLS", default=True, cast=bool),
+        "username": config("EMAIL_HOST_USER", default=""),
+        "password": config("EMAIL_HOST_PASSWORD", default=""),
+    }
+MAILERS = {
+    "default": {
+        "BACKEND": _EMAIL_BACKEND,
+        "OPTIONS": _MAILER_OPTIONS,
+    },
+}
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@agahyar4iran.ir")
 SERVER_EMAIL = config("SERVER_EMAIL", default="server@agahyar4iran.ir")
+
+# Contact details shown on the frontend (footer and contact page). These seed
+# the SiteContactInfo database row on first run; afterwards admins edit the
+# values in the admin panel and the database is the source of truth.
+CONTACT_EMAIL = config("CONTACT_EMAIL", default="")
+CONTACT_PHONE = config("CONTACT_PHONE", default="")
+CONTACT_WORKING_HOURS = config("CONTACT_WORKING_HOURS", default="")
 
 # Logging
 LOGGING = {
@@ -387,4 +410,4 @@ MATOMO_URL = config("MATOMO_URL", default="")
 MATOMO_SITE_ID = config("MATOMO_SITE_ID", default="")
 
 # Register project-level security checks (VULN-18, VULN-20)
-import agahyar_project.checks  # noqa: E402, F401
+import agahyar_project.checks  # noqa: F401

@@ -26,7 +26,10 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    SiteContactInfo,
+    ThemePreference,
     UserProfile,
+    get_site_contact_info,
 )
 from .resources import (
     BookmarkResource,
@@ -96,6 +99,15 @@ class UserProfileAdmin(ImportExportModelAdmin):
     )
 
 
+@admin.register(ThemePreference)
+class ThemePreferenceAdmin(admin.ModelAdmin):
+    """Admin configuration for the ThemePreference model."""
+
+    list_display = ("user", "theme")
+    search_fields = ("user__username", "user__email")
+    list_filter = ("theme",)
+
+
 @admin.register(FAQ)
 class FAQAdmin(ImportExportModelAdmin):
     """Admin configuration for the FAQ model."""
@@ -160,6 +172,29 @@ class ContactMessageAdmin(ImportExportModelAdmin):
     readonly_fields = ("name", "email", "message", "created_at")
 
 
+@admin.register(SiteContactInfo)
+class SiteContactInfoAdmin(admin.ModelAdmin):
+    """Admin configuration for the singleton SiteContactInfo row.
+
+    Only the seeded row (pk=1) can be edited; adding or deleting rows is
+    disabled so the frontend always has exactly one contact configuration.
+    Opening the change list seeds the row first (from environment variables on
+    first run) so there is always something to edit.
+    """
+
+    list_display = ("email", "phone", "working_hours")
+
+    def changelist_view(self, request, extra_context=None):
+        get_site_contact_info()
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        return False
+
+
 @admin.register(Comment)
 class CommentAdmin(ImportExportModelAdmin):
     """Admin configuration for the Comment model."""
@@ -201,8 +236,8 @@ class BookmarkAdmin(ImportExportModelAdmin):
     """Admin configuration for the Bookmark model."""
 
     resource_classes = [BookmarkResource]
-    list_display = ("user", "service", "created_at")
-    search_fields = ("user__username", "service__name")
+    list_display = ("user", "service", "service_center", "created_at")
+    search_fields = ("user__username", "service__name", "service_center__name")
     list_filter = ("created_at",)
 
 

@@ -216,7 +216,6 @@ result = send_mail(
     message='This is a test message from the Agahyar project.',
     from_email='noreply@agahyar4iran.ir',
     recipient_list=['admin@agahyar4iran.ir'],
-    fail_silently=False,
 )
 print('Email sent successfully' if result else 'Failed to send email')
 "

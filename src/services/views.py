@@ -18,20 +18,25 @@ from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet
+from django.db.models import Avg, Count, F, Max, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
+from .emailing import is_email_setup
 from .error_codes import get_error_message
 from .forms import (
     BlogPostAdminForm,
@@ -63,6 +68,7 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    ThemePreference,
     UserProfile,
 )
 from .otp import generate_otp, hash_otp, verify_otp
@@ -508,19 +514,36 @@ def resend_profile_otp_api(request: HttpRequest) -> JsonResponse:
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
+def _get_safe_login_next(request: HttpRequest) -> str:
+    """Return a safe internal destination from the ``next`` parameter.
+
+    Only same-host URLs are allowed (prevents open redirects); falls back
+    to the home page when ``next`` is missing or untrusted.
+    """
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return "home"
+
+
 def login_view(request: HttpRequest) -> HttpResponse:
     """Handle user login.
 
-    Authenticates with :class:`LoginForm`; redirects to home on success.
-    For AJAX requests (``X-Requested-With: XMLHttpRequest``) returns JSON
-    responses with ``{\"success\": true/false}``.
+    Authenticates with :class:`LoginForm`; redirects to the ``next``
+    destination on success (or home when none is given).  For AJAX requests
+    (``X-Requested-With: XMLHttpRequest``) returns JSON responses
+    with ``{\"success\": true/false}``.
     """
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if request.user.is_authenticated:
         if is_ajax:
             return JsonResponse({"success": True, "csrfToken": get_token(request)})
-        return redirect("home")
+        return redirect(_get_safe_login_next(request))
 
     if request.method == "POST":
         form = LoginForm(request.POST)
@@ -545,7 +568,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
                         first_name=user.first_name or user.username,
                     ),
                 )
-                return redirect("home")
+                return redirect(_get_safe_login_next(request))
             if is_ajax:
                 return JsonResponse(
                     {
@@ -567,6 +590,89 @@ def login_view(request: HttpRequest) -> HttpResponse:
         form = LoginForm()
 
     return render(request, "services/auth/login.html", {"form": form})
+
+
+def _get_safe_return_url(request: HttpRequest) -> str:
+    """Return a safe internal redirect target for the theme toggle.
+
+    Prefers the ``next`` query parameter, then the HTTP Referer; only same-host
+    URLs are allowed (prevents open redirects). Falls back to the home page.
+    """
+    next_url = request.GET.get("next") or request.META.get("HTTP_REFERER", "") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        parsed = urllib.parse.urlsplit(next_url)
+        if parsed.netloc:
+            return urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
+        return next_url
+    return "home"
+
+
+@require_http_methods(["GET", "POST"])
+def theme_toggle_view(request: HttpRequest) -> HttpResponse:
+    """Toggle or persist the authenticated user's theme preference.
+
+    Only GET and POST are supported; other methods are rejected with 405
+    before reaching the toggle logic.
+
+    GET (no-JavaScript fallback): toggles the stored theme for authenticated
+    users and redirects back to the safe ``next``/referer destination; redirects
+    anonymous users to the login page with a ``next`` parameter that returns
+    them to the originating page after login.
+
+    POST (client-side sync): stores the ``theme`` value from the JSON body
+    (``light`` or ``dark``); returns a JSON response, or HTTP 401 for anonymous
+    users and HTTP 400 for invalid payloads.
+    """
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/login-required")},
+                status=401,
+            )
+        try:
+            payload = json.loads(request.body or b"{}")
+        except (json.JSONDecodeError, TypeError):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        if not isinstance(payload, dict):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        theme = payload.get("theme")
+        if theme not in ("light", "dark"):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        ThemePreference.objects.update_or_create(
+            user=request.user, defaults={"theme": theme}
+        )
+        return JsonResponse({"success": True, "theme": theme})
+
+    if not request.user.is_authenticated:
+        return_url = _get_safe_return_url(request)
+        return redirect(
+            f"{reverse('login')}?next={urllib.parse.quote(return_url, safe='')}"
+        )
+
+    theme_pref, _ = ThemePreference.objects.get_or_create(
+        user=request.user, defaults={"theme": "light"}
+    )
+    new_theme = (
+        ThemePreference.THEME_DARK
+        if theme_pref.theme == ThemePreference.THEME_LIGHT
+        else ThemePreference.THEME_LIGHT
+    )
+    theme_pref.theme = new_theme
+    theme_pref.save(update_fields=["theme"])
+    return redirect(_get_safe_return_url(request))
 
 
 def logout_view(request: HttpRequest) -> HttpResponse:
@@ -824,6 +930,56 @@ def password_reset_phone_done_view(request: HttpRequest) -> HttpResponse:
     return render(request, "services/auth/password_reset_phone_done.html")
 
 
+class _EmailResetRequiredMixin:
+    """Raise 404 for email-reset pages when no sending mail backend is set up.
+
+    The email password reset flow is only meaningful once the admin has
+    configured a real mail backend (SMTP). Until then the pages must not be
+    reachable and all frontend links to them are hidden.
+    """
+
+    def dispatch(self, request: HttpRequest, *args, **kwargs):
+        if not is_email_setup():
+            raise Http404("Email password reset is not configured.")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class EmailResetView(_EmailResetRequiredMixin, auth_views.PasswordResetView):
+    """Send a password reset email (hidden unless email is set up)."""
+
+    template_name = "services/auth/password_reset_form.html"
+    email_template_name = "services/auth/password_reset_email.txt"
+    html_email_template_name = "services/auth/password_reset_email.html"
+    subject_template_name = "services/auth/password_reset_subject.txt"
+
+    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """Handle the POST form submission, rate limited per IP."""
+        return super().post(request, *args, **kwargs)
+
+
+class EmailResetDoneView(_EmailResetRequiredMixin, auth_views.PasswordResetDoneView):
+    """Confirmation page after a reset email is sent (gated like the form)."""
+
+    template_name = "services/auth/password_reset_done.html"
+
+
+class EmailResetConfirmView(
+    _EmailResetRequiredMixin, auth_views.PasswordResetConfirmView
+):
+    """Set a new password from the emailed link (gated like the form)."""
+
+    template_name = "services/auth/password_reset_confirm.html"
+
+
+class EmailResetCompleteView(
+    _EmailResetRequiredMixin, auth_views.PasswordResetCompleteView
+):
+    """Success page after a successful email password reset."""
+
+    template_name = "services/auth/password_reset_complete.html"
+
+
 def home(request: HttpRequest) -> HttpResponse:
     """Render the public home page with popular services and recent FAQs."""
     popular_services: QuerySet = Service.objects.all()[:6]
@@ -853,6 +1009,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Render the authenticated user dashboard."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
+    faq_updated_at = FAQ.objects.aggregate(Max("updated_at"))["updated_at__max"]
     bookmarked_ids: set[int] = set(
         Bookmark.objects.filter(user=request.user).values_list("service_id", flat=True)
     )
@@ -863,6 +1020,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             "popular_services": popular_services,
             "faqs": faqs,
             "faq_count": FAQ.objects.count(),
+            "faq_updated_at": faq_updated_at,
             "bookmarked_ids": bookmarked_ids,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
@@ -875,11 +1033,9 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 def search(request: HttpRequest) -> HttpResponse:
     """Search services by name, keywords or organization.
 
-    Requires authentication. Results are paginated (12 per page).
+    Accessible by all visitors. Results are paginated (12 per page).
     Supports filtering by organization and city.
     """
-    if not request.user.is_authenticated:
-        return redirect("login")
     query: str = request.GET.get("q", "").strip()[:200]
     org_filter: str = request.GET.get("organization", "").strip()
     city_filter: str = request.GET.get("city", "").strip()
@@ -1106,6 +1262,9 @@ def faq_view(request: HttpRequest) -> HttpResponse:
         {
             "faqs": faqs,
             "faq_count": faqs.count(),
+            "faq_updated_at": FAQ.objects.aggregate(Max("updated_at"))[
+                "updated_at__max"
+            ],
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
                 {"label": "سوالات متداول"},
@@ -1340,6 +1499,8 @@ def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
     try:
         if request.content_type == "application/json":
             data = json.loads(request.body)
+            if not isinstance(data, dict):
+                return JsonResponse({"error": "invalid score"}, status=400)
             score = int(data.get("score", 0))
         else:
             score = int(request.POST.get("score", 0))
@@ -1685,29 +1846,82 @@ def contact(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _parse_bookmark_state(request: HttpRequest) -> bool | None:
+    """Parse the desired bookmark state from the request.
+
+    Reads the ``bookmarked`` field from a JSON body (AJAX) or a form
+    field (regular POST). Returns ``None`` when the field is missing or
+    is not a valid boolean.
+    """
+    if request.headers.get("Content-Type", "").startswith("application/json"):
+        try:
+            data = json.loads(request.body or b"{}")
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        raw = data.get("bookmarked")
+    else:
+        raw = request.POST.get("bookmarked")
+    if isinstance(raw, str):
+        value = raw.strip().lower()
+        if value in ("true", "1", "yes", "on"):
+            return True
+        if value in ("false", "0", "no", "off"):
+            return False
+        return None
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, int) and raw in (0, 1):
+        return bool(raw)
+    return None
+
+
+def _apply_bookmark_state(
+    user: User,
+    desired: bool,
+    *,
+    service: Service | None = None,
+    service_center: ServiceCenter | None = None,
+) -> bool:
+    """Idempotently set the bookmark state for a service or service center."""
+    if desired:
+        Bookmark.objects.get_or_create(
+            user=user, service=service, service_center=service_center
+        )
+    else:
+        Bookmark.objects.filter(
+            user=user, service=service, service_center=service_center
+        ).delete()
+    return desired
+
+
 @login_required
-def toggle_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
-    """Toggle bookmark on a service.
+def set_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
+    """Set the bookmark state on a service.
 
     GET: redirects to service detail.
-    POST (AJAX): toggles bookmark and returns JSON.
-    POST (regular): toggles bookmark and redirects to service detail.
+    POST (AJAX): sets the bookmark state from the ``bookmarked`` field of
+    the JSON body and returns JSON.
+    POST (regular): sets the bookmark state and redirects to service detail.
     """
 
     if request.method != "POST":
         return redirect("service_detail", service_id=service_id)
 
+    desired = _parse_bookmark_state(request)
+    if desired is None:
+        msg = get_error_message("bookmark/state-required")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("service_detail", service_id=service_id)
+
     service = get_object_or_404(Service, id=service_id)
-    bookmark, created = Bookmark.objects.get_or_create(
-        user=request.user, service=service
+    bookmarked = _apply_bookmark_state(
+        request.user, desired, service=service, service_center=None
     )
-    if not created:
-        bookmark.delete()
-        bookmarked = False
-        msg = get_error_message("bookmark/removed")
-    else:
-        bookmarked = True
-        msg = get_error_message("bookmark/added")
+    msg = get_error_message("bookmark/added" if bookmarked else "bookmark/removed")
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_ajax:
@@ -1719,19 +1933,61 @@ def toggle_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
 
 @login_required
 def bookmarks_list(request: HttpRequest) -> HttpResponse:
-    """List all bookmarked services for the current user."""
-    bookmarks = Bookmark.objects.filter(user=request.user).select_related("service")
+    """List all bookmarked services and service centers for the current user."""
+    bookmarks = Bookmark.objects.filter(user=request.user).select_related(
+        "service", "service_center"
+    )
+    service_bookmarks = [b for b in bookmarks if b.service is not None]
+    center_bookmarks = [b for b in bookmarks if b.service_center is not None]
     return render(
         request,
         "services/bookmarks.html",
         {
-            "bookmarks": bookmarks,
+            "bookmarks": service_bookmarks,
+            "center_bookmarks": center_bookmarks,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
                 {"label": "نشانک‌ها"},
             ],
         },
     )
+
+
+@login_required
+def set_center_bookmark(request: HttpRequest, center_id: int) -> HttpResponse:
+    """Set the bookmark state on a service center.
+
+    GET: redirects to center detail.
+    POST (AJAX): sets the bookmark state from the ``bookmarked`` field of
+    the JSON body and returns JSON.
+    POST (regular): sets the bookmark state and redirects to center detail.
+    """
+
+    if request.method != "POST":
+        return redirect("center_detail", center_id=center_id)
+
+    desired = _parse_bookmark_state(request)
+    if desired is None:
+        msg = get_error_message("bookmark/state-required")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("center_detail", center_id=center_id)
+
+    center = get_object_or_404(ServiceCenter, id=center_id)
+    bookmarked = _apply_bookmark_state(
+        request.user, desired, service=None, service_center=center
+    )
+    msg = get_error_message(
+        "bookmark/center-added" if bookmarked else "bookmark/center-removed"
+    )
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if is_ajax:
+        return JsonResponse({"bookmarked": bookmarked, "message": msg})
+
+    messages.success(request, msg)
+    return redirect("center_detail", center_id=center_id)
 
 
 @login_required
@@ -1868,10 +2124,14 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
     rating_count = rating_agg["cnt"]
 
     user_center_rating = None
+    is_center_bookmarked = False
     if request.user.is_authenticated:
         user_center_rating = CenterRating.objects.filter(
             user=request.user, service_center=center
         ).first()
+        is_center_bookmarked = Bookmark.objects.filter(
+            user=request.user, service_center=center
+        ).exists()
 
     top_level_comments = (
         Comment.objects.filter(service_center=center, parent__isnull=True)
@@ -1909,10 +2169,8 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
     center_locations = get_center_locations(ServiceCenter.objects.filter(id=center.id))
 
     comment_form = None
-    rating_form = None
     if request.user.is_authenticated:
         comment_form = CommentForm()
-        rating_form = CenterRatingForm()
 
     return render(
         request,
@@ -1924,11 +2182,11 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
             "avg_rating": round(avg_rating, 1) if avg_rating else None,
             "rating_count": rating_count,
             "user_center_rating": user_center_rating,
+            "is_center_bookmarked": is_center_bookmarked,
             "comments": comment_page_obj,
             "has_more_comments": has_more_comments,
             "comment_page": comment_page,
             "comment_form": comment_form,
-            "rating_form": rating_form,
             "comment_reaction_data": comment_reaction_data,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
@@ -1960,7 +2218,7 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
     center = get_object_or_404(ServiceCenter, id=center_id)
     form = CenterRatingForm(request.POST)
     if form.is_valid():
-        rating, created = CenterRating.objects.update_or_create(
+        _rating, created = CenterRating.objects.update_or_create(
             user=request.user,
             service_center=center,
             defaults={"score": int(form.cleaned_data["score"])},
@@ -1971,6 +2229,48 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
             messages.success(request, get_error_message("center-rating/updated"))
 
     return redirect("center_detail", center_id=center_id)
+
+
+@require_POST
+def rate_center(request: HttpRequest, center_id: int) -> JsonResponse:
+    """API endpoint to rate a service center (1-5).
+
+    POST with JSON ``{"score": N}`` or form-encoded ``score=N``.
+    Requires authentication.
+    Idempotent: updates the existing rating if the user has already
+    rated this center.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"error": get_error_message("center-rating/login-required")},
+            status=401,
+        )
+    center = get_object_or_404(ServiceCenter, id=center_id)
+    try:
+        if request.content_type == "application/json":
+            data = json.loads(request.body)
+            if not isinstance(data, dict):
+                return JsonResponse({"error": "invalid score"}, status=400)
+            score = int(data.get("score", 0))
+        else:
+            score = int(request.POST.get("score", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid score"}, status=400)
+    if score < 1 or score > 5:
+        return JsonResponse({"error": "score must be between 1 and 5"}, status=400)
+    rating, _ = CenterRating.objects.update_or_create(
+        user=request.user,
+        service_center=center,
+        defaults={"score": score},
+    )
+    avg = center.ratings.aggregate(Avg("score"))["score__avg"]
+    return JsonResponse(
+        {
+            "average": round(avg, 1) if avg else None,
+            "count": center.ratings.count(),
+            "user_score": rating.score,
+        }
+    )
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
@@ -2776,7 +3076,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                         updated += 1
                     if m2m_fields:
                         m2m_pending.append((obj, m2m_fields, model_label))
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - collect per-row import errors
                     errors.append(f"{model_label} pk={pk}: {exc}")
                     skipped += 1
 
@@ -2792,7 +3092,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                                 pk__in=pk_list
                             ).values_list("pk", flat=True)
                             related_field.set(valid_pks)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 - collect M2M import errors
                             errors.append(
                                 f"M2M {model_label} pk={obj.pk} {attname}: {exc}"
                             )
@@ -2965,7 +3265,9 @@ def admin_media_manager(request: HttpRequest) -> HttpResponse:
                 {
                     "name": entry.name,
                     "size": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime),
+                    "modified": datetime.fromtimestamp(
+                        stat.st_mtime, tz=timezone.get_current_timezone()
+                    ),
                     "url": url,
                     "direct_usage": direct_count,
                     "body_usage": body_count,
