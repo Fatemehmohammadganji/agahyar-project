@@ -28,6 +28,7 @@ from django.db.models.functions import TruncWeek
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -64,6 +65,7 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    ThemePreference,
     UserProfile,
 )
 from .otp import generate_otp, hash_otp, verify_otp
@@ -585,6 +587,80 @@ def login_view(request: HttpRequest) -> HttpResponse:
         form = LoginForm()
 
     return render(request, "services/auth/login.html", {"form": form})
+
+
+def _get_safe_return_url(request: HttpRequest) -> str:
+    """Return a safe internal redirect target for the theme toggle.
+
+    Prefers the ``next`` query parameter, then the HTTP Referer; only same-host
+    URLs are allowed (prevents open redirects). Falls back to the home page.
+    """
+    next_url = request.GET.get("next") or request.META.get("HTTP_REFERER", "") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        parsed = urllib.parse.urlsplit(next_url)
+        if parsed.netloc:
+            return urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
+        return next_url
+    return "home"
+
+
+def theme_toggle_view(request: HttpRequest) -> HttpResponse:
+    """Toggle or persist the authenticated user's theme preference.
+
+    GET (no-JavaScript fallback): toggles the stored theme for authenticated
+    users and redirects back to the safe ``next``/referer destination; redirects
+    anonymous users to the login page with a ``next`` parameter that returns
+    them to the originating page after login.
+
+    POST (client-side sync): stores the ``theme`` value from the JSON body
+    (``light`` or ``dark``); returns a JSON response, or HTTP 401 for anonymous
+    users and HTTP 400 for invalid payloads.
+    """
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/login-required")},
+                status=401,
+            )
+        try:
+            payload = json.loads(request.body or b"{}")
+        except (json.JSONDecodeError, TypeError):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        theme = payload.get("theme")
+        if theme not in ("light", "dark"):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        ThemePreference.objects.update_or_create(
+            user=request.user, defaults={"theme": theme}
+        )
+        return JsonResponse({"success": True, "theme": theme})
+
+    if not request.user.is_authenticated:
+        return_url = _get_safe_return_url(request)
+        return redirect(
+            f"{reverse('login')}?next={urllib.parse.quote(return_url, safe='')}"
+        )
+
+    theme_pref, _ = ThemePreference.objects.get_or_create(
+        user=request.user, defaults={"theme": "light"}
+    )
+    new_theme = (
+        ThemePreference.THEME_DARK
+        if theme_pref.theme == ThemePreference.THEME_LIGHT
+        else ThemePreference.THEME_LIGHT
+    )
+    theme_pref.theme = new_theme
+    theme_pref.save(update_fields=["theme"])
+    return redirect(_get_safe_return_url(request))
 
 
 def logout_view(request: HttpRequest) -> HttpResponse:

@@ -42,7 +42,7 @@ place.
 
 - 🖨️ **Print-Friendly View** – Generate a clean, printer-optimized version of service details that can be printed or saved as PDF.
 
-- 🌙 **Dark/Light Theme** – Switch between dark and light themes with preferences automatically saved using localStorage.
+- 🌙 **Dark/Light Theme** – Switch between dark and light themes; the choice is saved in the browser via localStorage for anonymous users and persisted to the backend (`ThemePreference`) for logged-in users so it follows them across devices. A no-JavaScript fallback toggle URL is provided with open-redirect protection.
 
 - 🇮🇷 **Persian Error Messages** – Backend error codes are translated into clear and user-friendly Persian messages for a better user experience.
 
@@ -197,7 +197,7 @@ Agahyar is currently in an active development stage.
 - Admin management
 - Bulk data export/import
 - Responsive interface
-- Dark/Light mode
+- Dark/Light mode (localStorage for anonymous, server-side ThemePreference for logged-in users)
 - Security hardening
 
 Future development will focus on AI-powered recommendations, multi-city support, mobile applications, multilingual support, and integration with external APIs.

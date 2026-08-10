@@ -90,6 +90,9 @@ ERROR_CODES: dict[str, str] = {
     "auth/no-user-with-phone": "کاربری با این شماره موبایل یافت نشد.",
     "password/reset-done": "رمز عبور شما با موفقیت تغییر کرد. اکنون می‌توانید وارد شوید.",
     "otp/no-pending-password-reset": "فرآیند بازیابی رمز عبور منقضی شده است. لطفاً دوباره اقدام کنید.",
+    # ---- Theme ----
+    "theme/invalid-value": "مقدار تم نامعتبر است.",
+    "theme/login-required": "برای ذخیره تم باید وارد شوید.",
 }
 
 

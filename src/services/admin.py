@@ -26,6 +26,7 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    ThemePreference,
     UserProfile,
 )
 from .resources import (
@@ -94,6 +95,15 @@ class UserProfileAdmin(ImportExportModelAdmin):
         (None, {"fields": ("user", "bio")}),
         ("اطلاعات تماس", {"fields": ("city", "neighborhood", "phone")}),
     )
+
+
+@admin.register(ThemePreference)
+class ThemePreferenceAdmin(admin.ModelAdmin):
+    """Admin configuration for the ThemePreference model."""
+
+    list_display = ("user", "theme")
+    search_fields = ("user__username", "user__email")
+    list_filter = ("theme",)
 
 
 @admin.register(FAQ)

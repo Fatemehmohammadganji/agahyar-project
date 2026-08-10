@@ -89,6 +89,35 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.city} - {self.neighborhood}"
 
 
+class ThemePreference(models.Model):
+    """Stores the user's preferred site theme (light or dark).
+
+    Kept separate from UserProfile because creating a UserProfile requires a
+    city, which we must not do implicitly just to persist a theme choice.
+    """
+
+    THEME_LIGHT = "light"
+    THEME_DARK = "dark"
+    THEME_CHOICES = [
+        (THEME_LIGHT, "روشن"),
+        (THEME_DARK, "تیره"),
+    ]
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="theme_preference"
+    )
+    theme = models.CharField(
+        "تم", max_length=10, choices=THEME_CHOICES, default=THEME_LIGHT
+    )
+
+    class Meta:
+        verbose_name = "تنظیم تم"
+        verbose_name_plural = "تنظیمات تم کاربران"
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.theme}"
+
+
 class PhoneVerification(models.Model):
     """Stores OTP codes for phone number verification during registration."""
 

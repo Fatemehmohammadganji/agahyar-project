@@ -24,6 +24,7 @@ from services.models import (
     PhoneVerification,
     Service,
     ServiceCenter,
+    ThemePreference,
     UserProfile,
 )
 from services.otp import generate_otp, hash_otp
@@ -905,6 +906,207 @@ class TestLoginView:
         response = client.get("/login/?next=/service/11/")
         content = response.content.decode()
         assert '<input type="hidden" name="next" value="/service/11/">' in content
+
+
+@pytest.mark.django_db
+class TestThemePreferenceModel:
+    def test_default_theme_is_light(self):
+        user = User.objects.create_user("themeless", password="pass12345")
+        pref = ThemePreference.objects.create(user=user)
+        assert pref.theme == "light"
+        assert str(pref) == "themeless - light"
+
+    def test_dark_theme_stored(self):
+        user = User.objects.create_user("themedark", password="pass12345")
+        pref = ThemePreference.objects.create(user=user, theme="dark")
+        assert pref.theme == "dark"
+        assert str(pref) == "themedark - dark"
+
+
+@pytest.mark.django_db
+class TestThemeContextProcessor:
+    def test_anonymous_user_gets_light_theme(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert response.context["user_theme"] == "light"
+        assert 'data-theme="light"' in content
+        assert '<i class="fas fa-moon"></i>' in content
+        assert 'aria-label="تم شب"' in content
+
+    def test_authenticated_user_without_preference_gets_light(self):
+        User.objects.create_user("themeprefuser", password="pass12345")
+        client = Client()
+        client.login(username="themeprefuser", password="pass12345")
+        response = client.get("/")
+        assert response.context["user_theme"] == "light"
+
+    def test_authenticated_user_dark_preference_rendered(self):
+        user = User.objects.create_user("themedarkuser", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="themedarkuser", password="pass12345")
+        response = client.get("/")
+        content = response.content.decode()
+        assert response.context["user_theme"] == "dark"
+        assert 'data-theme="dark"' in content
+        assert 'data-user-auth="true"' in content
+        assert '<i class="fas fa-sun"></i>' in content
+        assert 'aria-label="تم روز"' in content
+        assert '<i class="fas fa-moon"></i>' not in content
+
+    def test_anonymous_page_marks_user_auth_false(self):
+        client = Client()
+        response = client.get("/")
+        assert 'data-user-auth="false"' in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestThemeToggleView:
+    def test_anonymous_get_redirects_to_login_with_next(self):
+        client = Client()
+        response = client.get(reverse("theme_toggle"), {"next": "/service/5/"})
+        assert response.status_code == 302
+        assert response.url == "/login/?next=%2Fservice%2F5%2F"
+
+    def test_anonymous_get_with_external_next_sanitized(self):
+        client = Client()
+        response = client.get(
+            reverse("theme_toggle"), {"next": "https://evil.example.com/phish"}
+        )
+        assert response.status_code == 302
+        assert response.url == "/login/?next=home"
+
+    def test_authenticated_get_toggles_light_to_dark(self):
+        user = User.objects.create_user("toggler1", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="light")
+        client = Client()
+        client.login(username="toggler1", password="pass12345")
+        response = client.get(reverse("theme_toggle"), {"next": "/about/"})
+        assert response.status_code == 302
+        assert response.url == "/about/"
+        assert ThemePreference.objects.get(user=user).theme == "dark"
+
+    def test_authenticated_get_toggles_dark_to_light(self):
+        user = User.objects.create_user("toggler2", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="toggler2", password="pass12345")
+        response = client.get(reverse("theme_toggle"))
+        assert response.status_code == 302
+        assert response.url == "/"
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+    def test_authenticated_get_creates_preference_on_first_toggle(self):
+        user = User.objects.create_user("toggler3", password="pass12345")
+        client = Client()
+        client.login(username="toggler3", password="pass12345")
+        client.get(reverse("theme_toggle"), {"next": "/"})
+        assert ThemePreference.objects.get(user=user).theme == "dark"
+
+    def test_authenticated_get_redirects_to_referer(self):
+        user = User.objects.create_user("toggler4", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="toggler4", password="pass12345")
+        response = client.get(
+            reverse("theme_toggle"), HTTP_REFERER="http://testserver/service/3/"
+        )
+        assert response.status_code == 302
+        assert response.url == "/service/3/"
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+    def test_authenticated_get_ignores_external_referer(self):
+        user = User.objects.create_user("toggler5", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="light")
+        client = Client()
+        client.login(username="toggler5", password="pass12345")
+        response = client.get(
+            reverse("theme_toggle"), HTTP_REFERER="https://evil.example.com/phish"
+        )
+        assert response.status_code == 302
+        assert response.url == "/"
+
+    def test_anonymous_post_returns_401(self):
+        client = Client()
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "dark"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 401
+
+    def test_authenticated_post_saves_theme(self):
+        user = User.objects.create_user("postthemer", password="pass12345")
+        client = Client()
+        client.login(username="postthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "dark"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True, "theme": "dark"}
+        assert ThemePreference.objects.get(user=user).theme == "dark"
+
+    def test_authenticated_post_updates_existing_preference(self):
+        user = User.objects.create_user("updatethemer", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="updatethemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "light"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+    def test_authenticated_post_rejects_invalid_theme(self):
+        User.objects.create_user("badthemer", password="pass12345")
+        client = Client()
+        client.login(username="badthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "sepia"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    def test_authenticated_post_rejects_invalid_json(self):
+        User.objects.create_user("badjsonthemer", password="pass12345")
+        client = Client()
+        client.login(username="badjsonthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data="{not valid json",
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+
+@pytest.mark.django_db
+class TestThemeTemplateAndJs:
+    def test_theme_toggle_is_anchor_with_url(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'id="themeToggle"' in content
+        assert 'href="/theme/toggle/"' in content
+        assert "onclick=" in content
+        assert 'role="button"' in content
+
+    def test_main_js_syncs_theme_for_authenticated_users(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function toggleTheme" in content
+        assert "function syncThemePreference" in content
+        assert "data-user-auth" in content
+        assert "X-CSRFToken" in content
+        assert "themeToggle" in content
 
 
 @pytest.mark.django_db

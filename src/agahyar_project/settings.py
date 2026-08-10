@@ -110,6 +110,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "agahyar_project.context_processors.matomo_context",
+                "agahyar_project.context_processors.user_theme_context",
             ],
         },
     },

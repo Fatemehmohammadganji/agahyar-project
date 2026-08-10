@@ -271,6 +271,28 @@ function toggleTheme() {
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
   updateThemeButton();
+  syncThemePreference(next);
+}
+
+function syncThemePreference(theme) {
+  var body = document.body;
+  if (!body || body.getAttribute("data-user-auth") !== "true") {
+    return;
+  }
+  var toggleLink = document.getElementById("themeToggle");
+  if (!toggleLink || !toggleLink.getAttribute("href")) {
+    return;
+  }
+  var csrfToken = getCsrfToken();
+  if (!csrfToken) {
+    return;
+  }
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", toggleLink.getAttribute("href"), true);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+  xhr.setRequestHeader("X-CSRFToken", csrfToken);
+  xhr.send(JSON.stringify({ theme: theme }));
 }
 
 function updateThemeButton() {

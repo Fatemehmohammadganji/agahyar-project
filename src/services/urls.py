@@ -123,6 +123,7 @@ urlpatterns: list[URLPattern] = [
         name="resend_profile_otp_api",
     ),
     path("logout/", views.logout_view, name="app_logout"),
+    path("theme/toggle/", views.theme_toggle_view, name="theme_toggle"),
     # ===== Password reset (phone) =====
     path(
         "password-reset-phone/",
