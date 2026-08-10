@@ -640,6 +640,11 @@ def theme_toggle_view(request: HttpRequest) -> HttpResponse:
                 {"success": False, "error": get_error_message("theme/invalid-value")},
                 status=400,
             )
+        if not isinstance(payload, dict):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
         theme = payload.get("theme")
         if theme not in ("light", "dark"):
             return JsonResponse(

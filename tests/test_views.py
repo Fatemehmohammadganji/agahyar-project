@@ -1118,6 +1118,18 @@ class TestThemeToggleView:
         )
         assert response.status_code == 400
 
+    @pytest.mark.parametrize("body", ["[]", "null"])
+    def test_authenticated_post_rejects_non_object_json(self, body):
+        User.objects.create_user("nonobjthemer", password="pass12345")
+        client = Client()
+        client.login(username="nonobjthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=body,
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
     @pytest.mark.parametrize("method", ["put", "patch", "delete"])
     def test_unsupported_method_rejected(self, method):
         user = User.objects.create_user("methodthemer", password="pass12345")
