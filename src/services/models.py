@@ -272,9 +272,10 @@ class ContactMessage(models.Model):
 class SiteContactInfo(models.Model):
     """Admin-editable contact details shown on the frontend.
 
-    A singleton row (pk=1) seeded from ``CONTACT_EMAIL`` / ``CONTACT_PHONE``
-    environment variables on first run. Both fields may be blank; the
-    frontend hides a field whose value is empty.
+    A singleton row (pk=1) seeded from the ``CONTACT_EMAIL``,
+    ``CONTACT_PHONE`` and ``CONTACT_WORKING_HOURS`` environment variables on
+    first run. ``email``, ``phone`` and ``working_hours`` are optional blank
+    fields; the templates hide each field when its value is empty.
     """
 
     email = models.EmailField("ایمیل", max_length=254, blank=True)
