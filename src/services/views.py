@@ -33,7 +33,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
 from .emailing import is_email_setup
@@ -611,8 +611,12 @@ def _get_safe_return_url(request: HttpRequest) -> str:
     return "home"
 
 
+@require_http_methods(["GET", "POST"])
 def theme_toggle_view(request: HttpRequest) -> HttpResponse:
     """Toggle or persist the authenticated user's theme preference.
+
+    Only GET and POST are supported; other methods are rejected with 405
+    before reaching the toggle logic.
 
     GET (no-JavaScript fallback): toggles the stored theme for authenticated
     users and redirects back to the safe ``next``/referer destination; redirects

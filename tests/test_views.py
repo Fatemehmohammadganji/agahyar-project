@@ -1118,6 +1118,17 @@ class TestThemeToggleView:
         )
         assert response.status_code == 400
 
+    @pytest.mark.parametrize("method", ["put", "patch", "delete"])
+    def test_unsupported_method_rejected(self, method):
+        user = User.objects.create_user("methodthemer", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="light")
+        client = Client()
+        client.login(username="methodthemer", password="pass12345")
+        response = getattr(client, method)(reverse("theme_toggle"))
+        assert response.status_code == 405
+        assert "Allow" in response.headers
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
 
 @pytest.mark.django_db
 class TestThemeTemplateAndJs:
