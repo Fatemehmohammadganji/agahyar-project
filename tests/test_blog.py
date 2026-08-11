@@ -636,6 +636,113 @@ class TestCustomBlogAdmin:
         )
         assert "مشخص نشده" in response.content.decode()
 
+    def _write_media_file(self, name: str) -> str:
+        import os
+
+        from django.conf import settings
+
+        blog_dir = os.path.join(settings.MEDIA_ROOT, "blog")
+        os.makedirs(blog_dir, exist_ok=True)
+        path = os.path.join(blog_dir, name)
+        with open(path, "w") as f:
+            f.write("media-test-content")
+        return path
+
+    def test_media_batch_delete_multiple_files(self):
+        import os
+
+        staff = _staff_client()
+        names = ["batch-a.txt", "batch-b.txt"]
+        paths = [self._write_media_file(name) for name in names]
+        try:
+            response = staff.post(
+                f"/{ADMIN_PREFIX}media/",
+                {"filenames": names},
+                follow=True,
+            )
+            assert response.status_code == 200
+            assert "2 فایل حذف شد" in response.content.decode()
+            for path in paths:
+                assert not os.path.isfile(path)
+        finally:
+            for path in paths:
+                if os.path.isfile(path):
+                    os.remove(path)
+
+    def test_media_batch_delete_skips_files_in_use(self):
+        import os
+
+        staff = _staff_client()
+        author = User.objects.create_user(username="media-author")
+        used_path = self._write_media_file("batch-used.txt")
+        free_path = self._write_media_file("batch-free.txt")
+        BlogPost.objects.create(
+            title="uses-media",
+            author=author,
+            image="blog/batch-used.txt",
+        )
+        try:
+            response = staff.post(
+                f"/{ADMIN_PREFIX}media/",
+                {"filenames": ["batch-used.txt", "batch-free.txt"]},
+                follow=True,
+            )
+            assert response.status_code == 200
+            assert os.path.isfile(used_path)
+            assert not os.path.isfile(free_path)
+            assert "در حال استفاده" in response.content.decode()
+        finally:
+            for path in (used_path, free_path):
+                if os.path.isfile(path):
+                    os.remove(path)
+
+    def test_media_batch_delete_rejects_path_traversal(self):
+        import os
+
+        staff = _staff_client()
+        safe_file = self._write_media_file("batch-safe.txt")
+        try:
+            response = staff.post(
+                f"/{ADMIN_PREFIX}media/",
+                {"filenames": ["../batch-safe.txt"]},
+                follow=True,
+            )
+            assert "نامعتبر" in response.content.decode()
+            assert os.path.isfile(safe_file)
+        finally:
+            if os.path.isfile(safe_file):
+                os.remove(safe_file)
+
+    def test_media_manager_paginates(self):
+        import os
+        import time
+
+        from services.views import MEDIA_PER_PAGE
+
+        staff = _staff_client()
+        names = [f"page-test-{i:03d}.txt" for i in range(MEDIA_PER_PAGE + 1)]
+        paths = [self._write_media_file(name) for name in names]
+        try:
+            base = time.time() + 3600
+            for i, path in enumerate(paths):
+                os.utime(path, (base + i, base + i))
+            page1 = staff.get(f"/{ADMIN_PREFIX}media/")
+            assert page1.status_code == 200
+            assert "صفحه 1 از" in page1.content.decode()
+            for name in names[1:]:
+                assert name in page1.content.decode()
+            assert names[0] not in page1.content.decode()
+
+            page2 = staff.get(f"/{ADMIN_PREFIX}media/?page=2")
+            assert page2.status_code == 200
+            assert names[0] in page2.content.decode()
+            for name in names[1:]:
+                assert name not in page2.content.decode()
+        finally:
+            for path in paths:
+                if os.path.isfile(path):
+                    os.remove(path)
+
     def test_ckeditor_upload_requires_staff(self, client):
         response = client.post("/api/ckeditor-upload/")
         assert response.status_code in (302, 403)
