@@ -4,14 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.8.1] - 2026-08-11
 
 ### Added
 
-- **Admin media manager batch delete and pagination**: The `/admin/media/`
-  page now shows checkboxes to select multiple files and delete them in one
-  action (files still in use by a post are skipped with a warning), plus
-  server-side pagination (25 files per page).
+- **Production media serving via nginx sidecar**: Django only serves
+  `/media/` while `DEBUG=True`, so production now runs a dedicated
+  `nginx:alpine` `media` service that serves uploaded files from the host's
+  `./media` directory, with Traefik routing every `/media/*` request to it.
+  The media manager page now shows checkboxes to select multiple files and
+  delete them in one action (files still in use by a post are skipped with a
+  warning), plus server-side pagination (25 files per page).
+
+### Changed
+
+- **Media caching policy**: Uploaded media is cached for one day with
+  `must-revalidate` instead of being marked immutable for 30 days, so files
+  deleted via the media manager stop being served by browsers and caches
+  within 24 hours.
+
+### Fixed
+
+- **Test cleanup**: The CKEditor upload test no longer leaks an orphaned
+  upload into `MEDIA_ROOT` after each run, and the media deletion
+  path-traversal test always removes its temp file.
 
 ## [1.8.0] - 2026-08-11
 
