@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- **Admin media manager batch delete and pagination**: The `/admin/media/`
+  page now shows checkboxes to select multiple files and delete them in one
+  action (files still in use by a post are skipped with a warning), plus
+  server-side pagination (25 files per page).
+
 ## [1.8.0] - 2026-08-11
 
 ### Added

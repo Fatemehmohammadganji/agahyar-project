@@ -78,6 +78,7 @@ from .suggestion import get_nearest_center
 logger = logging.getLogger(__name__)
 
 COMMENTS_PER_PAGE = 5
+MEDIA_PER_PAGE = 25
 
 
 def save_user_profile(
@@ -3277,39 +3278,62 @@ def admin_media_manager(request: HttpRequest) -> HttpResponse:
             )
 
     if request.method == "POST":
-        filename = request.POST.get("filename", "").strip()
-        if not filename:
+        filenames = request.POST.getlist("filenames")
+        if not filenames:
+            single = request.POST.get("filename", "").strip()
+            filenames = [single] if single else []
+
+        filenames = [name for name in (n.strip() for n in filenames) if name]
+
+        if not filenames:
             messages.error(request, "نام فایل مشخص نشده است.")
         else:
-            filepath = os.path.realpath(os.path.join(blog_dir, filename))
-            blog_dir_resolved = os.path.realpath(blog_dir)
-            if not filepath.startswith(blog_dir_resolved + os.sep):
-                messages.error(request, "نام فایل نامعتبر است.")
-            elif not os.path.isfile(filepath):
-                messages.error(request, f"فایل «{filename}» یافت نشد.")
-            else:
+            deleted = []
+            in_use = []
+            invalid = []
+            for filename in filenames:
+                filepath = os.path.realpath(os.path.join(blog_dir, filename))
+                blog_dir_resolved = os.path.realpath(blog_dir)
+                if not filepath.startswith(blog_dir_resolved + os.sep):
+                    invalid.append(filename)
+                    continue
+                if not os.path.isfile(filepath):
+                    messages.error(request, f"فایل «{filename}» یافت نشد.")
+                    continue
                 qs = BlogPost.objects.filter(
                     Q(image="blog/" + filename) | Q(body__icontains=filename)
                 )
                 if qs.exists():
-                    count = qs.count()
-                    messages.warning(
-                        request,
-                        f"این فایل در {count} پست استفاده شده است. ابتدا استفاده‌ها را حذف کنید.",
-                    )
+                    in_use.append(filename)
                 else:
                     os.remove(filepath)
-                    messages.success(request, f"فایل «{filename}» حذف شد.")
-                    return redirect("admin_media_manager")
+                    deleted.append(filename)
+
+            if deleted:
+                names = "، ".join(deleted)
+                messages.success(
+                    request,
+                    f"{len(deleted)} فایل حذف شد: {names}",
+                )
+            if in_use:
+                names = "، ".join(in_use)
+                messages.warning(
+                    request,
+                    f"این فایل‌ها در حال استفاده هستند و حذف نشدند: {names}",
+                )
+            if invalid:
+                names = "، ".join(invalid)
+                messages.error(request, f"نام فایل نامعتبر است: {names}")
 
         return redirect("admin_media_manager")
 
     files.sort(key=lambda f: f["modified"], reverse=True)
+    page_obj = Paginator(files, MEDIA_PER_PAGE).get_page(request.GET.get("page"))
     return render(
         request,
         "services/admin/media_manager.html",
         {
-            "files": files,
+            "page_obj": page_obj,
             "title": "مدیریت فایل‌های رسانه",
         },
     )

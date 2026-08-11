@@ -183,6 +183,24 @@ is set in your ``.env``).
 > `docker-compose.prod.yml`. Uncomment it and set `ADMINER_DEFAULT_SERVER=db`
 > to get a web-based database UI at <http://localhost:8080>.
 
+### Serving uploaded media
+
+Django only serves ``/media/`` URLs while ``DEBUG=True`` (see
+`agahyar_project/urls.py`). In production the stack therefore includes a
+dedicated **nginx ``media`` service** that serves the uploaded files from the
+host's ``./media`` directory (the same directory the ``web`` service writes
+uploads to). Traefik routes every ``/media/*`` request to it with a higher
+router priority, so Django never has to handle them.
+
+There is nothing to configure: the ``media`` service is part of
+`docker-compose.prod.yml` and mounts `deploy/nginx.conf` (cache headers +
+read-only access to ``./media``). If you change that nginx config, restart the
+service with:
+
+```bash
+docker compose -f docker-compose.prod.yml restart media
+```
+
 > **Note:** The Dockerfile uses a multi-stage build. The first stage installs
 > dependencies, minifies CSS/JS assets, and collects static files. The second
 > (runtime) stage is a minimal image containing only what is needed to serve
