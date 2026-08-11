@@ -17,28 +17,28 @@ curl -fsSL "$CDN/leaflet@1.9.4/dist/images/marker-icon-2x.png" -o static/libs/le
 curl -fsSL "$CDN/leaflet@1.9.4/dist/images/marker-icon.png" -o static/libs/leaflet/images/marker-icon.png
 curl -fsSL "$CDN/leaflet@1.9.4/dist/images/marker-shadow.png" -o static/libs/leaflet/images/marker-shadow.png
 
-# OpenLayers 7.2.2
+# OpenLayers 10.10.0
 echo "Downloading OpenLayers ..."
 mkdir -p static/libs/ol
-curl -fsSL "$CDN/ol@7.2.2/dist/ol.js" -o static/libs/ol/ol.js
-curl -fsSL "$CDN/ol@7.2.2/ol.css" -o static/libs/ol/ol.css
+curl -fsSL "$CDN/ol@10.10.0/dist/ol.js" -o static/libs/ol/ol.js
+curl -fsSL "$CDN/ol@10.10.0/ol.css" -o static/libs/ol/ol.css
 
-# Font Awesome 6.7.2
+# Font Awesome 7.3.1
 echo "Downloading Font Awesome ..."
 mkdir -p static/libs/fontawesome/css static/libs/fontawesome/webfonts
-curl -fsSL "$CDN/@fortawesome/fontawesome-free@6.7.2/css/all.min.css" -o static/libs/fontawesome/css/fontawesome-all.min.css
+curl -fsSL "$CDN/@fortawesome/fontawesome-free@7.3.1/css/all.min.css" -o static/libs/fontawesome/css/fontawesome-all.min.css
 for f in \
-  fa-brands-400.ttf fa-brands-400.woff2 \
-  fa-regular-400.ttf fa-regular-400.woff2 \
-  fa-solid-900.ttf fa-solid-900.woff2 \
-  fa-v4compatibility.ttf fa-v4compatibility.woff2; do
-  curl -fsSL "$CDN/@fortawesome/fontawesome-free@6.7.2/webfonts/$f" -o "static/libs/fontawesome/webfonts/$f"
+  fa-brands-400.woff2 \
+  fa-regular-400.woff2 \
+  fa-solid-900.woff2 \
+  fa-v4compatibility.woff2; do
+  curl -fsSL "$CDN/@fortawesome/fontawesome-free@7.3.1/webfonts/$f" -o "static/libs/fontawesome/webfonts/$f"
 done
 
-# Alpine.js 3.14.9
+# Alpine.js 3.15.12
 echo "Downloading Alpine.js ..."
 mkdir -p static/libs
-curl -fsSL "$CDN/alpinejs@3.14.9/dist/cdn.min.js" -o static/libs/alpine.min.js
+curl -fsSL "$CDN/alpinejs@3.15.12/dist/cdn.min.js" -o static/libs/alpine.min.js
 
 
 # Vazirmatn 33.0.3
@@ -56,13 +56,18 @@ echo "Downloading Chart.js ..."
 mkdir -p static/libs/chartjs
 curl -fsSL "$CDN/chart.js@4.5.1/dist/chart.umd.min.js" -o static/libs/chartjs/chart.umd.min.js
 
-# Swagger UI 5.32.8
+# Swagger UI 5.32.12
 echo "Downloading Swagger UI ..."
-SWAGGER_CDN="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.8"
+SWAGGER_CDN="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.12"
 mkdir -p static/libs/swagger-ui
 curl -fsSL "$SWAGGER_CDN/swagger-ui-bundle.js" -o static/libs/swagger-ui/swagger-ui-bundle.js
 curl -fsSL "$SWAGGER_CDN/swagger-ui-standalone-preset.js" -o static/libs/swagger-ui/swagger-ui-standalone-preset.js
 curl -fsSL "$SWAGGER_CDN/swagger-ui.css" -o static/libs/swagger-ui/swagger-ui.css
 curl -fsSL "$SWAGGER_CDN/favicon-32x32.png" -o static/libs/swagger-ui/favicon-32x32.png
+# CKEditor 5 (classic build)
+echo "Downloading CKEditor 5 ..."
+mkdir -p static/libs/ckeditor5
+curl -fsSL "https://cdn.jsdelivr.net/npm/@ckeditor/ckeditor5-build-decoupled-document@44.3.0/build/ckeditor.js" -o static/libs/ckeditor5/ckeditor.js
+curl -fsSL "https://cdn.jsdelivr.net/npm/@ckeditor/ckeditor5-build-decoupled-document@44.3.0/build/translations/fa.js" -o static/libs/ckeditor5/fa.js
 
 echo "Done."

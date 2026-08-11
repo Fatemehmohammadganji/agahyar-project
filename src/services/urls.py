@@ -4,14 +4,11 @@ Maps all application routes: core pages, authentication
 endpoints, bookmarks, comments, ratings, and password reset flows.
 """
 
-from typing import List
-
-from django.contrib.auth import views as auth_views
 from django.urls import URLPattern, path
 
-from . import views
+from . import feeds, views
 
-urlpatterns: List[URLPattern] = [
+urlpatterns: list[URLPattern] = [
     # ===== SEO =====
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
@@ -24,7 +21,12 @@ urlpatterns: List[URLPattern] = [
     path("services/", views.services_list, name="services_list"),
     # ===== Bookmarks =====
     path("bookmarks/", views.bookmarks_list, name="bookmarks_list"),
-    path("bookmark/<int:service_id>/", views.toggle_bookmark, name="toggle_bookmark"),
+    path("bookmark/service/<int:service_id>/", views.set_bookmark, name="set_bookmark"),
+    path(
+        "bookmark/center/<int:center_id>/",
+        views.set_center_bookmark,
+        name="set_center_bookmark",
+    ),
     # ===== Comments =====
     path(
         "comment/service/<int:service_id>/",
@@ -46,11 +48,37 @@ urlpatterns: List[URLPattern] = [
         views.delete_comment,
         name="delete_comment",
     ),
+    # ===== Blog =====
+    path("blog/", views.blog_list, name="blog_list"),
+    path("blog/<str:slug>/preview/", views.blog_preview, name="blog_preview"),
+    path("blog/<str:slug>/", views.blog_detail, name="blog_detail"),
+    path("blog/feed/rss/", feeds.BlogRssFeed(), name="blog_rss_feed"),
+    path("blog/feed/atom/", feeds.BlogAtomFeed(), name="blog_atom_feed"),
+    path(
+        "comment/blog/<int:blog_post_id>/",
+        views.submit_comment,
+        name="submit_comment_blog_post",
+    ),
+    path(
+        "api/rate-blog-post/<int:post_id>/",
+        views.rate_blog_post,
+        name="rate_blog_post",
+    ),
+    path(
+        "api/ckeditor-upload/",
+        views.ckeditor_upload,
+        name="ckeditor_upload",
+    ),
     # ===== Center ratings =====
     path(
         "rate-center/<int:center_id>/",
         views.submit_center_rating,
         name="submit_center_rating",
+    ),
+    path(
+        "api/rate-center/<int:center_id>/",
+        views.rate_center,
+        name="rate_center",
     ),
     # ===== Reports =====
     path("api/report/", views.submit_report, name="submit_report"),
@@ -94,6 +122,7 @@ urlpatterns: List[URLPattern] = [
         name="resend_profile_otp_api",
     ),
     path("logout/", views.logout_view, name="app_logout"),
+    path("theme/toggle/", views.theme_toggle_view, name="theme_toggle"),
     # ===== Password reset (phone) =====
     path(
         "password-reset-phone/",
@@ -120,34 +149,23 @@ urlpatterns: List[URLPattern] = [
         views.password_reset_phone_done_view,
         name="password_reset_phone_done",
     ),
-    # ===== Password reset =====
-    path(
-        "password-reset/",
-        auth_views.PasswordResetView.as_view(
-            template_name="services/auth/password_reset_form.html",
-            email_template_name="services/auth/password_reset_email.html",
-        ),
-        name="password_reset",
-    ),
+    # ===== Password reset (email) =====
+    # The email flow returns 404 and its links are hidden until the admin
+    # configures a real sending mail backend (see is_email_setup()).
+    path("password-reset/", views.EmailResetView.as_view(), name="password_reset"),
     path(
         "password-reset/done/",
-        auth_views.PasswordResetDoneView.as_view(
-            template_name="services/auth/password_reset_done.html",
-        ),
+        views.EmailResetDoneView.as_view(),
         name="password_reset_done",
     ),
     path(
         "reset/<uidb64>/<token>/",
-        auth_views.PasswordResetConfirmView.as_view(
-            template_name="services/auth/password_reset_confirm.html",
-        ),
+        views.EmailResetConfirmView.as_view(),
         name="password_reset_confirm",
     ),
     path(
         "reset/done/",
-        auth_views.PasswordResetCompleteView.as_view(
-            template_name="services/auth/password_reset_complete.html",
-        ),
+        views.EmailResetCompleteView.as_view(),
         name="password_reset_complete",
     ),
 ]

@@ -144,7 +144,7 @@ class BookmarkResource(resources.ModelResource):
     class Meta:
         model = Bookmark
         import_id_fields = ("id",)
-        fields = ("id", "user", "service", "created_at")
+        fields = ("id", "user", "service", "service_center", "created_at")
 
 
 class InfoReportResource(resources.ModelResource):

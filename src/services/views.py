@@ -18,21 +18,28 @@ from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet
+from django.db.models import Avg, Count, F, Max, Prefetch, Q, QuerySet
 from django.db.models.functions import TruncWeek
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
+from .emailing import is_email_setup
 from .error_codes import get_error_message
 from .forms import (
+    BlogPostAdminForm,
     CenterRatingForm,
     CommentForm,
     ContactForm,
@@ -49,6 +56,8 @@ from .forms import (
 from .maps import get_center_locations, get_city_center
 from .models import (
     FAQ,
+    BlogPost,
+    BlogPostRating,
     Bookmark,
     CenterRating,
     Comment,
@@ -59,6 +68,7 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    ThemePreference,
     UserProfile,
 )
 from .otp import generate_otp, hash_otp, verify_otp
@@ -68,6 +78,7 @@ from .suggestion import get_nearest_center
 logger = logging.getLogger(__name__)
 
 COMMENTS_PER_PAGE = 5
+MEDIA_PER_PAGE = 25
 
 
 def save_user_profile(
@@ -504,13 +515,36 @@ def resend_profile_otp_api(request: HttpRequest) -> JsonResponse:
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
+def _get_safe_login_next(request: HttpRequest) -> str:
+    """Return a safe internal destination from the ``next`` parameter.
+
+    Only same-host URLs are allowed (prevents open redirects); falls back
+    to the home page when ``next`` is missing or untrusted.
+    """
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return "home"
+
+
 def login_view(request: HttpRequest) -> HttpResponse:
     """Handle user login.
 
-    Authenticates with :class:`LoginForm`; redirects to home on success.
+    Authenticates with :class:`LoginForm`; redirects to the ``next``
+    destination on success (or home when none is given).  For AJAX requests
+    (``X-Requested-With: XMLHttpRequest``) returns JSON responses
+    with ``{\"success\": true/false}``.
     """
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     if request.user.is_authenticated:
-        return redirect("home")
+        if is_ajax:
+            return JsonResponse({"success": True, "csrfToken": get_token(request)})
+        return redirect(_get_safe_login_next(request))
 
     if request.method == "POST":
         form = LoginForm(request.POST)
@@ -524,6 +558,10 @@ def login_view(request: HttpRequest) -> HttpResponse:
                     request.session.set_expiry(2592000)  # 30 days
                 else:
                     request.session.set_expiry(0)  # expire on browser close
+                if is_ajax:
+                    return JsonResponse(
+                        {"success": True, "csrfToken": get_token(request)}
+                    )
                 messages.success(
                     request,
                     get_error_message(
@@ -531,12 +569,111 @@ def login_view(request: HttpRequest) -> HttpResponse:
                         first_name=user.first_name or user.username,
                     ),
                 )
-                return redirect("home")
+                return redirect(_get_safe_login_next(request))
+            if is_ajax:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": get_error_message("auth/invalid-credentials"),
+                    },
+                    status=400,
+                )
             messages.error(request, get_error_message("auth/invalid-credentials"))
+        elif is_ajax:
+            errors = []
+            for field_errors in form.errors.values():
+                errors.extend(field_errors)
+            return JsonResponse(
+                {"success": False, "error": " ".join(errors)},
+                status=400,
+            )
     else:
         form = LoginForm()
 
     return render(request, "services/auth/login.html", {"form": form})
+
+
+def _get_safe_return_url(request: HttpRequest) -> str:
+    """Return a safe internal redirect target for the theme toggle.
+
+    Prefers the ``next`` query parameter, then the HTTP Referer; only same-host
+    URLs are allowed (prevents open redirects). Falls back to the home page.
+    """
+    next_url = request.GET.get("next") or request.META.get("HTTP_REFERER", "") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        parsed = urllib.parse.urlsplit(next_url)
+        if parsed.netloc:
+            return urllib.parse.urlunsplit(("", "", parsed.path, parsed.query, ""))
+        return next_url
+    return "home"
+
+
+@require_http_methods(["GET", "POST"])
+def theme_toggle_view(request: HttpRequest) -> HttpResponse:
+    """Toggle or persist the authenticated user's theme preference.
+
+    Only GET and POST are supported; other methods are rejected with 405
+    before reaching the toggle logic.
+
+    GET (no-JavaScript fallback): toggles the stored theme for authenticated
+    users and redirects back to the safe ``next``/referer destination; redirects
+    anonymous users to the login page with a ``next`` parameter that returns
+    them to the originating page after login.
+
+    POST (client-side sync): stores the ``theme`` value from the JSON body
+    (``light`` or ``dark``); returns a JSON response, or HTTP 401 for anonymous
+    users and HTTP 400 for invalid payloads.
+    """
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/login-required")},
+                status=401,
+            )
+        try:
+            payload = json.loads(request.body or b"{}")
+        except (json.JSONDecodeError, TypeError):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        if not isinstance(payload, dict):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        theme = payload.get("theme")
+        if theme not in ("light", "dark"):
+            return JsonResponse(
+                {"success": False, "error": get_error_message("theme/invalid-value")},
+                status=400,
+            )
+        ThemePreference.objects.update_or_create(
+            user=request.user, defaults={"theme": theme}
+        )
+        return JsonResponse({"success": True, "theme": theme})
+
+    if not request.user.is_authenticated:
+        return_url = _get_safe_return_url(request)
+        return redirect(
+            f"{reverse('login')}?next={urllib.parse.quote(return_url, safe='')}"
+        )
+
+    theme_pref, _ = ThemePreference.objects.get_or_create(
+        user=request.user, defaults={"theme": "light"}
+    )
+    new_theme = (
+        ThemePreference.THEME_DARK
+        if theme_pref.theme == ThemePreference.THEME_LIGHT
+        else ThemePreference.THEME_LIGHT
+    )
+    theme_pref.theme = new_theme
+    theme_pref.save(update_fields=["theme"])
+    return redirect(_get_safe_return_url(request))
 
 
 def logout_view(request: HttpRequest) -> HttpResponse:
@@ -794,10 +931,61 @@ def password_reset_phone_done_view(request: HttpRequest) -> HttpResponse:
     return render(request, "services/auth/password_reset_phone_done.html")
 
 
+class _EmailResetRequiredMixin:
+    """Raise 404 for email-reset pages when no sending mail backend is set up.
+
+    The email password reset flow is only meaningful once the admin has
+    configured a real mail backend (SMTP). Until then the pages must not be
+    reachable and all frontend links to them are hidden.
+    """
+
+    def dispatch(self, request: HttpRequest, *args, **kwargs):
+        if not is_email_setup():
+            raise Http404("Email password reset is not configured.")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class EmailResetView(_EmailResetRequiredMixin, auth_views.PasswordResetView):
+    """Send a password reset email (hidden unless email is set up)."""
+
+    template_name = "services/auth/password_reset_form.html"
+    email_template_name = "services/auth/password_reset_email.txt"
+    html_email_template_name = "services/auth/password_reset_email.html"
+    subject_template_name = "services/auth/password_reset_subject.txt"
+
+    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """Handle the POST form submission, rate limited per IP."""
+        return super().post(request, *args, **kwargs)
+
+
+class EmailResetDoneView(_EmailResetRequiredMixin, auth_views.PasswordResetDoneView):
+    """Confirmation page after a reset email is sent (gated like the form)."""
+
+    template_name = "services/auth/password_reset_done.html"
+
+
+class EmailResetConfirmView(
+    _EmailResetRequiredMixin, auth_views.PasswordResetConfirmView
+):
+    """Set a new password from the emailed link (gated like the form)."""
+
+    template_name = "services/auth/password_reset_confirm.html"
+
+
+class EmailResetCompleteView(
+    _EmailResetRequiredMixin, auth_views.PasswordResetCompleteView
+):
+    """Success page after a successful email password reset."""
+
+    template_name = "services/auth/password_reset_complete.html"
+
+
 def home(request: HttpRequest) -> HttpResponse:
     """Render the public home page with popular services and recent FAQs."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
+    blog_posts = BlogPost.objects.filter(is_published=True).select_related("author")[:3]
     bookmarked_ids: set[int] = set()
     if request.user.is_authenticated:
         bookmarked_ids = set(
@@ -811,6 +999,7 @@ def home(request: HttpRequest) -> HttpResponse:
         {
             "popular_services": popular_services,
             "faqs": faqs,
+            "blog_posts": blog_posts,
             "bookmarked_ids": bookmarked_ids,
         },
     )
@@ -821,6 +1010,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     """Render the authenticated user dashboard."""
     popular_services: QuerySet = Service.objects.all()[:6]
     faqs: QuerySet = FAQ.objects.all()[:5]
+    faq_updated_at = FAQ.objects.aggregate(Max("updated_at"))["updated_at__max"]
     bookmarked_ids: set[int] = set(
         Bookmark.objects.filter(user=request.user).values_list("service_id", flat=True)
     )
@@ -831,6 +1021,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             "popular_services": popular_services,
             "faqs": faqs,
             "faq_count": FAQ.objects.count(),
+            "faq_updated_at": faq_updated_at,
             "bookmarked_ids": bookmarked_ids,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
@@ -843,11 +1034,9 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 def search(request: HttpRequest) -> HttpResponse:
     """Search services by name, keywords or organization.
 
-    Requires authentication. Results are paginated (12 per page).
+    Accessible by all visitors. Results are paginated (12 per page).
     Supports filtering by organization and city.
     """
-    if not request.user.is_authenticated:
-        return redirect("login")
     query: str = request.GET.get("q", "").strip()[:200]
     org_filter: str = request.GET.get("organization", "").strip()
     city_filter: str = request.GET.get("city", "").strip()
@@ -1074,12 +1263,377 @@ def faq_view(request: HttpRequest) -> HttpResponse:
         {
             "faqs": faqs,
             "faq_count": faqs.count(),
+            "faq_updated_at": FAQ.objects.aggregate(Max("updated_at"))[
+                "updated_at__max"
+            ],
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
                 {"label": "سوالات متداول"},
             ],
         },
     )
+
+
+def blog_list(request: HttpRequest) -> HttpResponse:
+    """Display a paginated list of published blog posts.
+
+    Shows 9 posts per page.  Only posts with ``is_published=True``
+    are included.  Supports searching by title, summary and keywords
+    via the ``q`` query parameter.
+    """
+    posts = BlogPost.objects.filter(is_published=True).select_related("author")
+    query = request.GET.get("q", "").strip()
+    if query:
+        posts = posts.filter(
+            Q(title__icontains=query)
+            | Q(summary__icontains=query)
+            | Q(keywords__icontains=query)
+        )
+    paginator = Paginator(posts, 9)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+    return render(
+        request,
+        "services/blog_list.html",
+        {"page_obj": page_obj, "query": query},
+    )
+
+
+def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
+    post = get_object_or_404(
+        BlogPost.objects.select_related("author__profile"),
+        slug=slug,
+        is_published=True,
+    )
+    now = timezone.now()
+    viewed = request.session.setdefault("viewed_posts", {})
+    last_view = viewed.get(str(post.pk))
+    if last_view is None or (now - datetime.fromisoformat(last_view)) > timedelta(
+        hours=24
+    ):
+        BlogPost.objects.filter(pk=post.pk).update(view_count=F("view_count") + 1)
+        post.refresh_from_db(fields=["view_count"])
+        viewed[str(post.pk)] = now.isoformat()
+        request.session.modified = True
+    avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
+    rating_count = post.ratings.count()
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = post.ratings.filter(user=request.user).first()
+        user_rating = user_rating_obj.score if user_rating_obj else None
+
+    top_level_comments = (
+        Comment.objects.filter(blog_post=post, parent__isnull=True)
+        .select_related("user", "deleted_by")
+        .prefetch_related(
+            "replies__user", "replies__deleted_by", "reactions", "replies__reactions"
+        )
+    )
+    comment_page = int(request.GET.get("comment_page", 1))
+    comment_paginator = Paginator(top_level_comments, COMMENTS_PER_PAGE)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+    has_more_comments = comment_page_obj.has_next()
+
+    from .models import CommentReaction
+
+    comment_reaction_data = {}
+    all_comments = list(comment_page_obj) + [
+        r for c in comment_page_obj for r in c.replies.all()
+    ]
+    for c in all_comments:
+        likes = 0
+        dislikes = 0
+        user_rx = None
+        user_id = request.user.id if request.user.is_authenticated else None
+        for rx in c.reactions.all():
+            if rx.value == CommentReaction.LIKE:
+                likes += 1
+            elif rx.value == CommentReaction.DISLIKE:
+                dislikes += 1
+            if user_rx is None and user_id and rx.user_id == user_id:
+                user_rx = rx.value
+        comment_reaction_data[c.id] = (likes, dislikes, user_rx)
+
+    related_posts = BlogPost.objects.none()
+    kw_list = post.get_keywords_list()
+    if kw_list:
+        q_filter = Q()
+        for kw in kw_list:
+            q_filter |= Q(keywords__icontains=kw)
+        related_posts = (
+            BlogPost.objects.filter(q_filter, is_published=True)
+            .exclude(pk=post.pk)
+            .distinct()[:4]
+        )
+
+    comment_form = None
+    if request.user.is_authenticated:
+        comment_form = CommentForm()
+
+    return render(
+        request,
+        "services/blog_detail.html",
+        {
+            "post": post,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": rating_count,
+            "user_rating": user_rating,
+            "related_posts": related_posts,
+            "comments": comment_page_obj,
+            "has_more_comments": has_more_comments,
+            "comment_page": comment_page,
+            "comment_form": comment_form,
+            "comment_reaction_data": comment_reaction_data,
+            "breadcrumbs": [
+                {"label": "خانه", "url": "/"},
+                {"label": "وبلاگ", "url": "/blog/"},
+                {"label": post.title},
+            ],
+        },
+    )
+
+
+def blog_preview(request: HttpRequest, slug: str) -> HttpResponse:
+    """Preview a blog post (published or draft) – staff only."""
+    if not request.user.is_staff:
+        post = get_object_or_404(
+            BlogPost.objects.select_related("author__profile"),
+            slug=slug,
+            is_published=True,
+        )
+        return redirect("blog_detail", slug=slug)
+    post = get_object_or_404(
+        BlogPost.objects.select_related("author__profile"),
+        slug=slug,
+    )
+    avg_rating = post.ratings.aggregate(Avg("score"))["score__avg"]
+    rating_count = post.ratings.count()
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = post.ratings.filter(user=request.user).first()
+        user_rating = user_rating_obj.score if user_rating_obj else None
+
+    top_level_comments = (
+        Comment.objects.filter(blog_post=post, parent__isnull=True)
+        .select_related("user", "deleted_by")
+        .prefetch_related(
+            "replies__user", "replies__deleted_by", "reactions", "replies__reactions"
+        )
+    )
+    comment_page = int(request.GET.get("comment_page", 1))
+    comment_paginator = Paginator(top_level_comments, COMMENTS_PER_PAGE)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+    has_more_comments = comment_page_obj.has_next()
+
+    from .models import CommentReaction
+
+    comment_reaction_data = {}
+    all_comments = list(comment_page_obj) + [
+        r for c in comment_page_obj for r in c.replies.all()
+    ]
+    for c in all_comments:
+        likes = 0
+        dislikes = 0
+        user_rx = None
+        user_id = request.user.id if request.user.is_authenticated else None
+        for rx in c.reactions.all():
+            if rx.value == CommentReaction.LIKE:
+                likes += 1
+            elif rx.value == CommentReaction.DISLIKE:
+                dislikes += 1
+            if user_rx is None and user_id and rx.user_id == user_id:
+                user_rx = rx.value
+        comment_reaction_data[c.id] = (likes, dislikes, user_rx)
+
+    related_posts = BlogPost.objects.none()
+    kw_list = post.get_keywords_list()
+    if kw_list:
+        q_filter = Q()
+        for kw in kw_list:
+            q_filter |= Q(keywords__icontains=kw)
+        related_posts = (
+            BlogPost.objects.filter(q_filter, is_published=True)
+            .exclude(pk=post.pk)
+            .distinct()[:4]
+        )
+
+    comment_form = None
+    if request.user.is_authenticated:
+        comment_form = CommentForm()
+
+    return render(
+        request,
+        "services/blog_detail.html",
+        {
+            "post": post,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+            "rating_count": rating_count,
+            "user_rating": user_rating,
+            "related_posts": related_posts,
+            "comments": comment_page_obj,
+            "has_more_comments": has_more_comments,
+            "comment_page": comment_page,
+            "comment_form": comment_form,
+            "comment_reaction_data": comment_reaction_data,
+            "breadcrumbs": [
+                {"label": "خانه", "url": "/"},
+                {"label": "وبلاگ", "url": "/blog/"},
+                {"label": post.title},
+            ],
+            "is_preview": True,
+        },
+    )
+
+
+@require_POST
+def rate_blog_post(request: HttpRequest, post_id: int) -> JsonResponse:
+    """API endpoint to rate a blog post (1-5).
+
+    POST with JSON ``{\"score\": N}`` or form-encoded ``score=N``.
+    Requires authentication.
+    Idempotent: updates the existing rating if the user has already
+    rated this post.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "login required"}, status=401)
+    post = get_object_or_404(BlogPost, id=post_id, is_published=True)
+    try:
+        if request.content_type == "application/json":
+            data = json.loads(request.body)
+            if not isinstance(data, dict):
+                return JsonResponse({"error": "invalid score"}, status=400)
+            score = int(data.get("score", 0))
+        else:
+            score = int(request.POST.get("score", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid score"}, status=400)
+    if score < 1 or score > 5:
+        return JsonResponse({"error": "score must be between 1 and 5"}, status=400)
+    rating, _ = BlogPostRating.objects.update_or_create(
+        user=request.user,
+        blog_post=post,
+        defaults={"score": score},
+    )
+    avg = post.ratings.aggregate(Avg("score"))["score__avg"]
+    return JsonResponse(
+        {
+            "average": round(avg, 1) if avg else None,
+            "count": post.ratings.count(),
+            "user_score": rating.score,
+        }
+    )
+
+
+@staff_member_required
+@require_POST
+def ckeditor_upload(request: HttpRequest) -> JsonResponse:
+    """CKEditor 5 image upload endpoint — staff only."""
+    import uuid
+
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    if "upload" not in request.FILES:
+        return JsonResponse(
+            {"error": {"message": "هیچ فایلی ارسال نشده است."}}, status=400
+        )
+    uploaded = request.FILES["upload"]
+    allowed = ("image/jpeg", "image/png", "image/gif", "image/webp")
+    if uploaded.content_type not in allowed:
+        return JsonResponse(
+            {"error": {"message": "فرمت فایل مجاز نیست. JPEG, PNG, GIF, WebP"}},
+            status=400,
+        )
+    ext = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    path = default_storage.save(f"blog/{filename}", ContentFile(uploaded.read()))
+    url = django_settings.MEDIA_URL + path
+    return JsonResponse({"url": url})
+
+
+@staff_member_required
+def admin_blog_list(request: HttpRequest) -> HttpResponse:
+    posts = BlogPost.objects.select_related("author").all()
+    return render(
+        request,
+        "services/admin/blog_post_list.html",
+        {
+            "posts": posts,
+            "title": "مدیریت پست‌های وبلاگ",
+        },
+    )
+
+
+def _get_all_blog_keywords(max_tags: int = 512) -> list[str]:
+    """Return the most frequently used keywords (up to ``max_tags``)."""
+    from collections import Counter
+
+    counter: Counter[str] = Counter()
+    for kw_str in BlogPost.objects.exclude(keywords="").values_list(
+        "keywords", flat=True
+    ):
+        for kw in kw_str.split(","):
+            kw = kw.strip()
+            if kw:
+                counter[kw] += 1
+    return [kw for kw, _ in counter.most_common(max_tags)]
+
+
+@staff_member_required
+def admin_blog_create(request: HttpRequest) -> HttpResponse:
+    if request.method == "POST":
+        form = BlogPostAdminForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            messages.success(request, "پست وبلاگ ایجاد شد.")
+            return redirect("admin_blog_list")
+    else:
+        form = BlogPostAdminForm()
+    return render(
+        request,
+        "services/admin/blog_post_form.html",
+        {
+            "form": form,
+            "title": "ایجاد پست جدید",
+            "is_create": True,
+            "existing_keywords": _get_all_blog_keywords(),
+        },
+    )
+
+
+@staff_member_required
+def admin_blog_edit(request: HttpRequest, post_id: int) -> HttpResponse:
+    post = get_object_or_404(BlogPost, id=post_id)
+    if request.method == "POST":
+        form = BlogPostAdminForm(request.POST, request.FILES, instance=post)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "پست وبلاگ به‌روزرسانی شد.")
+            return redirect("admin_blog_list")
+    else:
+        form = BlogPostAdminForm(instance=post)
+    return render(
+        request,
+        "services/admin/blog_post_form.html",
+        {
+            "form": form,
+            "title": "ویرایش پست",
+            "is_create": False,
+            "post": post,
+            "existing_keywords": _get_all_blog_keywords(),
+        },
+    )
+
+
+@staff_member_required
+@require_POST
+def admin_blog_delete(request: HttpRequest, post_id: int) -> HttpResponse:
+    post = get_object_or_404(BlogPost, id=post_id)
+    post.delete()
+    messages.success(request, "پست وبلاگ حذف شد.")
+    return redirect("admin_blog_list")
 
 
 @login_required
@@ -1293,29 +1847,82 @@ def contact(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _parse_bookmark_state(request: HttpRequest) -> bool | None:
+    """Parse the desired bookmark state from the request.
+
+    Reads the ``bookmarked`` field from a JSON body (AJAX) or a form
+    field (regular POST). Returns ``None`` when the field is missing or
+    is not a valid boolean.
+    """
+    if request.headers.get("Content-Type", "").startswith("application/json"):
+        try:
+            data = json.loads(request.body or b"{}")
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(data, dict):
+            return None
+        raw = data.get("bookmarked")
+    else:
+        raw = request.POST.get("bookmarked")
+    if isinstance(raw, str):
+        value = raw.strip().lower()
+        if value in ("true", "1", "yes", "on"):
+            return True
+        if value in ("false", "0", "no", "off"):
+            return False
+        return None
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, int) and raw in (0, 1):
+        return bool(raw)
+    return None
+
+
+def _apply_bookmark_state(
+    user: User,
+    desired: bool,
+    *,
+    service: Service | None = None,
+    service_center: ServiceCenter | None = None,
+) -> bool:
+    """Idempotently set the bookmark state for a service or service center."""
+    if desired:
+        Bookmark.objects.get_or_create(
+            user=user, service=service, service_center=service_center
+        )
+    else:
+        Bookmark.objects.filter(
+            user=user, service=service, service_center=service_center
+        ).delete()
+    return desired
+
+
 @login_required
-def toggle_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
-    """Toggle bookmark on a service.
+def set_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
+    """Set the bookmark state on a service.
 
     GET: redirects to service detail.
-    POST (AJAX): toggles bookmark and returns JSON.
-    POST (regular): toggles bookmark and redirects to service detail.
+    POST (AJAX): sets the bookmark state from the ``bookmarked`` field of
+    the JSON body and returns JSON.
+    POST (regular): sets the bookmark state and redirects to service detail.
     """
 
     if request.method != "POST":
         return redirect("service_detail", service_id=service_id)
 
+    desired = _parse_bookmark_state(request)
+    if desired is None:
+        msg = get_error_message("bookmark/state-required")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("service_detail", service_id=service_id)
+
     service = get_object_or_404(Service, id=service_id)
-    bookmark, created = Bookmark.objects.get_or_create(
-        user=request.user, service=service
+    bookmarked = _apply_bookmark_state(
+        request.user, desired, service=service, service_center=None
     )
-    if not created:
-        bookmark.delete()
-        bookmarked = False
-        msg = get_error_message("bookmark/removed")
-    else:
-        bookmarked = True
-        msg = get_error_message("bookmark/added")
+    msg = get_error_message("bookmark/added" if bookmarked else "bookmark/removed")
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if is_ajax:
@@ -1327,13 +1934,18 @@ def toggle_bookmark(request: HttpRequest, service_id: int) -> HttpResponse:
 
 @login_required
 def bookmarks_list(request: HttpRequest) -> HttpResponse:
-    """List all bookmarked services for the current user."""
-    bookmarks = Bookmark.objects.filter(user=request.user).select_related("service")
+    """List all bookmarked services and service centers for the current user."""
+    bookmarks = Bookmark.objects.filter(user=request.user).select_related(
+        "service", "service_center"
+    )
+    service_bookmarks = [b for b in bookmarks if b.service is not None]
+    center_bookmarks = [b for b in bookmarks if b.service_center is not None]
     return render(
         request,
         "services/bookmarks.html",
         {
-            "bookmarks": bookmarks,
+            "bookmarks": service_bookmarks,
+            "center_bookmarks": center_bookmarks,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
                 {"label": "نشانک‌ها"},
@@ -1343,18 +1955,55 @@ def bookmarks_list(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
-def submit_comment(
-    request: HttpRequest, service_id: int = 0, center_id: int = 0
-) -> HttpResponse:
-    """Submit a comment on a service or service center.
+def set_center_bookmark(request: HttpRequest, center_id: int) -> HttpResponse:
+    """Set the bookmark state on a service center.
 
-    POST only: validates :class:`CommentForm`, creates the comment.
-    Supports threaded replies via optional ``parent_id`` field.
+    GET: redirects to center detail.
+    POST (AJAX): sets the bookmark state from the ``bookmarked`` field of
+    the JSON body and returns JSON.
+    POST (regular): sets the bookmark state and redirects to center detail.
     """
+
+    if request.method != "POST":
+        return redirect("center_detail", center_id=center_id)
+
+    desired = _parse_bookmark_state(request)
+    if desired is None:
+        msg = get_error_message("bookmark/state-required")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"error": msg}, status=400)
+        messages.error(request, msg)
+        return redirect("center_detail", center_id=center_id)
+
+    center = get_object_or_404(ServiceCenter, id=center_id)
+    bookmarked = _apply_bookmark_state(
+        request.user, desired, service=None, service_center=center
+    )
+    msg = get_error_message(
+        "bookmark/center-added" if bookmarked else "bookmark/center-removed"
+    )
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if is_ajax:
+        return JsonResponse({"bookmarked": bookmarked, "message": msg})
+
+    messages.success(request, msg)
+    return redirect("center_detail", center_id=center_id)
+
+
+@login_required
+def submit_comment(
+    request: HttpRequest,
+    service_id: int = 0,
+    center_id: int = 0,
+    blog_post_id: int = 0,
+) -> HttpResponse:
     if request.method != "POST":
         if service_id:
             return redirect("service_detail", service_id=service_id)
-        return redirect("center_detail", center_id=center_id)
+        if center_id:
+            return redirect("center_detail", center_id=center_id)
+        return redirect("blog_detail", slug=BlogPost.objects.get(id=blog_post_id).slug)
 
     form = CommentForm(request.POST)
     if form.is_valid():
@@ -1368,7 +2017,9 @@ def submit_comment(
                 )
                 if service_id:
                     return redirect("service_detail", service_id=service_id)
-                return redirect("center_detail", center_id=center_id)
+                if center_id:
+                    return redirect("center_detail", center_id=center_id)
+                return redirect("blog_detail", slug=parent.blog_post.slug)
 
         comment = Comment(
             user=request.user,
@@ -1380,15 +2031,21 @@ def submit_comment(
             comment.save()
             messages.success(request, get_error_message("comment/added"))
             return redirect("service_detail", service_id=service_id)
-        else:
+        if center_id:
             comment.service_center = get_object_or_404(ServiceCenter, id=center_id)
             comment.save()
             messages.success(request, get_error_message("comment/added"))
             return redirect("center_detail", center_id=center_id)
+        comment.blog_post = get_object_or_404(BlogPost, id=blog_post_id)
+        comment.save()
+        messages.success(request, get_error_message("comment/added"))
+        return redirect("blog_detail", slug=comment.blog_post.slug)
 
     if service_id:
         return redirect("service_detail", service_id=service_id)
-    return redirect("center_detail", center_id=center_id)
+    if center_id:
+        return redirect("center_detail", center_id=center_id)
+    return redirect("blog_detail", slug=BlogPost.objects.get(id=blog_post_id).slug)
 
 
 @login_required
@@ -1444,10 +2101,13 @@ def delete_comment(request: HttpRequest, comment_id: int) -> HttpResponse:
 
 
 def _comment_redirect(comment: Comment) -> HttpResponse:
-    """Redirect back to the page containing *comment*."""
     if comment.service_id:
         return redirect("service_detail", service_id=comment.service_id)
-    return redirect("center_detail", center_id=comment.service_center_id)
+    if comment.service_center_id:
+        return redirect("center_detail", center_id=comment.service_center_id)
+    if comment.blog_post_id:
+        return redirect("blog_detail", slug=comment.blog_post.slug)
+    return redirect("home")
 
 
 def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
@@ -1465,10 +2125,14 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
     rating_count = rating_agg["cnt"]
 
     user_center_rating = None
+    is_center_bookmarked = False
     if request.user.is_authenticated:
         user_center_rating = CenterRating.objects.filter(
             user=request.user, service_center=center
         ).first()
+        is_center_bookmarked = Bookmark.objects.filter(
+            user=request.user, service_center=center
+        ).exists()
 
     top_level_comments = (
         Comment.objects.filter(service_center=center, parent__isnull=True)
@@ -1506,10 +2170,8 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
     center_locations = get_center_locations(ServiceCenter.objects.filter(id=center.id))
 
     comment_form = None
-    rating_form = None
     if request.user.is_authenticated:
         comment_form = CommentForm()
-        rating_form = CenterRatingForm()
 
     return render(
         request,
@@ -1521,11 +2183,11 @@ def center_detail(request: HttpRequest, center_id: int) -> HttpResponse:
             "avg_rating": round(avg_rating, 1) if avg_rating else None,
             "rating_count": rating_count,
             "user_center_rating": user_center_rating,
+            "is_center_bookmarked": is_center_bookmarked,
             "comments": comment_page_obj,
             "has_more_comments": has_more_comments,
             "comment_page": comment_page,
             "comment_form": comment_form,
-            "rating_form": rating_form,
             "comment_reaction_data": comment_reaction_data,
             "breadcrumbs": [
                 {"label": "خانه", "url": "/"},
@@ -1557,7 +2219,7 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
     center = get_object_or_404(ServiceCenter, id=center_id)
     form = CenterRatingForm(request.POST)
     if form.is_valid():
-        rating, created = CenterRating.objects.update_or_create(
+        _rating, created = CenterRating.objects.update_or_create(
             user=request.user,
             service_center=center,
             defaults={"score": int(form.cleaned_data["score"])},
@@ -1568,6 +2230,48 @@ def submit_center_rating(request: HttpRequest, center_id: int) -> HttpResponse:
             messages.success(request, get_error_message("center-rating/updated"))
 
     return redirect("center_detail", center_id=center_id)
+
+
+@require_POST
+def rate_center(request: HttpRequest, center_id: int) -> JsonResponse:
+    """API endpoint to rate a service center (1-5).
+
+    POST with JSON ``{"score": N}`` or form-encoded ``score=N``.
+    Requires authentication.
+    Idempotent: updates the existing rating if the user has already
+    rated this center.
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"error": get_error_message("center-rating/login-required")},
+            status=401,
+        )
+    center = get_object_or_404(ServiceCenter, id=center_id)
+    try:
+        if request.content_type == "application/json":
+            data = json.loads(request.body)
+            if not isinstance(data, dict):
+                return JsonResponse({"error": "invalid score"}, status=400)
+            score = int(data.get("score", 0))
+        else:
+            score = int(request.POST.get("score", 0))
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return JsonResponse({"error": "invalid score"}, status=400)
+    if score < 1 or score > 5:
+        return JsonResponse({"error": "score must be between 1 and 5"}, status=400)
+    rating, _ = CenterRating.objects.update_or_create(
+        user=request.user,
+        service_center=center,
+        defaults={"score": score},
+    )
+    avg = center.ratings.aggregate(Avg("score"))["score__avg"]
+    return JsonResponse(
+        {
+            "average": round(avg, 1) if avg else None,
+            "count": center.ratings.count(),
+            "user_score": rating.score,
+        }
+    )
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
@@ -1811,6 +2515,9 @@ def load_comments(
     elif target_type == "center":
         target = get_object_or_404(ServiceCenter, id=target_id)
         qs = Comment.objects.filter(service_center=target, parent__isnull=True)
+    elif target_type == "blog_post":
+        get_object_or_404(BlogPost, id=target_id, is_published=True)
+        qs = Comment.objects.filter(blog_post_id=target_id, parent__isnull=True)
     else:
         return JsonResponse({"error": "invalid target"}, status=400)
 
@@ -1918,7 +2625,7 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
     from django.conf import settings
     from django.urls import reverse
 
-    from .models import Service, ServiceCenter
+    from .models import BlogPost, Service, ServiceCenter
 
     site_url = settings.SITE_URL
     pages = [
@@ -1927,6 +2634,7 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
         ("contact", None, "0.6"),
         ("faq", None, "0.7"),
         ("services_list", None, "0.8"),
+        ("blog_list", None, "0.7"),
     ]
     urls = ""
     for name, arg, priority in pages:
@@ -1942,6 +2650,9 @@ def sitemap_xml(request: HttpRequest) -> HttpResponse:
     for center in ServiceCenter.objects.all().iterator():
         url = site_url + reverse("center_detail", args=[center.id])
         urls += f"<url><loc>{url}</loc><priority>0.5</priority></url>\n"
+    for post in BlogPost.objects.filter(is_published=True).iterator():
+        url = site_url + reverse("blog_detail", args=[post.slug])
+        urls += f"<url><loc>{url}</loc><priority>0.6</priority></url>\n"
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -2366,7 +3077,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                         updated += 1
                     if m2m_fields:
                         m2m_pending.append((obj, m2m_fields, model_label))
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - collect per-row import errors
                     errors.append(f"{model_label} pk={pk}: {exc}")
                     skipped += 1
 
@@ -2382,7 +3093,7 @@ def admin_data_transfer(request: HttpRequest) -> HttpResponse:
                                 pk__in=pk_list
                             ).values_list("pk", flat=True)
                             related_field.set(valid_pks)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 - collect M2M import errors
                             errors.append(
                                 f"M2M {model_label} pk={obj.pk} {attname}: {exc}"
                             )
@@ -2522,3 +3233,107 @@ def admin_delete_comment(request: HttpRequest, comment_id: int) -> JsonResponse:
     comment.deleted_by = request.user
     comment.save(update_fields=["deleted_by", "updated_at"])
     return JsonResponse({"deleted": True})
+
+
+@staff_member_required
+def admin_media_manager(request: HttpRequest) -> HttpResponse:
+    import os
+    from datetime import datetime
+
+    from django.conf import settings
+
+    blog_dir = os.path.join(settings.MEDIA_ROOT, "blog")
+    files = []
+
+    if os.path.isdir(blog_dir):
+        for entry in os.scandir(blog_dir):
+            if not entry.is_file():
+                continue
+            url = settings.MEDIA_URL + "blog/" + entry.name
+            direct_qs = BlogPost.objects.filter(image="blog/" + entry.name)
+            body_qs = BlogPost.objects.filter(body__icontains=entry.name)
+            direct_count = direct_qs.count()
+            body_count = body_qs.count()
+
+            used_by: dict[int, dict] = {}
+            for p in direct_qs.only("id", "title"):
+                used_by[p.id] = {"id": p.id, "title": p.title}
+            for p in body_qs.only("id", "title"):
+                used_by.setdefault(p.id, {"id": p.id, "title": p.title})
+
+            stat = entry.stat()
+            files.append(
+                {
+                    "name": entry.name,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(
+                        stat.st_mtime, tz=timezone.get_current_timezone()
+                    ),
+                    "url": url,
+                    "direct_usage": direct_count,
+                    "body_usage": body_count,
+                    "total_usage": direct_count + body_count,
+                    "used_by": sorted(used_by.values(), key=lambda x: x["title"]),
+                }
+            )
+
+    if request.method == "POST":
+        filenames = request.POST.getlist("filenames")
+        if not filenames:
+            single = request.POST.get("filename", "").strip()
+            filenames = [single] if single else []
+
+        filenames = [name for name in (n.strip() for n in filenames) if name]
+
+        if not filenames:
+            messages.error(request, "نام فایل مشخص نشده است.")
+        else:
+            deleted = []
+            in_use = []
+            invalid = []
+            for filename in filenames:
+                filepath = os.path.realpath(os.path.join(blog_dir, filename))
+                blog_dir_resolved = os.path.realpath(blog_dir)
+                if not filepath.startswith(blog_dir_resolved + os.sep):
+                    invalid.append(filename)
+                    continue
+                if not os.path.isfile(filepath):
+                    messages.error(request, f"فایل «{filename}» یافت نشد.")
+                    continue
+                qs = BlogPost.objects.filter(
+                    Q(image="blog/" + filename) | Q(body__icontains=filename)
+                )
+                if qs.exists():
+                    in_use.append(filename)
+                else:
+                    os.remove(filepath)
+                    deleted.append(filename)
+
+            if deleted:
+                names = "، ".join(deleted)
+                messages.success(
+                    request,
+                    f"{len(deleted)} فایل حذف شد: {names}",
+                )
+            if in_use:
+                names = "، ".join(in_use)
+                messages.warning(
+                    request,
+                    f"این فایل‌ها در حال استفاده هستند و حذف نشدند: {names}",
+                )
+            if invalid:
+                names = "، ".join(invalid)
+                messages.error(request, f"نام فایل نامعتبر است: {names}")
+
+        return redirect("admin_media_manager")
+
+    files.sort(key=lambda f: f["modified"], reverse=True)
+    page_obj = Paginator(files, MEDIA_PER_PAGE).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "services/admin/media_manager.html",
+        {
+            "page_obj": page_obj,
+            "title": "مدیریت فایل‌های رسانه",
+        },
+    )

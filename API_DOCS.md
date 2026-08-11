@@ -961,6 +961,37 @@ Remove a bookmark. You can only delete your own bookmarks.
 
 ---
 
+### Blog
+
+#### `GET /blog/feed/rss/`
+
+RSS 2.0 feed of the latest 20 published blog posts. **No authentication required.**
+
+| Field | Description |
+|-------|-------------|
+| `title` | `آگاه‌یار - وبلاگ` |
+| `link` | Blog list page URL |
+| `description` | `آخرین مطالب وبلاگ آگاه‌یار` |
+| `item / title` | Post title |
+| `item / description` | Post summary (if set) |
+| `item / link` | Post detail page URL |
+| `item / pubDate` | Publication date (RFC 2822) |
+| `item / author` | Author full name (or username) |
+| `item / category` | Keywords (comma-separated) |
+
+**Response** `200 OK` — `Content-Type: application/rss+xml; charset=utf-8`
+
+#### `GET /blog/feed/atom/`
+
+Atom 1.0 feed with the same data as the RSS feed. **No authentication
+required.**
+
+Same fields as RSS above, adapted for the Atom format.
+
+**Response** `200 OK` — `Content-Type: application/atom+xml; charset=utf-8`
+
+---
+
 ## Security model
 
 | Resource | List | Retrieve | Create | Update | Delete |
@@ -976,6 +1007,7 @@ Remove a bookmark. You can only delete your own bookmarks.
 | Comments | Public | Public | Auth | Auth (owner) | Auth (owner) |
 | Ratings | -- | -- | Auth | -- | Auth (owner) |
 | Bookmarks | Auth | Auth | Auth | -- | Auth (owner) |
+| Blog (RSS/Atom feeds) | Public | -- | -- | -- | -- |
 
 "--" means the endpoint does not exist.
 

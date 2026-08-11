@@ -19,12 +19,51 @@ function closeMenu() {
   nav.classList.remove("show");
 }
 
+function closeModalOnBackdropClick(dialog) {
+  if (!dialog) return;
+  dialog.addEventListener("click", function (e) {
+    if (e.target === dialog) dialog.close();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   var navLinks = document.getElementById("navLinks");
   if (navLinks) {
     navLinks.querySelectorAll("a").forEach(function (link) {
       link.addEventListener("click", closeMenu);
     });
+  }
+
+  var deleteModal = document.getElementById("delete-comment-modal");
+  if (deleteModal) {
+    closeModalOnBackdropClick(deleteModal);
+    deleteModal.addEventListener("close", function () {
+      _pendingDeleteId = null;
+    });
+  }
+
+  var reportDialog = document.getElementById("report-dialog");
+  if (reportDialog) {
+    closeModalOnBackdropClick(reportDialog);
+    reportDialog.addEventListener("close", function () {
+      _reportTargetType = null;
+      _reportTargetId = null;
+    });
+  }
+
+  var nudge = document.getElementById("signupNudge");
+  if (nudge) {
+    if (localStorage.getItem("search-signup-nudge-dismissed")) {
+      nudge.hidden = true;
+    } else {
+      var closeBtn = nudge.querySelector(".signup-nudge-close");
+      if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+          nudge.hidden = true;
+          localStorage.setItem("search-signup-nudge-dismissed", "1");
+        });
+      }
+    }
   }
 
   updateThemeButton();
@@ -36,56 +75,13 @@ document.addEventListener("click", function (e) {
     var commentId = reactionBtn.getAttribute("data-comment-id");
     var value = parseInt(reactionBtn.getAttribute("data-value"), 10);
     if (!commentId) return;
-    var csrfToken = getCsrfToken();
-    if (!csrfToken) return;
-
-    reactionBtn.disabled = true;
-    fetch("/api/v1/comments/" + commentId + "/react/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-        "X-Requested-With": "XMLHttpRequest",
-      },
-      body: JSON.stringify({ value: value }),
-    })
-      .then(function (response) {
-        if (response.status === 401) {
-          window.location.href = "/auth/login/";
-          return;
-        }
-        if (!response.ok) {
-          reactionBtn.disabled = false;
-          return response.json().then(function (err) {
-            if (err.detail) showToast(err.detail, "error");
-          });
-        }
-        return response.json();
-      })
-      .then(function (data) {
-        if (!data) return;
-        var likesEl = document.getElementById("likes-count-" + commentId);
-        var dislikesEl = document.getElementById("dislikes-count-" + commentId);
-        if (likesEl) likesEl.textContent = toPersianDigits(data.likes);
-        if (dislikesEl) dislikesEl.textContent = toPersianDigits(data.dislikes);
-
-        var parent = reactionBtn.closest(".comment-reactions");
-        if (parent) {
-          parent.querySelectorAll(".btn-reaction").forEach(function (btn) {
-            btn.classList.remove("active");
-          });
-        }
-        if (data.user_reaction) {
-          var activeBtn = parent
-            ? parent.querySelector('[data-value="' + data.user_reaction + '"]')
-            : null;
-          if (activeBtn) activeBtn.classList.add("active");
-        }
-        reactionBtn.disabled = false;
-      })
-      .catch(function () {
-        reactionBtn.disabled = false;
+    if (reactionBtn.getAttribute("data-user-auth") === "false") {
+      openLoginForPendingAction("برای ثبت واکنش وارد شوید", function () {
+        return reactToComment(reactionBtn, commentId, value);
       });
+      return;
+    }
+    reactToComment(reactionBtn, commentId, value);
     return;
   }
 
@@ -94,22 +90,123 @@ document.addEventListener("click", function (e) {
     return;
   }
   var serviceId = btn.getAttribute("data-service-id");
-  if (!serviceId) return;
+  var centerId = btn.getAttribute("data-center-id");
+  if (!serviceId && !centerId) return;
+
+  var desired = btn.getAttribute("data-bookmarked") !== "true";
+
+  if (btn.getAttribute("data-user-auth") === "false") {
+    openLoginForPendingAction("برای افزودن به نشانک‌ها وارد شوید", function () {
+      return toggleBookmark(btn, serviceId, centerId, desired);
+    });
+    return;
+  }
+
+  toggleBookmark(btn, serviceId, centerId, desired);
+});
+
+function reactToComment(reactionBtn, commentId, value) {
   var csrfToken = getCsrfToken();
   if (!csrfToken) return;
 
-  btn.disabled = true;
-  fetch("/bookmark/" + serviceId + "/", {
+  reactionBtn.disabled = true;
+  return fetch("/api/v1/comments/" + commentId + "/react/", {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       "X-CSRFToken": csrfToken,
       "X-Requested-With": "XMLHttpRequest",
     },
+    body: JSON.stringify({ value: value }),
   })
     .then(function (response) {
       if (response.status === 401) {
-        window.location.href = "/auth/login/";
-        return;
+        reactionBtn.disabled = false;
+        openLoginForPendingAction("برای ثبت واکنش وارد شوید", function () {
+          return reactToComment(reactionBtn, commentId, value);
+        });
+        return null;
+      }
+      if (response.status === 403) {
+        window.location.reload();
+        return null;
+      }
+      if (!response.ok) {
+        reactionBtn.disabled = false;
+        return response.json().then(function (err) {
+          if (err.detail) showToast(err.detail, "error");
+        });
+      }
+      return response.json();
+    })
+    .then(function (data) {
+      if (!data) return;
+      var likesEl = document.getElementById("likes-count-" + commentId);
+      var dislikesEl = document.getElementById("dislikes-count-" + commentId);
+      if (likesEl) likesEl.textContent = toPersianDigits(data.likes);
+      if (dislikesEl) dislikesEl.textContent = toPersianDigits(data.dislikes);
+
+      var parent = reactionBtn.closest(".comment-reactions");
+      if (parent) {
+        parent.querySelectorAll(".btn-reaction").forEach(function (btn) {
+          btn.classList.remove("active");
+        });
+      }
+      if (data.user_reaction) {
+        var activeBtn = parent
+          ? parent.querySelector('[data-value="' + data.user_reaction + '"]')
+          : null;
+        if (activeBtn) activeBtn.classList.add("active");
+      }
+      reactionBtn.disabled = false;
+    })
+    .catch(function () {
+      reactionBtn.disabled = false;
+    });
+}
+
+function openLoginForPendingAction(prompt, action) {
+  if (window.AgahyarLoginModal) {
+    window.AgahyarLoginModal.open({
+      prompt: prompt,
+      onLogin: function () {
+        return action();
+      },
+    });
+  }
+}
+
+function toggleBookmark(btn, serviceId, centerId, desired) {
+  var id = centerId || serviceId;
+  var url = centerId
+    ? "/bookmark/center/" + id + "/"
+    : "/bookmark/service/" + id + "/";
+  var csrfToken = getCsrfToken();
+  if (!csrfToken) return;
+  btn.disabled = true;
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": csrfToken,
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: JSON.stringify({ bookmarked: desired }),
+  })
+    .then(function (response) {
+      if (response.status === 401) {
+        btn.disabled = false;
+        openLoginForPendingAction(
+          "برای افزودن به نشانک‌ها وارد شوید",
+          function () {
+            return toggleBookmark(btn, serviceId, centerId, desired);
+          },
+        );
+        return null;
+      }
+      if (response.status === 403) {
+        window.location.reload();
+        return null;
       }
       return response.json();
     })
@@ -125,34 +222,48 @@ document.addEventListener("click", function (e) {
       btn.title = data.bookmarked ? "حذف از نشانک‌ها" : "افزودن به نشانک‌ها";
       if (
         !data.bookmarked &&
-        btn.closest(".service-card") &&
         window.location.pathname.indexOf("/bookmarks/") !== -1
       ) {
-        var card = btn.closest(".service-card");
-        if (card) {
-          card.style.transition = "opacity 0.3s";
-          card.style.opacity = "0";
-          setTimeout(function () {
-            card.remove();
-            var grid = document.querySelector(".services-grid");
-            if (grid && grid.children.length === 0) {
-              var empty =
-                '<div class="no-results">' +
-                "<h3>نشانکی وجود ندارد</h3>" +
-                "<p>شما هنوز هیچ خدمتی را نشانک نکرده‌اید.</p>" +
-                '<a href="/services/" class="btn-back">مشاهده خدمات</a>' +
-                "</div>";
-              grid.insertAdjacentHTML("afterend", empty);
-            }
-          }, 300);
-        }
+        removeBookmarkCard(btn);
       }
       btn.disabled = false;
+      return data;
     })
     .catch(function () {
       btn.disabled = false;
     });
-});
+}
+
+function removeBookmarkCard(btn) {
+  var card = btn.closest(".service-card, .center-card, .bookmark-center-card");
+  if (!card) return;
+  var section = card.closest(".bookmark-section");
+  card.style.transition = "opacity 0.3s";
+  card.style.opacity = "0";
+  setTimeout(function () {
+    card.remove();
+    if (
+      section &&
+      !section.querySelector(
+        ".service-card, .center-card, .bookmark-center-card",
+      )
+    ) {
+      section.remove();
+    }
+    if (!document.querySelector(".bookmark-section")) {
+      var empty =
+        '<div class="no-results">' +
+        "<h3>نشانکی وجود ندارد</h3>" +
+        "<p>شما هنوز هیچ خدمت یا مرکزی را نشانک نکرده‌اید.</p>" +
+        '<a href="/services/" class="btn-back">مشاهده خدمات</a>' +
+        "</div>";
+      var header = document.querySelector(".dashboard-header");
+      if (header && !document.querySelector(".no-results")) {
+        header.insertAdjacentHTML("afterend", empty);
+      }
+    }
+  }, 300);
+}
 
 function toggleTheme() {
   var current = document.documentElement.getAttribute("data-theme");
@@ -160,6 +271,28 @@ function toggleTheme() {
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("theme", next);
   updateThemeButton();
+  syncThemePreference(next);
+}
+
+function syncThemePreference(theme) {
+  var body = document.body;
+  if (!body || body.getAttribute("data-user-auth") !== "true") {
+    return;
+  }
+  var toggleLink = document.getElementById("themeToggle");
+  if (!toggleLink || !toggleLink.getAttribute("href")) {
+    return;
+  }
+  var csrfToken = getCsrfToken();
+  if (!csrfToken) {
+    return;
+  }
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", toggleLink.getAttribute("href"), true);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+  xhr.setRequestHeader("X-CSRFToken", csrfToken);
+  xhr.send(JSON.stringify({ theme: theme }));
 }
 
 function updateThemeButton() {
@@ -566,7 +699,15 @@ function suggestClosestCenter(btn) {
 var _reportTargetType = null;
 var _reportTargetId = null;
 
-function openReportDialog(targetType, targetId) {
+function openReportDialog(targetType, targetId, btn) {
+  if (btn && btn.getAttribute("data-user-auth") === "false") {
+    if (window.AgahyarLoginModal) {
+      window.AgahyarLoginModal.open({
+        prompt: "برای گزارش اطلاعات وارد شوید",
+      });
+    }
+    return;
+  }
   _reportTargetType = targetType;
   _reportTargetId = targetId;
   var errorEl = document.getElementById("report-error");
@@ -631,6 +772,19 @@ function submitReport() {
     .then(function (result) {
       if (submitBtn) submitBtn.disabled = false;
 
+      if (result.status === 403) {
+        window.location.reload();
+        return;
+      }
+      if (result.status === 401) {
+        closeReportDialog();
+        if (window.AgahyarLoginModal) {
+          window.AgahyarLoginModal.open({
+            prompt: "برای گزارش اطلاعات وارد شوید",
+          });
+        }
+        return;
+      }
       if (result.status === 200) {
         closeReportDialog();
         showReportSuccess(result.data.message);

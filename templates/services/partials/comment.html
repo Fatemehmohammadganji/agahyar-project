@@ -76,14 +76,24 @@
       {% endif %}
     {% else %}
       <div class="comment-reactions">
-        <span class="btn-reaction btn-like disabled" title="لایک">
+        <button type="button"
+                class="btn-reaction btn-like"
+                data-comment-id="{{ comment.id }}"
+                data-value="1"
+                data-user-auth="false"
+                title="لایک">
           <i class="fas fa-thumbs-up"></i>
-          <span class="reaction-count">{{ likes_count|fa }}</span>
-        </span>
-        <span class="btn-reaction btn-dislike disabled" title="دیس‌لایک">
+          <span class="reaction-count" id="likes-count-{{ comment.id }}">{{ likes_count|fa }}</span>
+        </button>
+        <button type="button"
+                class="btn-reaction btn-dislike"
+                data-comment-id="{{ comment.id }}"
+                data-value="-1"
+                data-user-auth="false"
+                title="دیس‌لایک">
           <i class="fas fa-thumbs-down"></i>
-          <span class="reaction-count">{{ dislikes_count|fa }}</span>
-        </span>
+          <span class="reaction-count" id="dislikes-count-{{ comment.id }}">{{ dislikes_count|fa }}</span>
+        </button>
       </div>
     {% endif %}
     <div id="comment-edit-form-{{ comment.id }}"
@@ -111,7 +121,7 @@
            class="reply-form"
            style="display:none">
         <form method="post"
-              action="{% if comment.service %}{% url 'submit_comment_service' comment.service.id %}{% else %}{% url 'submit_comment_center' comment.service_center.id %}{% endif %}">
+              action="{% if comment.service %}{% url 'submit_comment_service' comment.service.id %}{% elif comment.service_center %}{% url 'submit_comment_center' comment.service_center.id %}{% else %}{% url 'submit_comment_blog_post' comment.blog_post.id %}{% endif %}">
           {% csrf_token %}
           <textarea name="text"
                     rows="3"

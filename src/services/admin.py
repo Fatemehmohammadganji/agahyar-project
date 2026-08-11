@@ -15,6 +15,8 @@ from import_export.admin import ImportExportModelAdmin
 from .forms import ServiceAdminForm
 from .models import (
     FAQ,
+    BlogPost,
+    BlogPostRating,
     Bookmark,
     CenterRating,
     Comment,
@@ -24,7 +26,10 @@ from .models import (
     Service,
     ServiceCenter,
     ServiceCenterPhone,
+    SiteContactInfo,
+    ThemePreference,
     UserProfile,
+    get_site_contact_info,
 )
 from .resources import (
     BookmarkResource,
@@ -88,6 +93,19 @@ class UserProfileAdmin(ImportExportModelAdmin):
     list_display = ("user", "city", "phone")
     search_fields = ("user__username", "city")
     list_filter = ("city",)
+    fieldsets = (
+        (None, {"fields": ("user", "bio")}),
+        ("اطلاعات تماس", {"fields": ("city", "neighborhood", "phone")}),
+    )
+
+
+@admin.register(ThemePreference)
+class ThemePreferenceAdmin(admin.ModelAdmin):
+    """Admin configuration for the ThemePreference model."""
+
+    list_display = ("user", "theme")
+    search_fields = ("user__username", "user__email")
+    list_filter = ("theme",)
 
 
 @admin.register(FAQ)
@@ -154,6 +172,29 @@ class ContactMessageAdmin(ImportExportModelAdmin):
     readonly_fields = ("name", "email", "message", "created_at")
 
 
+@admin.register(SiteContactInfo)
+class SiteContactInfoAdmin(admin.ModelAdmin):
+    """Admin configuration for the singleton SiteContactInfo row.
+
+    Only the seeded row (pk=1) can be edited; adding or deleting rows is
+    disabled so the frontend always has exactly one contact configuration.
+    Opening the change list seeds the row first (from environment variables on
+    first run) so there is always something to edit.
+    """
+
+    list_display = ("email", "phone", "working_hours")
+
+    def changelist_view(self, request, extra_context=None):
+        get_site_contact_info()
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        return False
+
+
 @admin.register(Comment)
 class CommentAdmin(ImportExportModelAdmin):
     """Admin configuration for the Comment model."""
@@ -195,8 +236,8 @@ class BookmarkAdmin(ImportExportModelAdmin):
     """Admin configuration for the Bookmark model."""
 
     resource_classes = [BookmarkResource]
-    list_display = ("user", "service", "created_at")
-    search_fields = ("user__username", "service__name")
+    list_display = ("user", "service", "service_center", "created_at")
+    search_fields = ("user__username", "service__name", "service_center__name")
     list_filter = ("created_at",)
 
 
@@ -226,3 +267,33 @@ class InfoReportAdmin(ImportExportModelAdmin):
             resolved_by=request.user,
         )
         self.message_user(request, f"{count} گزارش بررسی شد.")
+
+
+class BlogPostRatingInline(admin.TabularInline):
+    """Inline display of ratings for a blog post (read-only)."""
+
+    model = BlogPostRating
+    fields = ("user", "score", "created_at")
+    readonly_fields = ("user", "score", "created_at")
+    extra = 0
+    can_delete = False
+    verbose_name = "امتیاز"
+    verbose_name_plural = "امتیازها"
+
+
+@admin.register(BlogPost)
+class BlogPostAdmin(admin.ModelAdmin):
+    """Admin configuration for the BlogPost model."""
+
+    list_display = ("title", "author", "is_published", "published_at", "created_at")
+    list_filter = ("is_published", "author", "published_at")
+    search_fields = ("title", "body")
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = ("created_at", "updated_at", "published_at")
+    fieldsets = (
+        (None, {"fields": ("title", "slug", "author")}),
+        ("محتوا", {"fields": ("summary", "body", "image", "image_url", "alt_text")}),
+        ("وضعیت", {"fields": ("is_published", "published_at")}),
+        ("زمان", {"fields": ("created_at", "updated_at")}),
+    )
+    inlines = [BlogPostRatingInline]

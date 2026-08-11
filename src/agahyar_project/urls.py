@@ -4,8 +4,6 @@ Maps top-level routes (health check, admin panel, services app)
 and registers the 429 rate-limit-exceeded handler.
 """
 
-from typing import List
-
 from decouple import config
 from django.conf import settings
 from django.conf.urls.static import static
@@ -22,7 +20,7 @@ ADMIN_URL: str = config("ADMIN_URL", default="admin/")
 
 
 def rate_limit_exceeded(
-    request: HttpRequest, exception: Exception = None
+    request: HttpRequest, exception: Exception | None = None
 ) -> HttpResponse:
     """Render a custom 429 page when rate limit is exceeded."""
     return render(request, "429.html", status=429)
@@ -31,7 +29,9 @@ def rate_limit_exceeded(
 handler429 = "agahyar_project.urls.rate_limit_exceeded"
 
 
-def page_not_found(request: HttpRequest, exception: Exception = None) -> HttpResponse:
+def page_not_found(
+    request: HttpRequest, exception: Exception | None = None
+) -> HttpResponse:
     """Render a custom 404 page."""
     return render(request, "404.html", status=404)
 
@@ -62,7 +62,7 @@ def health_check(request: HttpRequest) -> HttpResponse:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         health["database"] = "ok"
-    except Exception:
+    except Exception:  # noqa: BLE001 - report any DB failure as degraded
         health["status"] = "degraded"
         health["database"] = "error"
 
@@ -98,7 +98,7 @@ def server_status(request: HttpRequest) -> HttpResponse:
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-    except Exception:
+    except Exception:  # noqa: BLE001 - report any DB failure as error
         status["database"] = "error"
 
     if hasattr(process, "num_fds"):
@@ -107,7 +107,7 @@ def server_status(request: HttpRequest) -> HttpResponse:
     return JsonResponse(status)
 
 
-urlpatterns: List[URLPattern] = [
+urlpatterns: list[URLPattern] = [
     path("health/", health_check, name="health_check"),
     path(ADMIN_URL + "server-status/", server_status, name="server_status"),
     path(
@@ -144,6 +144,31 @@ urlpatterns: List[URLPattern] = [
         ADMIN_URL + "card/comments/",
         services_views.admin_card_comments,
         name="admin_card_comments",
+    ),
+    path(
+        ADMIN_URL + "blog/",
+        services_views.admin_blog_list,
+        name="admin_blog_list",
+    ),
+    path(
+        ADMIN_URL + "blog/create/",
+        services_views.admin_blog_create,
+        name="admin_blog_create",
+    ),
+    path(
+        ADMIN_URL + "blog/<int:post_id>/edit/",
+        services_views.admin_blog_edit,
+        name="admin_blog_edit",
+    ),
+    path(
+        ADMIN_URL + "blog/<int:post_id>/delete/",
+        services_views.admin_blog_delete,
+        name="admin_blog_delete",
+    ),
+    path(
+        ADMIN_URL + "media/",
+        services_views.admin_media_manager,
+        name="admin_media_manager",
     ),
     path(
         ADMIN_URL + "ajax/toggle-report/<int:report_id>/",

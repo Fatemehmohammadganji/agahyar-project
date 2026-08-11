@@ -1,0 +1,144 @@
+{% extends "services/base.html" %}
+{% load static %}
+{% load jalali_tags %}
+{% block title %}{{ post.title|fa }} | آگاه‌یار{% endblock %}
+{% block meta_description %}{{ post.summary|default:"" }}{% endblock %}
+{% block meta_keywords %}{% if post.keywords %}{{ post.keywords }}{% else %}{{ post.title|fa }}, وبلاگ, آگاه‌یار{% endif %}{% endblock %}
+{% block content %}
+  <div class="blog-progress-bar" id="blog-progress-bar"></div>
+  <article class="blog-detail">
+    <header class="blog-detail-header">
+      <div class="blog-detail-meta-top">
+        <span>{{ post.published_at|jalali }}</span>
+        <span>{{ post.reading_time|fa }} دقیقه مطالعه</span>
+        <span>{{ post.view_count|fa }} بازدید</span>
+      </div>
+      <h1>{{ post.title|fa }}</h1>
+    </header>
+    {% with image_url=post.display_image_url %}
+      {% if image_url %}
+        <div class="blog-detail-image">
+          <img src="{{ image_url }}"
+               alt="{{ post.alt_text|default:post.title }}"
+               id="blog-detail-main-image"
+               style="cursor:pointer" />
+        </div>
+        <div class="blog-lightbox"
+             id="blog-lightbox"
+             onclick="this.classList.remove('open')">
+          <span class="blog-lightbox-close">&times;</span>
+          <img src="{{ image_url }}" alt="{{ post.alt_text|default:post.title }}" />
+        </div>
+      {% endif %}
+    {% endwith %}
+    <div class="blog-detail-toc" id="blog-toc" style="display:none">
+      <h3>فهرست مطالب</h3>
+      <ul id="blog-toc-list">
+      </ul>
+    </div>
+    <div class="blog-detail-body-wrapper">
+      <!-- Blog content will be rendered here -->
+      <div class="blog-detail-body" id="blog-detail-body">{{ post.body|safe }}</div>
+      <hr class="blog-detail-divider">
+      <!-- Rating Section -->
+      <div class="rating-section">
+        <div class="star-rating-input"
+             id="blog-star-rating"
+             data-post-id="{{ post.id }}"
+             data-user-auth="{{ user.is_authenticated|lower }}">
+          {% for i in "54321"|make_list %}
+            <input type="radio"
+                   id="bstar{{ post.id }}_{{ i }}"
+                   name="bstar_{{ post.id }}"
+                   value="{{ i }}"
+                   {% if user_rating|stringformat:"s" == i %}checked{% endif %}>
+            <label for="bstar{{ post.id }}_{{ i }}"></label>
+          {% endfor %}
+        </div>
+        <div class="rating-info">
+          <span class="rating-average" id="rating-average">{% if avg_rating is not None %}{{ avg_rating|fa }}{% else %}&mdash;{% endif %}</span>
+          <span class="rating-count" id="rating-count">({{ rating_count|fa }} امتیاز)</span>
+        </div>
+      </div>
+      <!-- Keywords Section -->
+      {% with kw_list=post.get_keywords_list %}
+        {% if kw_list %}
+          <div class="blog-keywords">
+            <ul class="keyword-list">
+              {% for kw in kw_list %}<li class="keyword-tag"><a href="{% url "blog_list" %}?q={{ kw|urlencode }}">{{ kw|fa }}</a></li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      {% endwith %}
+    </div>
+    <div class="blog-detail-card blog-detail-author-box">
+      <div class="blog-author-avatar">{{ post.author.get_full_name|default:post.author.username|first }}</div>
+      <div class="blog-author-info">
+        <strong>{{ post.author.get_full_name|default:post.author.username }}</strong>
+        {% if post.author.profile.bio %}<p>{{ post.author.profile.bio }}</p>{% endif %}
+      </div>
+    </div>
+    {% if related_posts %}
+      <div class="blog-related-posts blog-detail-card">
+        <h3>مطالب مرتبط</h3>
+        <div class="blog-related-grid">
+          {% for rp in related_posts %}
+            <a href="{% url 'blog_detail' slug=rp.slug %}" class="blog-related-card">
+              <div class="blog-related-image{% if not rp.display_image_url %} blog-related-image--placeholder{% endif %}">
+                {% if rp.display_image_url %}
+                  <img src="{{ rp.display_image_url }}"
+                       alt="{{ rp.alt_text|default:rp.title }}"
+                       loading="lazy">
+                {% else %}
+                  <i class="fas fa-newspaper"></i>
+                {% endif %}
+              </div>
+              <div class="blog-related-body">
+                <h4>{{ rp.title|fa }}</h4>
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    <div class="comments-section blog-detail-card">
+      <h3>نظرات</h3>
+      {% if comments %}
+        <div class="comments-list" id="comments-list">
+          {% for comment in comments %}
+            {% include "services/partials/comment.html" with comment=comment depth=0 %}
+          {% endfor %}
+        </div>
+        {% if has_more_comments %}
+          <button type="button"
+                  class="btn-load-more"
+                  data-target="blog_post"
+                  data-target-id="{{ post.id }}"
+                  data-page="2"
+                  onclick="loadMoreComments(this)">نمایش نظرات بیشتر</button>
+        {% endif %}
+      {% else %}
+        <p class="empty-text">هنوز نظری ثبت نشده است.</p>
+      {% endif %}
+      {% if user.is_authenticated %}
+        <form method="post"
+              action="{% url 'submit_comment_blog_post' post.id %}"
+              class="comment-form">
+          {% csrf_token %}
+          {{ comment_form.text }}
+          {{ comment_form.parent_id }}
+          <button type="submit" class="btn-rate">ارسال نظر</button>
+        </form>
+      {% else %}
+        <div class="login-prompt">
+          <p>برای ارسال نظر باید <a href="{% url 'login' %}?next={{ request.path|urlencode }}"
+    class="login-prompt-link"
+    data-prompt="برای ارسال نظر وارد شوید">وارد شوید</a>.</p>
+        </div>
+      {% endif %}
+    </div>
+  </article>
+{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'services/js/blog-detail.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}{{ title }} | آگاه‌یار{% endblock %}
+{% block extrastyle %}
+  {{ block.super }}
+  {{ form.media }}
+{% endblock %}
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">خانه</a> &rsaquo;
+    <a href="{% url 'admin_blog_list' %}">مدیریت پست‌های وبلاگ</a> &rsaquo;
+    {{ title }}
+  </div>
+{% endblock %}
+{% block content %}
+  <div id="content-main">
+    {% block messages %}{{ block.super }}{% endblock %}
+    <form class="blog-admin-form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <fieldset class="module aligned">
+        {% for field in form %}
+          <div class="form-row{% if field.errors %} errors{% endif %}">
+            <div class="field-box">
+              {% if field.name == "is_published" %}
+                <div class="checkbox-row">
+                  {{ field }}
+                  <label for="{{ field.id_for_label }}" class="vCheckboxLabel">{{ field.label }}</label>
+                </div>
+              {% else %}
+                <label for="{{ field.id_for_label }}"
+                       {% if field.field.required %}class="required"{% endif %}>{{ field.label }}</label>
+                {% if field.name == "body" %}
+                  <div class="ck-toolbar-container"></div>
+                  <div class="ck-editor-container" id="ck-editor-content"></div>
+                  <div style="display:none">{{ field }}</div>
+                {% else %}
+                  {{ field }}
+                {% endif %}
+              {% endif %}
+              {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+              {% if field.errors %}
+                <ul class="errorlist">
+                  {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </fieldset>
+      <div class="submit-row">
+        <input type="submit"
+               value="{% if is_create %}ایجاد پست{% else %}ذخیره تغییرات{% endif %}"
+               class="default"
+               name="_save">
+        {% if not is_create %}
+          <p class="deletelink">
+            <a href="{% url 'admin_blog_delete' post_id=post.id %}"
+               class="deletelink"
+               onclick="return confirm('آیا از حذف این پست اطمینان دارید؟');">حذف</a>
+          </p>
+        {% endif %}
+        <a href="{% url 'admin_blog_list' %}" class="cancel">انصراف</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  {{ existing_keywords|json_script:"existing-keywords-data" }}
+  <script src="{% static 'libs/ckeditor5/ckeditor.js' %}"></script>
+  <script src="{% static 'libs/ckeditor5/fa.js' %}"></script>
+  <script>
+      function CkeditorUploadAdapter(loader) {
+          this.loader = loader;
+      }
+      CkeditorUploadAdapter.prototype.upload = function() {
+          var self = this;
+          return self.loader.file.then(function(file) {
+              return new Promise(function(resolve, reject) {
+                  var data = new FormData();
+                  data.append("upload", file);
+                  fetch("{% url 'ckeditor_upload' %}", {
+                          method: "POST",
+                          headers: {
+                              "X-CSRFToken": "{{ csrf_token }}"
+                          },
+                          body: data,
+                      })
+                      .then(function(r) {
+                          return r.json();
+                      })
+                      .then(function(res) {
+                          if (res.error) {
+                              reject(res.error.message);
+                          } else {
+                              resolve({
+                                  default: res.url
+                              });
+                          }
+                      })
+                      .catch(reject);
+              });
+          });
+      };
+      CkeditorUploadAdapter.prototype.abort = function() {};
+
+      function CkeditorUploadAdapterPlugin(editor) {
+          editor.plugins.get("FileRepository").createUploadAdapter = function(loader) {
+              return new CkeditorUploadAdapter(loader);
+          };
+      }
+
+      document.addEventListener("DOMContentLoaded", function() {
+          var textarea = document.querySelector("textarea.ckeditor-textarea");
+          textarea.removeAttribute("required");
+          var editorContainer = document.getElementById("ck-editor-content");
+          editorContainer.innerHTML = textarea.value;
+
+          DecoupledEditor
+              .create(editorContainer, {
+                  licenseKey: "GPL",
+                  language: {
+                      ui: "fa",
+                      content: "fa"
+                  },
+                  extraPlugins: [CkeditorUploadAdapterPlugin],
+                  toolbar: {
+                      items: [
+                          "undo", "redo",
+                          "|", "heading",
+                          "|", "bold", "italic", "underline", "strikethrough",
+                          "|", "link", "insertImage", "mediaEmbed", "blockQuote",
+                          "|", "bulletedList", "numberedList", "outdent", "indent",
+                          "|", "alignment",
+                          "|", "fontSize", "fontFamily", "fontColor", "fontBackgroundColor",
+                      ]
+                  },
+                  fontFamily: {
+                      options: [
+                          "default",
+                          "Vazirmatn",
+                          "Segoe UI",
+                          "Tahoma",
+                          "Arial",
+                          "Courier New",
+                          "Georgia",
+                          "Times New Roman"
+                      ]
+                  },
+                  image: {
+                      toolbar: ["imageTextAlternative", "imageStyle:full", "imageStyle:side"]
+                  }
+              })
+              .then(function(editor) {
+                  document.querySelector(".ck-toolbar-container").appendChild(editor.ui.view.toolbar.element);
+                  document.querySelector(".blog-admin-form").addEventListener("submit", function() {
+                      textarea.value = editor.getData();
+                  });
+              })
+              .catch(function(error) {
+                  console.error(error);
+              });
+
+          var titleInput = document.getElementById("id_title");
+          var slugInput = document.getElementById("id_slug");
+          if (titleInput && slugInput) {
+              var slugManuallyEdited = slugInput.value !== "";
+
+              function slugify(text) {
+                  return text
+                      .normalize("NFKC")
+                      .trim()
+                      .replace(/\s+/g, "-")
+                      .replace(/[^\p{L}\p{N}_-]/gu, "")
+                      .replace(/-+/g, "-")
+                      .replace(/^-|-$/g, "")
+                      .toLowerCase();
+              }
+
+              titleInput.addEventListener("input", function() {
+                  if (!slugManuallyEdited) {
+                      slugInput.value = slugify(titleInput.value);
+                  }
+              });
+
+              slugInput.addEventListener("input", function() {
+                  if (slugInput.value === "") {
+                      slugManuallyEdited = false;
+                      slugInput.value = slugify(titleInput.value);
+                  } else {
+                      slugManuallyEdited = true;
+                  }
+              });
+          }
+      });
+  </script>
+  <script src="{% static 'services/js/admin-blog-tags.js' %}"></script>
+{% endblock %}

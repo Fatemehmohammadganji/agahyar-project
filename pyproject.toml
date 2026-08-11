@@ -1,14 +1,22 @@
+[build-system]
+build-backend = "uv_build"
+requires = [
+  "uv-build>=0.12.3,<0.13",
+]
+
 [project]
 name = "agahyar"
-version = "1.6.2"
+version = "1.8.1"
 description = "Smart Citizen Information System for Government Services"
 requires-python = ">=3.12"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-  "Django>=6.0.7",
+  "django>=6.1",
   "django-import-export>=4.4.1",
   "django-ratelimit>=4.1",
   "django-redis>=5.4",
@@ -17,6 +25,7 @@ dependencies = [
   "httpx>=0.28.1",
   "jdatetime>=6",
   "log21>=3.3.2",
+  "pillow>=12.3",
   "psutil>=7",
   "psycopg2-binary>=2.9.10",
   "python-decouple>=3.8",
@@ -25,8 +34,7 @@ dependencies = [
   "tzdata>=2026.2",
   "whitenoise>=6.9",
 ]
-[project.optional-dependencies]
-dev = [
+optional-dependencies.dev = [
   "bandit>=1.8",
   "djlint>=1.40.3",
   "pip-audit>=2.7",
@@ -35,49 +43,42 @@ dev = [
   "pytest-cov>=7.1",
   "pytest-django>=4.9",
 ]
-prod = [
+optional-dependencies.prod = [
   "gunicorn>=23",
 ]
-scripts = [
-  "Pillow>=12",
-]
-[tool.uv.build-backend]
-module-name = ["agahyar_project", "services"]
-module-root = "src"
+scripts.create-superuser = "agahyar_project.scripts:create_superuser"
+scripts.migrate = "agahyar_project.scripts:migrate"
+scripts.run-server = "agahyar_project.scripts:run_server"
 
-[build-system]
-build-backend = "uv_build"
-requires = [
-  "uv_build<0.9.0,>=0.8.22",
-]
-
-[project.scripts]
-create-superuser = "agahyar_project.scripts:create_superuser"
-migrate = "agahyar_project.scripts:migrate"
-run-server = "agahyar_project.scripts:run_server"
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "agahyar_project.settings"
-addopts = ["-p", "services.test_plugin"]
-python_files = ["test_*.py"]
-testpaths = ["tests"]
-pythonpath = ["src"]
-
-[tool.coverage.run]
-source = ["src"]
-omit = ["*/test_*", "*/tests.py", "*/migrations/*", "*/conftest.py"]
-
-[tool.coverage.report]
-show_missing = true
-fail_under = 80
-
-[tool.bandit]
-targets = ["src"]
-exclude_dirs = ["tests", "migrations"]
+[tool.uv]
+build-backend.module-name = [ "agahyar_project", "services" ]
+build-backend.module-root = "src"
 
 [tool.djlint]
 profile = "django"
-indent = 2
 extension = "html"
+indent = 2
+max_line_length = 120
 format_css = true
 format_js = true
-max_line_length = 120
+
+[tool.ruff]
+target-version = "py312"
+lint.ignore = [ "RUF012" ]
+
+[tool.bandit]
+exclude_dirs = [ "migrations", "tests" ]
+targets = [ "src" ]
+
+[tool.pytest]
+ini_options.testpaths = [ "tests" ]
+ini_options.pythonpath = [ "src" ]
+ini_options.python_files = [ "test_*.py" ]
+ini_options.addopts = [ "-p", "services.test_plugin" ]
+ini_options.DJANGO_SETTINGS_MODULE = "agahyar_project.settings"
+
+[tool.coverage]
+run.omit = [ "*/conftest.py", "*/migrations/*", "*/test_*", "*/tests.py" ]
+run.source = [ "src" ]
+report.fail_under = 80
+report.show_missing = true

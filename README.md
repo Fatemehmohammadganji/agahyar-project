@@ -42,11 +42,15 @@ place.
 
 - 🖨️ **Print-Friendly View** – Generate a clean, printer-optimized version of service details that can be printed or saved as PDF.
 
-- 🌙 **Dark/Light Theme** – Switch between dark and light themes with preferences automatically saved using localStorage.
+- 🌙 **Dark/Light Theme** – Switch between dark and light themes; the choice is saved in the browser via localStorage for anonymous users and persisted to the backend (`ThemePreference`) for logged-in users so it follows them across devices. A no-JavaScript fallback toggle URL is provided with open-redirect protection.
 
 - 🇮🇷 **Persian Error Messages** – Backend error codes are translated into clear and user-friendly Persian messages for a better user experience.
 
 - 🛡️ **Security Hardening** – Includes rate limiting, Content Security Policy (CSP), configurable admin URL, and secure session settings to improve application security.
+
+- 📧 **Email Password Reset** – Reset passwords via a branded HTML email with a Persian subject and a plain-text fallback. The reset POST is rate limited and the link lifetime is configurable via `PASSWORD_RESET_TIMEOUT`. The flow is only visible when a real sending mail backend (SMTP) is configured: with the development console backend the page and its links are hidden and its URLs return 404.
+
+- ✉️ **Configurable Contact Info** – The contact email, phone, and working hours shown in the footer and on the contact page are stored in the database (`SiteContactInfo`), seeded from the `CONTACT_EMAIL` / `CONTACT_PHONE` / `CONTACT_WORKING_HOURS` environment variables on first run, and editable by admins in the admin panel. Empty values are hidden from visitors.
 
 - 📱 **Fully Responsive** – Optimized for mobile phones, tablets, laptops, and desktop devices with a consistent user experience.
 
@@ -69,7 +73,7 @@ find everything they need in one place.
 
 ## 🛠️ Technologies Used
 
-- 🐍 **Python 3.12 / Django 6.0** – Backend
+- 🐍 **Python 3.12 / Django 6.1** – Backend
 - ⚡ **uv** – Python package manager
 - 🗄️ **PostgreSQL / PostGIS** – Database
 - 🚀 **Redis** – Cache & sessions (production)
@@ -197,7 +201,7 @@ Agahyar is currently in an active development stage.
 - Admin management
 - Bulk data export/import
 - Responsive interface
-- Dark/Light mode
+- Dark/Light mode (localStorage for anonymous, server-side ThemePreference for logged-in users)
 - Security hardening
 
 Future development will focus on AI-powered recommendations, multi-city support, mobile applications, multilingual support, and integration with external APIs.

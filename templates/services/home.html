@@ -1,5 +1,6 @@
 {% extends 'services/base.html' %}
 {% load static %}
+{% load jalali_tags %}
 {% block title %}آگاه‌یار — راهنمای هوشمند خدمات دولتی{% endblock %}
 {% block meta_description %}آگاه‌یار، راهنمای هوشمند خدمات دولتی ایران — جستجو و دریافت اطلاعات مراکز دولتی{% endblock %}
 {% block meta_keywords %}خدمات دولتی, آگاه‌یار, آگاه یار, سامانه دولتی, راهنمای خدمات, ایران{% endblock %}
@@ -23,21 +24,54 @@
       </div>
     {% endif %}
   </section>
+  {% with blog_posts=blog_posts %}
+    {% if blog_posts %}
+      <h2 class="section-title">مطالب اخیر</h2>
+      <div class="blog-grid">
+        {% for post in blog_posts %}
+          <article class="blog-card">
+            <a href="{% url 'blog_detail' slug=post.slug %}"
+               class="blog-card-image-link">
+              {% if post.display_image_url %}
+                <div class="blog-card-image">
+                  <img src="{{ post.display_image_url }}"
+                       alt="{{ post.alt_text|default:post.title }}"
+                       loading="lazy" />
+                </div>
+              {% else %}
+                <div class="blog-card-image blog-card-image--placeholder">
+                  <i class="fas fa-newspaper"></i>
+                </div>
+              {% endif %}
+            </a>
+            <div class="blog-card-body">
+              <h3 class="blog-card-title">
+                <a href="{% url 'blog_detail' slug=post.slug %}">{{ post.title }}</a>
+              </h3>
+              <p class="blog-card-excerpt">{{ post.summary|default:post.body|plaintext|striptags|truncatewords:25 }}</p>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+      <div class="blog-section-footer">
+        <a href="{% url 'blog_list' %}" class="blog-section-link">مطالب بیشتر...</a>
+      </div>
+    {% endif %}
+  {% endwith %}
   <h2 class="section-title">خدمات پرطرفدار</h2>
   <div class="services-grid">
     {% for service in popular_services %}
       <div class="service-card">
         <div class="service-card-header">
           <h3>{{ service.name }}</h3>
-          {% if user.is_authenticated %}
-            <button type="button"
-                    class="btn-bookmark-icon"
-                    data-service-id="{{ service.id }}"
-                    data-bookmarked="{% if service.id in bookmarked_ids %}true{% else %}false{% endif %}"
-                    title="{% if service.id in bookmarked_ids %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
-              <i class="{% if service.id in bookmarked_ids %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>
-            </button>
-          {% endif %}
+          <button type="button"
+                  class="btn-bookmark-icon"
+                  data-service-id="{{ service.id }}"
+                  data-user-auth="{{ user.is_authenticated|lower }}"
+                  data-bookmarked="{% if service.id in bookmarked_ids %}true{% else %}false{% endif %}"
+                  title="{% if service.id in bookmarked_ids %}حذف از نشانک‌ها{% else %}افزودن به نشانک‌ها{% endif %}">
+            <i class="{% if service.id in bookmarked_ids %}fas{% else %}far{% endif %} fa-bookmark fa-lg"></i>
+          </button>
         </div>
         <span class="org-badge">{{ service.organization|truncatechars:45 }}</span>
         <a href="{% url 'service_detail' service.id %}" class="btn-detail">مشاهده جزئیات</a>

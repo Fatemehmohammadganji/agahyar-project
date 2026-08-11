@@ -1,0 +1,201 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}{{ title }} | آگاه‌یار{% endblock %}
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">خانه</a> &rsaquo; {{ title }}
+  </div>
+{% endblock %}
+{% block content %}
+  <div id="content-main">
+    {% block messages %}{{ block.super }}{% endblock %}
+    {% if page_obj.paginator.count == 0 %}
+      <p>هیچ فایلی در پوشه رسانه وجود ندارد.</p>
+    {% else %}
+      <p style="margin-bottom:12px;color:var(--body-quiet-color,#666)">{{ page_obj.paginator.count }} فایل در پوشه blog/</p>
+      <form method="post"
+            action="{% url 'admin_media_manager' %}"
+            id="media-batch-delete-form"
+            style="margin-bottom:12px;
+                   display:flex;
+                   gap:8px;
+                   align-items:center"
+            onsubmit="return submitMediaBatchDelete(event)">
+        {% csrf_token %}
+        <button type="submit"
+                id="media-batch-delete-btn"
+                style="background:#c0392b;
+                       border:none;
+                       color:#fff;
+                       border-radius:4px;
+                       padding:6px 14px;
+                       cursor:pointer;
+                       font-family:inherit;
+                       font-size:0.85rem">حذف فایل‌های انتخاب‌شده</button>
+        <span id="media-selected-count"
+              style="color:var(--body-quiet-color,#666);
+                     font-size:0.85rem">۰ فایل انتخاب شده</span>
+      </form>
+      <table class="stats-table" style="width:100%">
+        <thead>
+          <tr>
+            <th style="text-align:center;width:32px">
+              <input type="checkbox"
+                     id="media-select-all"
+                     aria-label="انتخاب همه"
+                     onclick="toggleMediaSelectAll(this)">
+            </th>
+            <th>تصویر</th>
+            <th>نام فایل</th>
+            <th>اندازه</th>
+            <th>آخرین تغییر</th>
+            <th>مصرف مستقیم</th>
+            <th>مصرف در متن</th>
+            <th>مصرف کل</th>
+            <th>استفاده شده در</th>
+            <th>عملیات</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in page_obj %}
+            <tr>
+              <td style="text-align:center">
+                <input type="checkbox"
+                       name="filenames"
+                       value="{{ f.name }}"
+                       form="media-batch-delete-form"
+                       class="media-file-checkbox"
+                       aria-label="انتخاب {{ f.name }}"
+                       onclick="updateMediaSelection()">
+              </td>
+              <td>
+                {% if f.url %}
+                  <a href="{{ f.url }}" target="_blank">
+                    <img src="{{ f.url }}"
+                         alt=""
+                         style="width:60px;
+                                height:40px;
+                                object-fit:cover;
+                                border-radius:4px;
+                                border:1px solid var(--hairline-color,#eee)">
+                  </a>
+                {% endif %}
+              </td>
+              <td><code>{{ f.name }}</code></td>
+              <td>
+                {% if f.size < 1024 %}
+                  {{ f.size }} B
+                {% elif f.size < 1048576 %}
+                  {{ f.size|filesizeformat }}
+                {% else %}
+                  {{ f.size|filesizeformat }}
+                {% endif %}
+              </td>
+              <td>{{ f.modified|date:"Y-m-d H:i" }}</td>
+              <td style="text-align:center">{{ f.direct_usage }}</td>
+              <td style="text-align:center">{{ f.body_usage }}</td>
+              <td style="text-align:center">
+                <strong>{{ f.total_usage }}</strong>
+              </td>
+              <td>
+                {% if f.used_by %}
+                  <ul style="margin:0;padding:0;list-style:none">
+                    {% for p in f.used_by %}
+                      <li>
+                        <a href="{% url 'admin_blog_edit' post_id=p.id %}">{{ p.title }}</a>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  <span style="color:var(--body-quiet-color,#999)">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if f.total_usage == 0 %}
+                  <form method="post"
+                        action="{% url 'admin_media_manager' %}"
+                        style="display:inline"
+                        onsubmit="return confirm('آیا از حذف فایل «{{ f.name }}» اطمینان دارید؟');">
+                    {% csrf_token %}
+                    <input type="hidden" name="filename" value="{{ f.name }}">
+                    <button type="submit"
+                            style="background:none;
+                                   border:none;
+                                   color:#c0392b;
+                                   cursor:pointer;
+                                   padding:0;
+                                   font-family:inherit;
+                                   font-size:inherit">حذف</button>
+                  </form>
+                {% else %}
+                  <span style="color:#e67e22;font-size:0.85rem">در حال استفاده</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if page_obj.has_other_pages %}
+        <div style="margin-top:16px;
+                    display:flex;
+                    gap:6px;
+                    align-items:center;
+                    justify-content:center">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}"
+               style="padding:6px 12px;
+                      border:1px solid var(--hairline-color,#ddd);
+                      border-radius:4px;
+                      text-decoration:none;
+                      color:var(--body-fg)">« قبلی</a>
+          {% endif %}
+          <span style="padding:6px 12px;color:var(--body-quiet-color,#666)">
+            صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}
+          </span>
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}"
+               style="padding:6px 12px;
+                      border:1px solid var(--hairline-color,#ddd);
+                      border-radius:4px;
+                      text-decoration:none;
+                      color:var(--body-fg)">بعدی »</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+  <script>
+      function updateMediaSelection() {
+          var boxes = document.querySelectorAll(".media-file-checkbox");
+          var checked = 0;
+          for (var i = 0; i < boxes.length; i++) {
+              if (boxes[i].checked) checked++;
+          }
+          var countEl = document.getElementById("media-selected-count");
+          if (countEl) countEl.textContent = checked + " فایل انتخاب شده";
+          var selectAll = document.getElementById("media-select-all");
+          if (selectAll) selectAll.checked = checked === boxes.length && boxes.length > 0;
+      }
+
+      function toggleMediaSelectAll(selectAll) {
+          var boxes = document.querySelectorAll(".media-file-checkbox");
+          for (var i = 0; i < boxes.length; i++) {
+              boxes[i].checked = selectAll.checked;
+          }
+          updateMediaSelection();
+      }
+
+      function submitMediaBatchDelete(event) {
+          var boxes = document.querySelectorAll(".media-file-checkbox");
+          var checked = [];
+          for (var i = 0; i < boxes.length; i++) {
+              if (boxes[i].checked) checked.push(boxes[i].value);
+          }
+          if (checked.length === 0) {
+              event.preventDefault();
+              return false;
+          }
+          return confirm("آیا از حذف " + checked.length + " فایل انتخاب‌شده اطمینان دارید؟");
+      }
+  </script>
+{% endblock %}

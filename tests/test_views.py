@@ -6,14 +6,17 @@ and error-code rendering across all views.
 """
 
 import json
+import re
 from unittest.mock import patch
 
 import pytest
 from django.contrib.auth.models import User
+from django.core import mail
 from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from services.emailing import is_email_setup
 from services.forms import RegisterForm
 from services.models import (
     FAQ,
@@ -24,7 +27,9 @@ from services.models import (
     PhoneVerification,
     Service,
     ServiceCenter,
+    ThemePreference,
     UserProfile,
+    get_site_contact_info,
 )
 from services.otp import generate_otp, hash_otp
 from services.views import save_user_profile
@@ -295,6 +300,38 @@ class TestHomeView:
         assert response.status_code == 200
         assert "test service" in str(response.content)
 
+    def test_home_includes_shared_login_modal(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+        assert 'id="login-modal-form"' in content
+
+    def test_home_bookmark_button_visible_to_anonymous(self):
+        service = Service.objects.create(
+            name="home-bookmark-svc", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_home_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("homebk", password="pass12345")
+        service = Service.objects.create(
+            name="home-bookmark-svc2", organization="org", documents="d", steps="s"
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="homebk", password="pass12345")
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
+
 
 @pytest.mark.django_db
 class TestDashboardView:
@@ -310,13 +347,42 @@ class TestDashboardView:
         response = client.get("/dashboard/")
         assert response.status_code == 200
 
+    def test_faq_cache_invalidates_when_faq_edited(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        faq = FAQ.objects.create(question="original", answer="old answer")
+        User.objects.create_user("dashuser", password="pass12345")
+        client = Client()
+        client.login(username="dashuser", password="pass12345")
+        first = client.get("/dashboard/").content.decode()
+        assert "original" in first
+        faq.question = "updated"
+        faq.save()
+        second = client.get("/dashboard/").content.decode()
+        assert "updated" in second
+        assert "original" not in second
+
 
 @pytest.mark.django_db
 class TestSearchView:
-    def test_requires_login(self):
+    def test_accessible_anonymously(self):
         client = Client()
         response = client.get("/search/")
-        assert response.status_code == 302
+        assert response.status_code == 200
+
+    def test_anonymous_search_finds_service_by_name(self):
+        Service.objects.create(
+            name="smart card",
+            organization="org",
+            documents="doc1",
+            steps="step1",
+            keywords="ملی,کارت",
+        )
+        client = Client()
+        response = client.get("/search/", {"q": "smart"})
+        assert response.status_code == 200
+        assert "smart card" in str(response.content)
 
     def test_search_finds_service_by_name(self):
         User.objects.create_user("searchuser", password="pass12345")
@@ -407,6 +473,32 @@ class TestSearchView:
         assert "سازمان الف" in content
         assert "سازمان ب" in content
 
+    def test_signup_nudge_shown_to_anonymous(self):
+        client = Client()
+        response = client.get("/search/")
+        content = response.content.decode()
+        assert 'id="signupNudge"' in content
+        assert "ثبت‌نام رایگان" in content
+        assert "نشانک" in content
+
+    def test_signup_nudge_hidden_for_authenticated(self):
+        User.objects.create_user("nudgeuser", password="pass12345")
+        client = Client()
+        client.login(username="nudgeuser", password="pass12345")
+        response = client.get("/search/")
+        content = response.content.decode()
+        assert 'id="signupNudge"' not in content
+
+    def test_signup_nudge_preserves_next_param(self):
+        from django.template.defaultfilters import urlencode
+
+        client = Client()
+        response = client.get("/search/", {"q": "شناسنامه", "city": "تهران"})
+        content = response.content.decode()
+        expected_next = urlencode(response.wsgi_request.get_full_path())
+        assert f"/register/?next={expected_next}" in content
+        assert f"/login/?next={expected_next}" in content
+
 
 @pytest.mark.django_db
 class TestServiceListView:
@@ -436,6 +528,31 @@ class TestServiceListView:
         assert "page_obj" in response.context
         assert response.context["page_obj"].paginator.per_page == 12
 
+    def test_list_bookmark_button_visible_to_anonymous(self):
+        service = Service.objects.create(
+            name="list-bookmark-svc", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        response = client.get("/services/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_list_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("listbk", password="pass12345")
+        service = Service.objects.create(
+            name="list-bookmark-svc2", organization="org", documents="d", steps="s"
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="listbk", password="pass12345")
+        response = client.get("/services/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
+
 
 @pytest.mark.django_db
 class TestServiceDetailView:
@@ -446,6 +563,56 @@ class TestServiceDetailView:
         client = Client()
         response = client.get(f"/service/{service.id}/")
         assert response.status_code == 200
+
+    def test_service_detail_anonymous_comment_prompt_uses_login_modal(self):
+        service = Service.objects.create(
+            name="modal-svc", organization="org", documents="doc1", steps="step1"
+        )
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert 'class="login-prompt-link"' in content
+        assert f'href="/login/?next=/service/{service.id}/"' in content
+
+    def test_service_detail_includes_shared_login_modal_once(self):
+        service = Service.objects.create(
+            name="modal-svc2", organization="org", documents="doc1", steps="step1"
+        )
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+
+    def test_service_detail_bookmark_button_visible_to_anonymous(self):
+        service = Service.objects.create(
+            name="detail-bookmark-svc",
+            organization="org",
+            documents="doc1",
+            steps="step1",
+        )
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_service_detail_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("detailbk", password="pass12345")
+        service = Service.objects.create(
+            name="detail-bookmark-svc2",
+            organization="org",
+            documents="doc1",
+            steps="step1",
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="detailbk", password="pass12345")
+        response = client.get(f"/service/{service.id}/")
+        content = response.content.decode()
+        assert 'data-service-id="' + str(service.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
 
     def test_404_for_nonexistent(self):
         client = Client()
@@ -603,6 +770,20 @@ class TestFAQView:
         assert response.status_code == 200
         assert "q1" in str(response.content)
 
+    def test_cache_invalidates_when_faq_edited(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        faq = FAQ.objects.create(question="original", answer="old answer")
+        client = Client()
+        first = client.get("/faq/").content.decode()
+        assert "original" in first
+        faq.question = "updated"
+        faq.save()
+        second = client.get("/faq/").content.decode()
+        assert "updated" in second
+        assert "original" not in second
+
 
 @pytest.mark.django_db
 class TestLoginView:
@@ -611,6 +792,12 @@ class TestLoginView:
         response = client.get("/login/")
         assert response.status_code == 200
         assert "form" in response.context
+
+    def test_login_page_excludes_shared_login_modal(self):
+        client = Client()
+        response = client.get("/login/")
+        content = response.content.decode()
+        assert 'id="login-modal"' not in content
 
     def test_login_preserves_username_on_invalid_credentials(self):
         User.objects.create_user("loginuser", password="correctpass")
@@ -632,7 +819,7 @@ class TestLoginView:
         assert response.status_code == 200
         assert response.context["form"].errors
         content = response.content.decode()
-        assert "has-error" in content or "message-error" in content
+        assert "field-error" in content or "field-error-msg" in content
 
     def test_login_redirects_when_authenticated(self):
         User.objects.create_user("alreadyin", password="pass12345")
@@ -710,6 +897,430 @@ class TestLoginView:
         )
         assert response.status_code == 200
         assert not response.context["user"].is_authenticated
+
+    def test_login_redirects_to_next_after_success(self):
+        User.objects.create_user("nextuser", password="pass12345")
+        client = Client()
+        response = client.post(
+            "/login/?next=/service/42/",
+            {"username": "nextuser", "password": "pass12345"},
+        )
+        assert response.status_code == 302
+        assert response.url == "/service/42/"
+
+    def test_login_redirects_to_next_from_hidden_input(self):
+        User.objects.create_user("hiddenuser", password="pass12345")
+        client = Client()
+        response = client.post(
+            "/login/",
+            {"username": "hiddenuser", "password": "pass12345", "next": "/service/7/"},
+        )
+        assert response.status_code == 302
+        assert response.url == "/service/7/"
+
+    def test_login_rejects_external_next(self):
+        User.objects.create_user("extuser", password="pass12345")
+        client = Client()
+        response = client.post(
+            "/login/?next=https://evil.example.com/phish",
+            {"username": "extuser", "password": "pass12345"},
+        )
+        assert response.status_code == 302
+        assert response.url == "/"
+
+    def test_login_redirects_to_next_when_already_authenticated(self):
+        User.objects.create_user("alreadynext", password="pass12345")
+        client = Client()
+        client.login(username="alreadynext", password="pass12345")
+        response = client.get("/login/?next=/service/9/")
+        assert response.status_code == 302
+        assert response.url == "/service/9/"
+
+    def test_login_form_preserves_next_hidden_input(self):
+        client = Client()
+        response = client.get("/login/?next=/service/11/")
+        content = response.content.decode()
+        assert '<input type="hidden" name="next" value="/service/11/">' in content
+
+
+@pytest.mark.django_db
+class TestThemePreferenceModel:
+    def test_default_theme_is_light(self):
+        user = User.objects.create_user("themeless", password="pass12345")
+        pref = ThemePreference.objects.create(user=user)
+        assert pref.theme == "light"
+        assert str(pref) == "themeless - light"
+
+    def test_dark_theme_stored(self):
+        user = User.objects.create_user("themedark", password="pass12345")
+        pref = ThemePreference.objects.create(user=user, theme="dark")
+        assert pref.theme == "dark"
+        assert str(pref) == "themedark - dark"
+
+
+@pytest.mark.django_db
+class TestThemeContextProcessor:
+    def test_anonymous_user_gets_light_theme(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert response.context["user_theme"] == "light"
+        assert 'data-theme="light"' in content
+        assert '<i class="fas fa-moon"></i>' in content
+        assert 'aria-label="تم شب"' in content
+
+    def test_authenticated_user_without_preference_gets_light(self):
+        User.objects.create_user("themeprefuser", password="pass12345")
+        client = Client()
+        client.login(username="themeprefuser", password="pass12345")
+        response = client.get("/")
+        assert response.context["user_theme"] == "light"
+
+    def test_authenticated_user_dark_preference_rendered(self):
+        user = User.objects.create_user("themedarkuser", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="themedarkuser", password="pass12345")
+        response = client.get("/")
+        content = response.content.decode()
+        assert response.context["user_theme"] == "dark"
+        assert 'data-theme="dark"' in content
+        assert 'data-user-auth="true"' in content
+        assert '<i class="fas fa-sun"></i>' in content
+        assert 'aria-label="تم روز"' in content
+        assert '<i class="fas fa-moon"></i>' not in content
+
+    def test_anonymous_page_marks_user_auth_false(self):
+        client = Client()
+        response = client.get("/")
+        assert 'data-user-auth="false"' in response.content.decode()
+
+
+@pytest.mark.django_db
+class TestThemeToggleView:
+    def test_anonymous_get_redirects_to_login_with_next(self):
+        client = Client()
+        response = client.get(reverse("theme_toggle"), {"next": "/service/5/"})
+        assert response.status_code == 302
+        assert response.url == "/login/?next=%2Fservice%2F5%2F"
+
+    def test_anonymous_get_with_external_next_sanitized(self):
+        client = Client()
+        response = client.get(
+            reverse("theme_toggle"), {"next": "https://evil.example.com/phish"}
+        )
+        assert response.status_code == 302
+        assert response.url == "/login/?next=home"
+
+    def test_authenticated_get_toggles_light_to_dark(self):
+        user = User.objects.create_user("toggler1", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="light")
+        client = Client()
+        client.login(username="toggler1", password="pass12345")
+        response = client.get(reverse("theme_toggle"), {"next": "/about/"})
+        assert response.status_code == 302
+        assert response.url == "/about/"
+        assert ThemePreference.objects.get(user=user).theme == "dark"
+
+    def test_authenticated_get_toggles_dark_to_light(self):
+        user = User.objects.create_user("toggler2", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="toggler2", password="pass12345")
+        response = client.get(reverse("theme_toggle"))
+        assert response.status_code == 302
+        assert response.url == "/"
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+    def test_authenticated_get_creates_preference_on_first_toggle(self):
+        user = User.objects.create_user("toggler3", password="pass12345")
+        client = Client()
+        client.login(username="toggler3", password="pass12345")
+        client.get(reverse("theme_toggle"), {"next": "/"})
+        assert ThemePreference.objects.get(user=user).theme == "dark"
+
+    def test_authenticated_get_redirects_to_referer(self):
+        user = User.objects.create_user("toggler4", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="toggler4", password="pass12345")
+        response = client.get(
+            reverse("theme_toggle"), HTTP_REFERER="http://testserver/service/3/"
+        )
+        assert response.status_code == 302
+        assert response.url == "/service/3/"
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+    def test_authenticated_get_ignores_external_referer(self):
+        user = User.objects.create_user("toggler5", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="light")
+        client = Client()
+        client.login(username="toggler5", password="pass12345")
+        response = client.get(
+            reverse("theme_toggle"), HTTP_REFERER="https://evil.example.com/phish"
+        )
+        assert response.status_code == 302
+        assert response.url == "/"
+
+    def test_anonymous_post_returns_401(self):
+        client = Client()
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "dark"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 401
+
+    def test_authenticated_post_saves_theme(self):
+        user = User.objects.create_user("postthemer", password="pass12345")
+        client = Client()
+        client.login(username="postthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "dark"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json() == {"success": True, "theme": "dark"}
+        assert ThemePreference.objects.get(user=user).theme == "dark"
+
+    def test_authenticated_post_updates_existing_preference(self):
+        user = User.objects.create_user("updatethemer", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="dark")
+        client = Client()
+        client.login(username="updatethemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "light"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+    def test_authenticated_post_rejects_invalid_theme(self):
+        User.objects.create_user("badthemer", password="pass12345")
+        client = Client()
+        client.login(username="badthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=json.dumps({"theme": "sepia"}),
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    def test_authenticated_post_rejects_invalid_json(self):
+        User.objects.create_user("badjsonthemer", password="pass12345")
+        client = Client()
+        client.login(username="badjsonthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data="{not valid json",
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("body", ["[]", "null"])
+    def test_authenticated_post_rejects_non_object_json(self, body):
+        User.objects.create_user("nonobjthemer", password="pass12345")
+        client = Client()
+        client.login(username="nonobjthemer", password="pass12345")
+        response = client.post(
+            reverse("theme_toggle"),
+            data=body,
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("method", ["put", "patch", "delete"])
+    def test_unsupported_method_rejected(self, method):
+        user = User.objects.create_user("methodthemer", password="pass12345")
+        ThemePreference.objects.create(user=user, theme="light")
+        client = Client()
+        client.login(username="methodthemer", password="pass12345")
+        response = getattr(client, method)(reverse("theme_toggle"))
+        assert response.status_code == 405
+        assert "Allow" in response.headers
+        assert ThemePreference.objects.get(user=user).theme == "light"
+
+
+@pytest.mark.django_db
+class TestThemeTemplateAndJs:
+    def test_theme_toggle_is_anchor_with_url(self):
+        client = Client()
+        response = client.get("/")
+        content = response.content.decode()
+        assert 'id="themeToggle"' in content
+        assert 'href="/theme/toggle/"' in content
+        assert "onclick=" in content
+        assert 'role="button"' in content
+
+    def test_main_js_syncs_theme_for_authenticated_users(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function toggleTheme" in content
+        assert "function syncThemePreference" in content
+        assert "data-user-auth" in content
+        assert "X-CSRFToken" in content
+        assert "themeToggle" in content
+
+
+@pytest.mark.django_db
+class TestSiteContactInfo:
+    def test_get_site_contact_info_seeds_from_settings(self):
+
+        with override_settings(
+            CONTACT_EMAIL="support@example.com",
+            CONTACT_PHONE="02112345678",
+            CONTACT_WORKING_HOURS="شنبه تا چهارشنبه ۹ تا ۱۷",
+        ):
+            info = get_site_contact_info()
+        assert info.pk == 1
+        assert info.email == "support@example.com"
+        assert info.phone == "02112345678"
+        assert info.working_hours == "شنبه تا چهارشنبه ۹ تا ۱۷"
+
+    def test_get_site_contact_info_does_not_overwrite_existing_row(self):
+        from services.models import SiteContactInfo
+
+        info = SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "db@example.com", "phone": "09120000000"}
+        )[0]
+        with override_settings(
+            CONTACT_EMAIL="env@example.com", CONTACT_PHONE="02111111111"
+        ):
+            returned = get_site_contact_info()
+        assert returned.pk == info.pk
+        assert returned.email == "db@example.com"
+        assert returned.phone == "09120000000"
+
+    def test_get_site_contact_info_empty_env_seeds_empty_values(self):
+        with override_settings(CONTACT_EMAIL="", CONTACT_PHONE=""):
+            info = get_site_contact_info()
+        assert info.email == ""
+        assert info.phone == ""
+
+    def test_footer_hides_section_when_both_empty(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "", "phone": ""}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert "<h4>تماس با ما</h4>" not in content
+
+    def test_footer_shows_email_and_phone_when_set(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "info@example.com", "phone": "02112345678"}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert "<h4>تماس با ما</h4>" in content
+        assert 'href="mailto:info@example.com"' in content
+        assert 'href="tel:02112345678"' in content
+        assert "info@example.com" in content
+        assert "02112345678" in content
+
+    def test_footer_hides_only_empty_field(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "info@example.com", "phone": ""}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert "<h4>تماس با ما</h4>" in content
+        assert 'href="mailto:info@example.com"' in content
+        assert 'href="tel:' not in content
+
+    def test_tel_link_converts_persian_digits(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "", "phone": "۰۲۱-۱۲۳۴۵۶۷۸"}
+        )
+        client = Client()
+        content = client.get("/").content.decode()
+        assert 'href="tel:021-12345678"' in content
+        assert "۰۲۱-۱۲۳۴۵۶۷۸" in content
+
+    def test_contact_page_hides_empty_fields(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "", "phone": ""}
+        )
+        client = Client()
+        content = client.get("/contact/").content.decode()
+        assert "mailto:" not in content
+        assert "tel:" not in content
+
+    def test_contact_page_shows_fields_when_set(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1,
+            defaults={
+                "email": "info@example.com",
+                "phone": "02112345678",
+                "working_hours": "شنبه تا چهارشنبه ۹ تا ۱۷",
+            },
+        )
+        client = Client()
+        content = client.get("/contact/").content.decode()
+        assert 'href="mailto:info@example.com"' in content
+        assert 'href="tel:02112345678"' in content
+        assert "شنبه تا چهارشنبه ۹ تا ۱۷" in content
+        assert "contact-info-item" in content
+
+    def test_contact_page_hides_working_hours_when_empty(self):
+        from services.models import SiteContactInfo
+
+        SiteContactInfo.objects.update_or_create(
+            pk=1, defaults={"email": "info@example.com", "phone": "02112345678"}
+        )
+        client = Client()
+        content = client.get("/contact/").content.decode()
+        assert "fa-clock" not in content
+        assert "شنبه تا چهارشنبه" not in content
+
+
+@pytest.mark.django_db
+class TestSiteContactInfoAdmin:
+    def test_registered_in_admin(self):
+        from django.contrib import admin
+
+        from services.models import SiteContactInfo
+
+        assert admin.site.is_registered(SiteContactInfo)
+
+    def test_singleton_cannot_add_or_delete(self):
+        from django.contrib import admin
+
+        from services.admin import SiteContactInfoAdmin
+        from services.models import SiteContactInfo
+
+        model_admin = SiteContactInfoAdmin(model=SiteContactInfo, admin_site=admin.site)
+        assert model_admin.has_add_permission(request=None) is False
+        assert model_admin.has_delete_permission(request=None) is False
+
+    def test_admin_changelist_seeds_row_when_missing(self):
+        from services.models import SiteContactInfo
+
+        User.objects.create_user(
+            "adminsci", password="pass12345", is_staff=True, is_superuser=True
+        )
+        client = Client()
+        client.login(username="adminsci", password="pass12345")
+        SiteContactInfo.objects.all().delete()
+        response = client.get("/admin/services/sitecontactinfo/")
+        assert response.status_code == 200
+        assert SiteContactInfo.objects.filter(pk=1).exists()
 
 
 @pytest.mark.django_db
@@ -799,18 +1410,105 @@ class TestContactView:
 
 
 @pytest.mark.django_db
+class TestIsEmailSetup:
+    """Unit tests for :func:`services.emailing.is_email_setup`."""
+
+    def test_mailers_without_default_backend_is_not_setup(self):
+        with override_settings(MAILERS={"default": {}}):
+            assert not is_email_setup()
+
+    def test_mailers_without_default_entry_is_not_setup(self):
+        with override_settings(MAILERS={"other": {"BACKEND": "x"}}):
+            assert not is_email_setup()
+
+    def test_console_backend_is_not_setup(self):
+        with override_settings(
+            MAILERS={
+                "default": {
+                    "BACKEND": "django.core.mail.backends.console.EmailBackend",
+                    "OPTIONS": {},
+                }
+            }
+        ):
+            assert not is_email_setup()
+
+    def test_sending_backend_is_setup(self):
+        with override_settings(
+            MAILERS={
+                "default": {
+                    "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+                    "OPTIONS": {},
+                }
+            }
+        ):
+            assert is_email_setup()
+
+
+@pytest.mark.django_db
 class TestPasswordReset:
-    def test_password_reset_page_loads(self):
-        client = Client()
-        response = client.get(reverse("password_reset"))
-        assert response.status_code == 200
+    """Tests for the email-based password reset flow.
 
-    def test_password_reset_done_page_loads(self):
-        client = Client()
-        response = client.get(reverse("password_reset_done"))
-        assert response.status_code == 200
+    The flow is gated behind a configured sending mail backend: with the
+    default console backend the URLs 404 and frontend links are hidden.
+    """
 
-    def test_password_reset_submit_sends_email(self):
+    LOCMEM_MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+            "OPTIONS": {},
+        }
+    }
+    CONSOLE_MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.console.EmailBackend",
+            "OPTIONS": {},
+        }
+    }
+
+    @override_settings(MAILERS=CONSOLE_MAILERS)
+    def test_email_reset_urls_404_when_email_not_setup(self):
+        client = Client()
+        for name in (
+            "password_reset",
+            "password_reset_done",
+            "password_reset_complete",
+        ):
+            assert client.get(reverse(name)).status_code == 404
+        assert (
+            client.get(
+                reverse("password_reset_confirm", args=["dummy", "dummy"])
+            ).status_code
+            == 404
+        )
+
+    @override_settings(
+        MAILERS={
+            "default": {
+                "BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+                "OPTIONS": {},
+            }
+        }
+    )
+    def test_email_reset_pages_load_when_email_setup(self):
+        client = Client()
+        assert client.get(reverse("password_reset")).status_code == 200
+        assert client.get(reverse("password_reset_done")).status_code == 200
+        assert client.get(reverse("password_reset_complete")).status_code == 200
+
+    @override_settings(MAILERS=CONSOLE_MAILERS)
+    def test_phone_reset_page_hides_email_link_when_not_setup(self):
+        client = Client()
+        content = client.get(reverse("password_reset_phone")).content.decode()
+        assert "بازیابی با ایمیل" not in content
+
+    @override_settings(MAILERS=LOCMEM_MAILERS)
+    def test_phone_reset_page_shows_email_link_when_setup(self):
+        client = Client()
+        content = client.get(reverse("password_reset_phone")).content.decode()
+        assert "بازیابی با ایمیل" in content
+
+    @override_settings(MAILERS=LOCMEM_MAILERS)
+    def test_reset_submit_sends_html_email_with_persian_subject(self):
         User.objects.create_user(
             username="resetuser", email="reset@example.com", password="oldpass"
         )
@@ -820,6 +1518,100 @@ class TestPasswordReset:
         )
         assert response.status_code == 302
         assert response.url == reverse("password_reset_done")
+        assert len(mail.outbox) == 1
+        message = mail.outbox[0]
+        assert message.to == ["reset@example.com"]
+        assert "بازیابی رمز عبور" in message.subject
+        assert "/reset/" in message.body
+        html = [
+            alternative[0]
+            for alternative in message.alternatives
+            if alternative[1] == "text/html"
+        ]
+        assert html
+        assert "بازیابی رمز عبور" in html[0]
+        assert "/reset/" in html[0]
+
+    @override_settings(MAILERS=LOCMEM_MAILERS)
+    def test_email_reset_full_flow(self):
+        User.objects.create_user(
+            username="flowuser", email="flow@example.com", password="oldpass"
+        )
+        client = Client()
+        client.post(reverse("password_reset"), {"email": "flow@example.com"})
+        assert len(mail.outbox) == 1
+        reset_url = re.search(
+            r"http://testserver/reset/\S+", mail.outbox[0].body
+        ).group(0)
+
+        response = client.get(reset_url)
+        assert response.status_code == 302
+        set_password_url = response.url
+
+        response = client.get(set_password_url)
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "تنظیم رمز عبور جدید" in content
+
+        response = client.post(
+            set_password_url,
+            {"new_password1": "NewComplex1!", "new_password2": "NewComplex1!"},
+        )
+        assert response.status_code == 302
+        assert response.url == reverse("password_reset_complete")
+
+        assert client.get(response.url).status_code == 200
+
+        response = client.post(
+            reverse("login"), {"username": "flowuser", "password": "NewComplex1!"}
+        )
+        assert response.status_code == 302
+
+    @override_settings(MAILERS=LOCMEM_MAILERS, RATELIMIT_ENABLE=True)
+    def test_email_reset_post_rate_limited(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        client = Client()
+        statuses = [
+            client.post(
+                reverse("password_reset"), {"email": "nobody@example.com"}
+            ).status_code
+            for _ in range(6)
+        ]
+        assert statuses[:5] == [302, 302, 302, 302, 302]
+        assert statuses[5] == 403
+
+    @override_settings(MAILERS=CONSOLE_MAILERS, RATELIMIT_ENABLE=True)
+    def test_email_reset_all_posts_404_when_not_setup(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        client = Client()
+        statuses = [
+            client.post(
+                reverse("password_reset"), {"email": "nobody@example.com"}
+            ).status_code
+            for _ in range(6)
+        ]
+        assert statuses == [404, 404, 404, 404, 404, 404]
+
+    @override_settings(MAILERS=LOCMEM_MAILERS, PASSWORD_RESET_TIMEOUT=-1)
+    def test_email_reset_token_rejected_when_expired(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        user = User.objects.create_user(
+            username="expiryuser", email="expiry@example.com", password="oldpass"
+        )
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        client = Client()
+        response = client.get(reverse("password_reset_confirm", args=[uidb64, token]))
+        content = response.content.decode()
+        assert "لینک نامعتبر است" in content
+        assert 'name="new_password1"' not in content
 
 
 @pytest.mark.django_db
@@ -1565,7 +2357,9 @@ class TestBookmarkView:
         )
         client = Client()
         client.login(username="bmuser", password="pass12345")
-        response = client.post(f"/bookmark/{service.id}/")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", {"bookmarked": "true"}
+        )
         assert response.status_code == 302
         assert Bookmark.objects.filter(user=user, service=service).exists()
 
@@ -1577,7 +2371,9 @@ class TestBookmarkView:
         Bookmark.objects.create(user=user, service=service)
         client = Client()
         client.login(username="bmuser2", password="pass12345")
-        response = client.post(f"/bookmark/{service.id}/")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", {"bookmarked": "false"}
+        )
         assert response.status_code == 302
         assert not Bookmark.objects.filter(user=user, service=service).exists()
 
@@ -1586,9 +2382,105 @@ class TestBookmarkView:
             name="bm-svc3", organization="org", documents="d", steps="s"
         )
         client = Client()
-        response = client.post(f"/bookmark/{service.id}/")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", {"bookmarked": "true"}, follow=False
+        )
         assert response.status_code == 302
         assert "/login/" in response.url
+
+    def test_toggle_missing_state_returns_error(self):
+        user = User.objects.create_user("bmnostate", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-nostate", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmnostate", password="pass12345")
+        response = client.post(f"/bookmark/service/{service.id}/")
+        assert response.status_code == 302
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    def test_ajax_toggle_missing_state_returns_400(self):
+        user = User.objects.create_user("bmaxnostate", password="pass12345")
+        service = Service.objects.create(
+            name="bmax-svc-nostate", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmaxnostate", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/", HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    def test_ajax_set_invalid_string_state_returns_400(self):
+        user = User.objects.create_user("bmaxbad", password="pass12345")
+        service = Service.objects.create(
+            name="bmax-svc-bad", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmaxbad", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": "banana"}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_ajax_non_object_json_body_returns_400(self, raw_body):
+        user = User.objects.create_user("bmjson", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-json", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmjson", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=raw_body,
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
+
+    def test_ajax_set_bookmark_true_is_idempotent(self):
+        user = User.objects.create_user("bmidep", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-idep", organization="org", documents="d", steps="s"
+        )
+        Bookmark.objects.create(user=user, service=service)
+        client = Client()
+        client.login(username="bmidep", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is True
+        assert Bookmark.objects.filter(user=user, service=service).count() == 1
+
+    def test_ajax_set_bookmark_false_is_idempotent(self):
+        user = User.objects.create_user("bmidep2", password="pass12345")
+        service = Service.objects.create(
+            name="bm-svc-idep2", organization="org", documents="d", steps="s"
+        )
+        client = Client()
+        client.login(username="bmidep2", password="pass12345")
+        response = client.post(
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is False
+        assert not Bookmark.objects.filter(user=user, service=service).exists()
 
     def test_toggle_get_redirects_to_detail(self):
         User.objects.create_user("bmuser4", password="pass12345")
@@ -1597,7 +2489,7 @@ class TestBookmarkView:
         )
         client = Client()
         client.login(username="bmuser4", password="pass12345")
-        response = client.get(f"/bookmark/{service.id}/")
+        response = client.get(f"/bookmark/service/{service.id}/")
         assert response.status_code == 302
         assert f"/service/{service.id}/" in response.url
 
@@ -1638,7 +2530,9 @@ class TestBookmarkView:
         client = Client()
         client.login(username="bmax", password="pass12345")
         response = client.post(
-            f"/bookmark/{service.id}/",
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 200
@@ -1655,7 +2549,9 @@ class TestBookmarkView:
         client = Client()
         client.login(username="bmax2", password="pass12345")
         response = client.post(
-            f"/bookmark/{service.id}/",
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 200
@@ -1669,10 +2565,215 @@ class TestBookmarkView:
         )
         client = Client()
         response = client.post(
-            f"/bookmark/{service.id}/",
+            f"/bookmark/service/{service.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestCenterBookmarkView:
+    def _center(self, name="مرکز نشانک"):
+        return ServiceCenter.objects.create(name=name, address="آدرس", city="تهران")
+
+    def test_center_toggle_adds_bookmark(self):
+        user = User.objects.create_user("cbmuser", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmuser", password="pass12345")
+        response = client.post(f"/bookmark/center/{center.id}/", {"bookmarked": "true"})
+        assert response.status_code == 302
+        assert Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_center_toggle_removes_bookmark(self):
+        user = User.objects.create_user("cbmuser2", password="pass12345")
+        center = self._center("مرکز حذف")
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmuser2", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/", {"bookmarked": "false"}
+        )
+        assert response.status_code == 302
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_center_toggle_requires_login(self):
+        center = self._center()
+        client = Client()
+        response = client.post(
+            f"/bookmark/center/{center.id}/", {"bookmarked": "true"}, follow=False
+        )
+        assert response.status_code == 302
+        assert "/login/" in response.url
+
+    def test_center_toggle_missing_state_returns_error(self):
+        user = User.objects.create_user("cbmnostate", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmnostate", password="pass12345")
+        response = client.post(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_toggle_missing_state_returns_400(self):
+        user = User.objects.create_user("cbmaxnostate", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmaxnostate", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_ajax_center_non_object_json_body_returns_400(self, raw_body):
+        user = User.objects.create_user("cbmjson", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmjson", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=raw_body,
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 400
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_set_bookmark_true_is_idempotent(self):
+        user = User.objects.create_user("cbmidep", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmidep", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is True
+        assert Bookmark.objects.filter(user=user, service_center=center).count() == 1
+
+    def test_ajax_center_set_bookmark_false_is_idempotent(self):
+        user = User.objects.create_user("cbmidep2", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmidep2", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is False
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_center_toggle_get_redirects_to_detail(self):
+        User.objects.create_user("cbmuser4", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmuser4", password="pass12345")
+        response = client.get(f"/bookmark/center/{center.id}/")
+        assert response.status_code == 302
+        assert f"/center/{center.id}/" in response.url
+
+    def test_ajax_center_toggle_adds_bookmark(self):
+        user = User.objects.create_user("cbmax", password="pass12345")
+        center = self._center()
+        client = Client()
+        client.login(username="cbmax", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is True
+        assert Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_toggle_removes_bookmark(self):
+        user = User.objects.create_user("cbmax2", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmax2", password="pass12345")
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": False}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["bookmarked"] is False
+        assert not Bookmark.objects.filter(user=user, service_center=center).exists()
+
+    def test_ajax_center_toggle_requires_login(self):
+        center = self._center()
+        client = Client()
+        response = client.post(
+            f"/bookmark/center/{center.id}/",
+            data=json.dumps({"bookmarked": True}),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert response.status_code == 302
+
+    def test_bookmarks_list_shows_bookmarked_centers(self):
+        user = User.objects.create_user("cbmlist", password="pass12345")
+        center = self._center("مرکز کتاب نشانک")
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmlist", password="pass12345")
+        response = client.get("/bookmarks/")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "مرکز کتاب نشانک" in content
+        assert 'data-center-id="' + str(center.id) + '"' in content
+        assert 'class="center-bookmarks-grid"' in content
+        assert 'class="bookmark-center-card"' in content
+
+    def test_center_detail_bookmark_context(self):
+        user = User.objects.create_user("cbmdetail", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmdetail", password="pass12345")
+        response = client.get(f"/center/{center.id}/")
+        assert response.status_code == 200
+        assert response.context["is_center_bookmarked"] is True
+
+    def test_center_detail_bookmark_button_visible_to_anonymous(self):
+        center = self._center()
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'data-center-id="' + str(center.id) + '"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-bookmarked="false"' in content
+
+    def test_center_detail_bookmark_button_state_for_authenticated(self):
+        user = User.objects.create_user("cbmbtn", password="pass12345")
+        center = self._center()
+        Bookmark.objects.create(user=user, service_center=center)
+        client = Client()
+        client.login(username="cbmbtn", password="pass12345")
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'data-center-id="' + str(center.id) + '"' in content
+        assert 'data-user-auth="true"' in content
+        assert 'data-bookmarked="true"' in content
 
 
 @pytest.mark.django_db
@@ -1771,6 +2872,58 @@ class TestSubmitComment:
         client = Client()
         response = client.get(f"/service/{service.id}/")
         assert response.status_code == 200
+
+
+@pytest.mark.django_db
+class TestAnonymousCommentReactions:
+    def _comment(self, service=None, center=None, blog_post=None):
+        author = User.objects.create_user("reaction-author", password="pass12345")
+        return Comment.objects.create(
+            user=author,
+            service=service,
+            service_center=center,
+            blog_post=blog_post,
+            text="reaction text",
+        )
+
+    def _assert_clickable_reactions(self, content, comment_id):
+        assert f'data-comment-id="{comment_id}"' in content
+        assert 'data-user-auth="false"' in content
+        assert 'data-value="1"' in content
+        assert 'data-value="-1"' in content
+        assert "btn-reaction btn-like disabled" not in content
+        assert "btn-reaction btn-dislike disabled" not in content
+
+    def test_service_detail_anonymous_reaction_buttons_clickable(self):
+        service = Service.objects.create(
+            name="reaction-svc", organization="org", documents="d", steps="s"
+        )
+        comment = self._comment(service=service)
+        client = Client()
+        response = client.get(f"/service/{service.id}/")
+        self._assert_clickable_reactions(response.content.decode(), comment.id)
+
+    def test_center_detail_anonymous_reaction_buttons_clickable(self):
+        center = ServiceCenter.objects.create(
+            name="reaction-center", address="addr", city="Tehran"
+        )
+        comment = self._comment(center=center)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        self._assert_clickable_reactions(response.content.decode(), comment.id)
+
+    def test_blog_detail_anonymous_reaction_buttons_clickable(self):
+        from services.models import BlogPost
+
+        post = BlogPost.objects.create(
+            title="reaction post",
+            author=User.objects.create_user("reaction-blog-author"),
+            is_published=True,
+        )
+        comment = self._comment(blog_post=post)
+        client = Client()
+        response = client.get(f"/blog/{post.slug}/")
+        self._assert_clickable_reactions(response.content.decode(), comment.id)
 
 
 @pytest.mark.django_db
@@ -2028,6 +3181,62 @@ class TestCenterDetail:
         assert response.context["avg_rating"] == 4.0
         assert response.context["rating_count"] == 1
 
+    def test_center_detail_shows_star_widget_to_anonymous(self):
+        service = Service.objects.create(
+            name="cr-svc2", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center2", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'id="center-star-rating"' in content
+        assert 'data-user-auth="false"' in content
+
+    def test_center_detail_rating_summary_shows_empty_state(self):
+        service = Service.objects.create(
+            name="cr-svc3", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center3", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'id="center-rating-average"' in content
+        assert "&mdash;" in content
+        assert "هنوز امتیازی ثبت نشده است" not in content
+
+    def test_center_detail_anonymous_comment_prompt_uses_login_modal(self):
+        service = Service.objects.create(
+            name="cr-svc4", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center4", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert 'class="login-prompt-link"' in content
+        assert f'href="/login/?next=/center/{center.id}/"' in content
+
+    def test_center_detail_includes_shared_login_modal_once(self):
+        service = Service.objects.create(
+            name="cr-svc5", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center5", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        client = Client()
+        response = client.get(f"/center/{center.id}/")
+        content = response.content.decode()
+        assert content.count('id="login-modal"') == 1
+
 
 @pytest.mark.django_db
 class TestSubmitCenterRating:
@@ -2093,6 +3302,112 @@ class TestSubmitCenterRating:
         assert f"/center/{center.id}/" in response.url
 
 
+@pytest.mark.django_db
+class TestCenterRatingAPI:
+    def _make_center(self):
+        service = Service.objects.create(
+            name="cr-svc", organization="org", documents="d", steps="s"
+        )
+        center = ServiceCenter.objects.create(
+            name="CR Center", address="addr", city="Tehran"
+        )
+        center.services.add(service)
+        return center
+
+    def test_rating_requires_login(self):
+        center = self._make_center()
+        client = Client()
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            {"score": 4},
+            content_type="application/json",
+        )
+        assert response.status_code == 401
+
+    def test_rate_and_get_average(self):
+        user = User.objects.create_user("api_crater", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater", password="pass12345")
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            {"score": 4},
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_score"] == 4
+        assert data["count"] == 1
+        assert data["average"] == 4.0
+        rating = CenterRating.objects.get(user=user, service_center=center)
+        assert rating.score == 4
+
+    def test_rate_updates_existing_rating(self):
+        user = User.objects.create_user("api_crater2", password="pass12345")
+        center = self._make_center()
+        CenterRating.objects.create(user=user, service_center=center, score=2)
+        client = Client()
+        client.login(username="api_crater2", password="pass12345")
+        response = client.post(f"/api/rate-center/{center.id}/", {"score": "5"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user_score"] == 5
+        assert data["average"] == 5.0
+        assert data["count"] == 1
+
+    def test_score_out_of_range_rejected(self):
+        User.objects.create_user("api_crater3", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater3", password="pass12345")
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            {"score": 6},
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    def test_non_numeric_score_rejected(self):
+        User.objects.create_user("api_crater4", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater4", password="pass12345")
+        response = client.post(f"/api/rate-center/{center.id}/", {"score": "abc"})
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize("raw_body", ["[]", "null"])
+    def test_non_object_json_body_rejected(self, raw_body):
+        User.objects.create_user("api_crater6", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater6", password="pass12345")
+        response = client.post(
+            f"/api/rate-center/{center.id}/",
+            data=raw_body,
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    def test_get_method_rejected(self):
+        User.objects.create_user("api_crater7", password="pass12345")
+        center = self._make_center()
+        client = Client()
+        client.login(username="api_crater7", password="pass12345")
+        response = client.get(f"/api/rate-center/{center.id}/")
+        assert response.status_code == 405
+
+    def test_404_for_nonexistent_center(self):
+        User.objects.create_user("api_crater5", password="pass12345")
+        client = Client()
+        client.login(username="api_crater5", password="pass12345")
+        response = client.post(
+            "/api/rate-center/99999/",
+            {"score": 4},
+            content_type="application/json",
+        )
+        assert response.status_code == 404
+
+
 class TestRateLimitPage:
     def test_429_template_exists(self):
         from django.conf import settings
@@ -2153,6 +3468,159 @@ class TestResponsiveHamburger:
             content = f.read()
         assert 'document.getElementById("navLinks")' in content
         assert "navLinks" in content
+
+    def test_dialogs_close_on_backdrop_click(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function closeModalOnBackdropClick" in content
+        assert 'getElementById("delete-comment-modal")' in content
+        assert 'getElementById("report-dialog")' in content
+        assert "e.target === dialog" in content
+        assert "dialog.close()" in content
+
+    def test_rating_js_reloads_page_on_401(self):
+        from django.conf import settings
+
+        base = settings.BASE_DIR / "static" / "services" / "js"
+        for name in ("blog-detail.js", "center-detail.js"):
+            with open(base / name, encoding="utf-8") as f:
+                content = f.read()
+            assert "xhr.status === 401" in content
+            assert "xhr.status === 403" in content
+            assert "window.location.reload()" in content
+            assert "alert(" in content
+
+    def test_rating_js_formats_average_with_one_decimal(self):
+        from django.conf import settings
+
+        base = settings.BASE_DIR / "static" / "services" / "js"
+        for name in ("blog-detail.js", "center-detail.js"):
+            with open(base / name, encoding="utf-8") as f:
+                content = f.read()
+            assert "d.average.toFixed(1)" in content
+            assert "toFa(d.average.toFixed(1))" in content
+
+    def test_blog_rating_js_guards_missing_elements(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "blog-detail.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "if (ratingAvg) {" in content
+        assert "if (ratingCnt) {" in content
+        assert "resolve();" in content
+
+    def test_rating_js_handles_keyboard_selection(self):
+        from django.conf import settings
+
+        base = settings.BASE_DIR / "static" / "services" / "js"
+        for name in ("blog-detail.js", "center-detail.js"):
+            with open(base / name, encoding="utf-8") as f:
+                content = f.read()
+            assert 'addEventListener("change"' in content
+            assert "input.matches('input[type=\"radio\"]')" in content
+            assert "openLoginForRating" in content
+            assert "submitRating(" in content
+
+    def test_bookmark_js_supports_centers_and_login_modal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "data-center-id" in content
+        assert "data-user-auth" in content
+        assert "toggleBookmark" in content
+        assert "/bookmark/center/" in content
+        assert "/bookmark/service/" in content
+        assert "AgahyarLoginModal.open" in content
+        assert "window.location.reload()" in content
+        assert ".bookmark-center-card" in content
+        assert "openLoginForPendingAction" in content
+
+    def test_bookmark_js_sends_desired_state(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert 'data-bookmarked") !== "true"' in content
+        assert "JSON.stringify({ bookmarked: desired })" in content
+        assert "function toggleBookmark(btn, serviceId, centerId, desired)" in content
+
+    def test_bookmark_and_reaction_401_open_login_modal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert '"/auth/login/"' not in content
+        assert 'data-user-auth") === "false"' in content
+        assert content.count("openLoginForPendingAction(") >= 3
+
+    def test_reaction_js_opens_login_modal_for_anonymous(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function reactToComment" in content
+        assert 'data-user-auth") === "false"' in content
+        assert 'openLoginForPendingAction("برای ثبت واکنش وارد شوید"' in content
+
+    def test_main_js_reloads_page_on_403(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert content.count("response.status === 403") == 2
+        assert content.count("result.status === 403") == 1
+        assert "window.location.reload()" in content
+
+    def test_login_modal_rotates_csrf_on_all_inputs(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "login-modal.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "document.querySelectorAll(" in content
+        assert '[name="csrfmiddlewaretoken"]' in content
+        assert "tokens.forEach" in content
+
+    def test_report_js_opens_login_modal_for_anonymous(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "function openReportDialog(targetType, targetId, btn)" in content
+        assert 'getAttribute("data-user-auth") === "false"' in content
+        assert "برای گزارش اطلاعات وارد شوید" in content
+        assert "AgahyarLoginModal.open" in content
+
+    def test_report_js_handles_401_with_login_modal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "result.status === 401" in content
+        assert "برای گزارش اطلاعات وارد شوید" in content
+        assert "closeReportDialog()" in content
+
+    def test_signup_nudge_js_supports_dismissal(self):
+        from django.conf import settings
+
+        js_path = settings.BASE_DIR / "static" / "services" / "js" / "main.js"
+        with open(js_path, encoding="utf-8") as f:
+            content = f.read()
+        assert 'getElementById("signupNudge")' in content
+        assert "search-signup-nudge-dismissed" in content
+        assert 'querySelector(".signup-nudge-close")' in content
 
 
 @pytest.mark.django_db
@@ -2880,7 +4348,7 @@ class TestSubmitReport:
         return user, service, center
 
     def test_unauthenticated_returns_401(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         resp = c.post(
             "/api/report/",
@@ -2899,7 +4367,7 @@ class TestSubmitReport:
         assert "error" in data
 
     def test_submit_service_report(self):
-        user, service, center = self._create_data()
+        user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -2927,7 +4395,7 @@ class TestSubmitReport:
         assert report.description == "test desc"
 
     def test_submit_center_report(self):
-        user, service, center = self._create_data()
+        user, _service, center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -2951,7 +4419,7 @@ class TestSubmitReport:
         assert report.service_center_id == center.id
 
     def test_duplicate_returns_409(self):
-        user, service, center = self._create_data()
+        user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         payload = {
@@ -2978,7 +4446,7 @@ class TestSubmitReport:
         assert InfoReport.objects.filter(user=user).count() == 1
 
     def test_invalid_target_type_returns_400(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -2996,7 +4464,7 @@ class TestSubmitReport:
         assert resp.status_code == 400
 
     def test_invalid_target_id_returns_400(self):
-        user, service, center = self._create_data()
+        _user, _service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3014,14 +4482,14 @@ class TestSubmitReport:
         assert resp.status_code == 404
 
     def test_get_method_returns_405(self):
-        user, service, center = self._create_data()
+        _user, _service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.get("/api/report/")
         assert resp.status_code == 405
 
     def test_different_reason_same_target_allows(self):
-        user, service, center = self._create_data()
+        user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp1 = c.post(
@@ -3055,7 +4523,7 @@ class TestSubmitReport:
         assert InfoReport.objects.filter(user=user).count() == 2
 
     def test_non_ajax_redirects(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.post(
@@ -3070,38 +4538,43 @@ class TestSubmitReport:
         assert f"/service/{service.id}/" in resp.url
 
     def test_report_button_visible_on_service_detail(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         resp = c.get(f"/service/{service.id}/")
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "گزارش" in content
-        assert "openReportDialog" in content
+        assert "openReportDialog('service'" in content
+        assert 'data-user-auth="false"' in content
 
     def test_report_button_visible_on_center_detail(self):
-        user, service, center = self._create_data()
+        _user, _service, center = self._create_data()
         c = Client()
         resp = c.get(f"/center/{center.id}/")
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "گزارش" in content
-        assert "openReportDialog" in content
+        assert "openReportDialog('center'" in content
+        assert 'data-user-auth="false"' in content
 
-    def test_unauthenticated_shows_login_prompt(self):
-        user, service, center = self._create_data()
+    def test_unauthenticated_report_dialog_has_no_login_prompt_branch(self):
+        _user, service, _center = self._create_data()
         c = Client()
         resp = c.get(f"/service/{service.id}/")
         content = resp.content.decode()
-        assert "برای ثبت گزارش باید وارد شوید" in content
+        assert "برای ثبت گزارش باید وارد شوید" not in content
+        assert 'id="login-modal"' in content
 
     def test_authenticated_shows_report_form(self):
-        user, service, center = self._create_data()
+        _user, service, _center = self._create_data()
         c = Client()
         c.login(username="reportuser", password="pass12345")
         resp = c.get(f"/service/{service.id}/")
         content = resp.content.decode()
+        assert 'data-user-auth="true"' in content
         assert "report-reason" in content
         assert "report-description" in content
+        assert "برای ثبت گزارش باید وارد شوید" not in content
 
 
 @pytest.mark.django_db

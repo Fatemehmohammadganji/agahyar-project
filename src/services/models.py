@@ -7,9 +7,11 @@ and ``Bookmark`` with Persian verbose names and helper methods.
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 from services.validators import (
     center_phone_validator,
@@ -78,6 +80,7 @@ class UserProfile(models.Model):
         blank=True,
         validators=[iranian_phone_number_validator],
     )
+    bio = models.TextField("بیوگرافی", blank=True)
 
     class Meta:
         verbose_name = "پروفایل کاربر"
@@ -85,6 +88,35 @@ class UserProfile(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} - {self.city} - {self.neighborhood}"
+
+
+class ThemePreference(models.Model):
+    """Stores the user's preferred site theme (light or dark).
+
+    Kept separate from UserProfile because creating a UserProfile requires a
+    city, which we must not do implicitly just to persist a theme choice.
+    """
+
+    THEME_LIGHT = "light"
+    THEME_DARK = "dark"
+    THEME_CHOICES = [
+        (THEME_LIGHT, "روشن"),
+        (THEME_DARK, "تیره"),
+    ]
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="theme_preference"
+    )
+    theme = models.CharField(
+        "تم", max_length=10, choices=THEME_CHOICES, default=THEME_LIGHT
+    )
+
+    class Meta:
+        verbose_name = "تنظیم تم"
+        verbose_name_plural = "تنظیمات تم کاربران"
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.theme}"
 
 
 class PhoneVerification(models.Model):
@@ -121,6 +153,7 @@ class FAQ(models.Model):
     answer = models.TextField("پاسخ")
     category = models.CharField("دسته‌بندی", max_length=100, blank=True)
     order = models.IntegerField("ترتیب نمایش", default=0, db_index=True)
+    updated_at = models.DateTimeField("آخرین ویرایش", auto_now=True)
 
     class Meta:
         verbose_name = "سوال متداول"
@@ -236,6 +269,151 @@ class ContactMessage(models.Model):
         return f"{self.name} - {self.email}"
 
 
+class SiteContactInfo(models.Model):
+    """Admin-editable contact details shown on the frontend.
+
+    A singleton row (pk=1) seeded from the ``CONTACT_EMAIL``,
+    ``CONTACT_PHONE`` and ``CONTACT_WORKING_HOURS`` environment variables on
+    first run. ``email``, ``phone`` and ``working_hours`` are optional blank
+    fields; the templates hide each field when its value is empty.
+    """
+
+    email = models.EmailField("ایمیل", max_length=254, blank=True)
+    phone = models.CharField("تلفن", max_length=30, blank=True)
+    working_hours = models.CharField("ساعت کاری", max_length=100, blank=True)
+
+    class Meta:
+        verbose_name = "اطلاعات تماس سایت"
+        verbose_name_plural = "اطلاعات تماس سایت"
+
+    def __str__(self) -> str:
+        return self.email or self.phone or "اطلاعات تماس"
+
+
+def get_site_contact_info() -> SiteContactInfo:
+    """Return the singleton contact info row, seeding it on first access.
+
+    The first call creates the row from the ``CONTACT_EMAIL``,
+    ``CONTACT_PHONE`` and ``CONTACT_WORKING_HOURS`` settings (which read from
+    environment variables). Afterwards the database row is the source of truth
+    and admins edit it from the admin panel.
+    """
+    info, _ = SiteContactInfo.objects.get_or_create(
+        pk=1,
+        defaults={
+            "email": getattr(settings, "CONTACT_EMAIL", ""),
+            "phone": getattr(settings, "CONTACT_PHONE", ""),
+            "working_hours": getattr(settings, "CONTACT_WORKING_HOURS", ""),
+        },
+    )
+    return info
+
+
+class BlogPost(models.Model):
+    """A blog post written by staff and published on the public website."""
+
+    title = models.CharField("عنوان", max_length=200)
+    slug = models.SlugField("اسلاگ", max_length=200, unique=True, allow_unicode=True)
+    keywords = models.TextField("کلمات کلیدی", blank=True)
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="blog_posts",
+        verbose_name="نویسنده",
+    )
+    summary = models.TextField("خلاصه", blank=True)
+    body = models.TextField("متن")
+    image = models.ImageField("تصویر", upload_to="blog/", blank=True, null=True)
+    image_url = models.URLField("لینک تصویر (جایگزین)", blank=True, max_length=500)
+    alt_text = models.CharField("متن جایگزین تصویر", max_length=500, blank=True)
+    is_published = models.BooleanField("منتشر شده", default=False, db_index=True)
+    published_at = models.DateTimeField("تاریخ انتشار", null=True, blank=True)
+    created_at = models.DateTimeField("تاریخ ایجاد", auto_now_add=True)
+    updated_at = models.DateTimeField("آخرین به‌روزرسانی", auto_now=True)
+    view_count = models.PositiveIntegerField("تعداد بازدید", default=0)
+
+    class Meta:
+        verbose_name = "پست وبلاگ"
+        verbose_name_plural = "پست‌های وبلاگ"
+        ordering = ["-published_at", "-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def get_keywords_list(self) -> list:
+        """Return keywords as a list split by ``,``."""
+        return (
+            [k.strip() for k in self.keywords.split(",") if k.strip()]
+            if self.keywords
+            else []
+        )
+
+    @property
+    def display_image_url(self) -> str | None:
+        if self.image_url:
+            return self.image_url
+        if self.image:
+            return self.image.url
+        return None
+
+    @property
+    def reading_time(self) -> int:
+        word_count = len(self.body.split())
+        return max(1, round(word_count / 150))
+
+    def save(self, *args, **kwargs):
+        """Save the blog post, auto-generating slug and published_at."""
+        if not self.slug:
+            self.slug = slugify(self.title, allow_unicode=True) or "post"
+        if not self.slug:
+            self.slug = "post"
+        self.slug = self.slug[:200]
+        if not self.pk:
+            original = self.slug
+            counter = 1
+            while BlogPost.objects.filter(slug=self.slug).exists():
+                self.slug = f"{original[: 200 - len(str(counter)) - 1]}-{counter}"
+                counter += 1
+        if self.is_published and not self.published_at:
+            self.published_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class BlogPostRating(models.Model):
+    """A user star rating for a blog post (1 to 5)."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="blog_ratings",
+        verbose_name="کاربر",
+    )
+    blog_post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.CASCADE,
+        related_name="ratings",
+        verbose_name="پست وبلاگ",
+    )
+    score = models.PositiveSmallIntegerField("امتیاز (۱ تا ۵)")
+    created_at = models.DateTimeField("تاریخ ایجاد", auto_now_add=True)
+    updated_at = models.DateTimeField("آخرین ویرایش", auto_now=True)
+
+    class Meta:
+        verbose_name = "امتیاز پست وبلاگ"
+        verbose_name_plural = "امتیازهای پست‌های وبلاگ"
+        unique_together = ("user", "blog_post")
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(score__gte=1, score__lte=5),
+                name="blog_rating_score_range",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.blog_post.title} - {self.score}"
+
+
 class Comment(models.Model):
     """A user comment on a service or service center, with optional nesting."""
 
@@ -255,6 +433,14 @@ class Comment(models.Model):
         null=True,
         blank=True,
         related_name="comments",
+    )
+    blog_post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+        verbose_name="پست وبلاگ",
     )
     parent = models.ForeignKey(
         "self",
@@ -284,13 +470,21 @@ class Comment(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(service__isnull=False)
-                | models.Q(service_center__isnull=False),
+                | models.Q(service_center__isnull=False)
+                | models.Q(blog_post__isnull=False),
                 name="comment_has_target",
             )
         ]
 
     def __str__(self) -> str:
-        target = self.service.name if self.service else self.service_center.name
+        if self.service:
+            target = self.service.name
+        elif self.service_center:
+            target = self.service_center.name
+        elif self.blog_post:
+            target = self.blog_post.title
+        else:
+            target = "(deleted)"
         return f"{self.user.username} - {target}"
 
     @property
@@ -367,22 +561,50 @@ class CenterRating(models.Model):
 
 
 class Bookmark(models.Model):
-    """A user's bookmark for a favorite service."""
+    """A user's bookmark for a favorite service or service center."""
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookmarks")
     service = models.ForeignKey(
-        Service, on_delete=models.CASCADE, related_name="bookmarks"
+        Service,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+        null=True,
+        blank=True,
+    )
+    service_center = models.ForeignKey(
+        ServiceCenter,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+        null=True,
+        blank=True,
     )
     created_at = models.DateTimeField("تاریخ", auto_now_add=True)
 
     class Meta:
         verbose_name = "نشانک"
         verbose_name_plural = "نشانک‌ها"
-        unique_together = ("user", "service")
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "service"],
+                name="unique_bookmark_user_service",
+                condition=models.Q(service__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=["user", "service_center"],
+                name="unique_bookmark_user_service_center",
+                condition=models.Q(service_center__isnull=False),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(service__isnull=False, service_center__isnull=True)
+                | models.Q(service__isnull=True, service_center__isnull=False),
+                name="bookmark_exactly_one_target",
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.user.username} - {self.service.name}"
+        target = self.service.name if self.service else self.service_center.name
+        return f"{self.user.username} - {target}"
 
 
 class InfoReport(models.Model):
