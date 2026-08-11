@@ -608,21 +608,24 @@ class TestCustomBlogAdmin:
         safe_file = os.path.join(blog_dir, "test-safe.txt")
         with open(safe_file, "w") as f:
             f.write("safe")
+        try:
+            response = staff.post(
+                f"/{ADMIN_PREFIX}media/",
+                {"filename": "../test-safe.txt"},
+                follow=True,
+            )
+            assert "نامعتبر" in response.content.decode()
+            assert os.path.isfile(safe_file)
 
-        response = staff.post(
-            f"/{ADMIN_PREFIX}media/",
-            {"filename": "../test-safe.txt"},
-            follow=True,
-        )
-        assert "نامعتبر" in response.content.decode()
-        assert os.path.isfile(safe_file)
-
-        response = staff.post(
-            f"/{ADMIN_PREFIX}media/",
-            {"filename": "test-safe.txt"},
-            follow=True,
-        )
-        assert not os.path.isfile(safe_file)
+            response = staff.post(
+                f"/{ADMIN_PREFIX}media/",
+                {"filename": "test-safe.txt"},
+                follow=True,
+            )
+            assert not os.path.isfile(safe_file)
+        finally:
+            if os.path.isfile(safe_file):
+                os.remove(safe_file)
 
     def test_media_deletion_rejects_empty_filename(self):
         staff = _staff_client()
@@ -662,6 +665,13 @@ class TestCustomBlogAdmin:
         data = response.json()
         assert "url" in data
         assert data["url"].startswith("/media/blog/")
+
+        from django.conf import settings
+        from django.core.files.storage import default_storage
+
+        path = data["url"].removeprefix(settings.MEDIA_URL)
+        default_storage.delete(path)
+        assert not default_storage.exists(path)
 
 
 @pytest.mark.django_db
